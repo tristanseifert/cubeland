@@ -150,10 +150,12 @@ void GameUI::willBeginFrame() {
     ImGui::NewFrame();
 
     // XXX: testing
-    static bool show_demo_window = true;
-    if (show_demo_window) {
-        ImGui::ShowDemoWindow(&show_demo_window);
-    }
+    ImGui::Begin("Megafaggot Deluxe Edition");
+
+    ImGui::Text("Hello, world %d", 42069);
+    ImGui::Button("Large Cheeseburger");
+
+    ImGui::End();
 }
 
 /**

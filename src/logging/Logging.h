@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <mutex>
 
 #include <spdlog/spdlog.h>
 #include <fmt/format.h>
@@ -73,18 +74,24 @@ class Logging {
             spdlog::shutdown();
             return true;
         }
+
+        /// Adds a new logging sink.
+        static void addSink(spdlog::sink_ptr sink);
+        /// Removes the specified sink, if present.
+        static bool removeSink(const spdlog::sink_ptr sink);
+
     private:
         void configTtyLog(std::vector<spdlog::sink_ptr> &);
         void configFileLog(std::vector<spdlog::sink_ptr> &);
-        void configSyslog(std::vector<spdlog::sink_ptr> &);
+        void configRotatingLog(std::vector<spdlog::sink_ptr> &);
 
         static spdlog::level::level_enum getLogLevel(const std::string &, unsigned long);
-        static int getSyslogFacility(const std::string &path, int);
 
     private:
         static std::shared_ptr<Logging> sharedInstance;
 
         std::shared_ptr<spdlog::logger> logger;
+        std::mutex loggerLock;
 };
 
 // include this below here, as it depends on calling into the logger

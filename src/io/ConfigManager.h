@@ -21,10 +21,10 @@
 namespace io {
 class ConfigManager {
     public:
-        static void readConfig(const std::string &path);
+        static void readConfig(const std::string &path, bool load = true);
 
     // you should not call this!
-        ConfigManager(const std::string &path);
+        ConfigManager(const std::string &path, bool load);
 
     public:
         static const bool getBool(const std::string &path, const bool fallback = false) {

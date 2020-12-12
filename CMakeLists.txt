@@ -36,6 +36,7 @@ add_executable(cubeland
     src/logging/Logging.cpp
 # io
     src/io/ConfigManager.cpp
+    src/io/PrefsManager.cpp
     src/io/PathHelper.cpp
 # UI
     src/gui/MainWindow.cpp
@@ -45,6 +46,12 @@ add_executable(cubeland
 )
 
 # platform-specific stuff
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    add_library(macos_support OBJECT
+        src/io/PathHelper+Mac.mm
+    )
+    target_link_libraries(cubeland PRIVATE macos_support)
+endif()
 
 ###################################################################################################
 #### resources
@@ -82,6 +89,10 @@ target_link_libraries(cubeland PUBLIC ${SDL2_LIBRARIES})
 find_package(SQLite3 REQUIRED)
 target_link_libraries(cubeland PRIVATE SQLite::SQLite3)
 
+# Lyra (command line parsing)
+add_subdirectory(libs/Lyra)
+target_link_libraries(cubeland PUBLIC bfg::Lyra)
+
 # libfmt (modern C++ string formatting)
 add_subdirectory(libs/fmt ${CMAKE_CURRENT_BINARY_DIR}/libs/fmt)
 target_link_libraries(cubeland PRIVATE fmt::fmt)
@@ -99,14 +110,11 @@ find_package(spdlog REQUIRED)
 target_link_libraries(cubeland PRIVATE spdlog::spdlog)
 
 # Dear IMGui (graphics library for in-game UI)
-find_package(imgui CONFIG)
-
 add_library(dearimgui OBJECT
     libs/imgui/imgui.cpp
     libs/imgui/imgui_draw.cpp
     libs/imgui/imgui_widgets.cpp
     libs/imgui/imgui_tables.cpp
-    libs/imgui/imgui_demo.cpp
 
     # use the generic OpenGL/SDL backends
     libs/imgui/backends/imgui_impl_sdl.cpp
@@ -140,6 +148,6 @@ target_link_libraries(cubeland PRIVATE dearimgui_ext)
 #### platform-specific libraries
 # macOS frameworks
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    target_link_libraries(cubeland PUBLIC "-framework AppKit")
+    target_link_libraries(cubeland PUBLIC "-framework Cocoa")
     target_link_libraries(cubeland PUBLIC "-framework ApplicationServices")
 endif()

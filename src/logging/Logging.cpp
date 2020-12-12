@@ -1,17 +1,16 @@
 #include "Logging.h"
+#include "io/PathHelper.h"
 
 #include <iostream>
 #include <memory>
 #include <vector>
 #include <unordered_map>
 
-#include <syslog.h>
-
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_sinks.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/basic_file_sink.h>
-#include <spdlog/sinks/syslog_sink.h>
+#include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/async.h>
 
 #include "io/ConfigManager.h"
@@ -26,7 +25,6 @@ std::shared_ptr<Logging> Logging::sharedInstance;
  */
 void Logging::start() {
     sharedInstance = std::make_unique<Logging>();
-    Logging::debug("Initialized logging");
 }
 
 /**
@@ -60,10 +58,8 @@ Logging::Logging() {
     if(ConfigManager::getBool("logging.file.enabled", false)) {
         this->configFileLog(sinks);
     }
-    // do we want to log to syslog?
-    if(ConfigManager::getBool("logging.syslog.enabled", false)) {
-        this->configSyslog(sinks);
-    }
+    // set up rotating file logger
+    this->configRotatingLog(sinks);
 
     // Warn if no loggers configured
     if(sinks.empty()) {
@@ -133,20 +129,24 @@ void Logging::configFileLog(std::vector<spdlog::sink_ptr> &sinks) {
 /**
  * Configures the syslog logger.
  */
-void Logging::configSyslog(std::vector<spdlog::sink_ptr> &sinks) {
-    using spdlog::sinks::syslog_sink_mt;
+void Logging::configRotatingLog(std::vector<spdlog::sink_ptr> &sinks) {
+    using spdlog::sinks::rotating_file_sink_mt;
 
-    // get syslog params
-    auto level = getLogLevel("logging.syslog.level", 2);
-    std::string ident = ConfigManager::get("logging.syslog.ident", "lichtenstein_server");
-    int facility = getSyslogFacility("logging.syslog.facility", LOG_LOCAL0);
+    // get the logger params
+#ifdef NDEBUG
+    const auto level = getLogLevel("logging.rotate.level", 2);
+#else
+    const auto level = getLogLevel("logging.rotate.level", 1);
+#endif
+    const auto maxSize = ConfigManager::getUnsigned("logging.rotate.size", 1024 * 200);
+    const auto numFiles = ConfigManager::getUnsigned("logging.rotate.files", 10);
 
-    // create syslog logger
-    auto syslog = std::make_shared<syslog_sink_mt>(ident, LOG_PID | LOG_NDELAY, 
-            facility, false);
-    syslog->set_level(level);
+    // create the rotating file logger
+    const auto logsDir = io::PathHelper::logsDir() + "/main.log";
+    auto sink = std::make_shared<rotating_file_sink_mt>(logsDir, maxSize, numFiles, false);
+    sink->set_level(level);
 
-    sinks.push_back(syslog);
+    sinks.push_back(sink);
 }
 
 
@@ -176,42 +176,29 @@ spdlog::level::level_enum Logging::getLogLevel(const std::string &path, unsigned
 }
 
 /**
- * Maps the string names for syslog facilities to the appropriate integer
- * constant value.
+ * Installs a new logging sink.
  */
-int Logging::getSyslogFacility(const std::string &path, int def) {
-    static const std::unordered_map<std::string, int> facilities = {
-        {"auth", LOG_AUTH},
-        {"authpriv", LOG_AUTHPRIV},
-        {"cron", LOG_CRON},
-        {"daemon", LOG_DAEMON},
-        {"ftp", LOG_FTP},
-        {"local0", LOG_LOCAL0},
-        {"local1", LOG_LOCAL1},
-        {"local2", LOG_LOCAL2},
-        {"local3", LOG_LOCAL3},
-        {"local4", LOG_LOCAL4},
-        {"local5", LOG_LOCAL5},
-        {"local6", LOG_LOCAL6},
-        {"local7", LOG_LOCAL7},
-        {"lpr", LOG_LPR},
-        {"mail", LOG_MAIL},
-        {"news", LOG_NEWS},
-        {"syslog", LOG_SYSLOG},
-        {"user", LOG_USER},
-        {"uucp", LOG_UUCP},
-    };
+void Logging::addSink(spdlog::sink_ptr sink) {
+    std::lock_guard lg(sharedInstance->loggerLock);
 
-    // check if the input is in the map
-    auto it = facilities.find(path);
-
-    if(it == facilities.end()) {
-        return def;
-    } else {
-        return it->second;
-    }
+    sharedInstance->logger->sinks().push_back(sink);
 }
 
+/**
+ * Removes the given sink from the logger.
+ */
+bool Logging::removeSink(const spdlog::sink_ptr sink) {
+    std::lock_guard lg(sharedInstance->loggerLock);
 
+    // check if vector contains this sink
+    auto v = sharedInstance->logger->sinks();
 
+    if(std::find(v.begin(), v.end(), sink) == v.end()) {
+        return false;
+    }
+
+    // if so, remove
+    v.erase(std::remove(v.begin(), v.end(), sink), v.end());
+    return true;
+}
 

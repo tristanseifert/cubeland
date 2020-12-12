@@ -16,7 +16,7 @@ static std::shared_ptr<ConfigManager> instance;
 /**
  * Reads the configuration from the specified path.
  */
-ConfigManager::ConfigManager(const std::string &path) {
+ConfigManager::ConfigManager(const std::string &path, bool load) {
     // make sure we lock access to the config object even during construction
     std::lock_guard<std::mutex> guard(this->cfgLock);
 
@@ -24,13 +24,15 @@ ConfigManager::ConfigManager(const std::string &path) {
     this->cfg->setOption(libconfig::Config::OptionAutoConvert, true);
 
     // any errors are propagated out
-    try {
-        this->cfg->readFile(path.c_str());
-    } catch (const libconfig::FileIOException &io) {
-        throw IOException(io.what());
-    } catch (const libconfig::ParseException &parse) {
-        auto what = f("{}; {}", parse.what(), parse.getError());
-        throw ParseException(what, parse.getLine());
+    if(load) {
+        try {
+            this->cfg->readFile(path.c_str());
+        } catch (const libconfig::FileIOException &io) {
+            throw IOException(io.what());
+        } catch (const libconfig::ParseException &parse) {
+            auto what = f("{}; {}", parse.what(), parse.getError());
+            throw ParseException(what, parse.getLine());
+        }
     }
 }
 
@@ -38,8 +40,8 @@ ConfigManager::ConfigManager(const std::string &path) {
  * Reads the configuration file from the given path, and uses it to create the
  * shared config manager instance.
  */
-void ConfigManager::readConfig(const std::string &path) {
-    instance = std::make_shared<ConfigManager>(path);
+void ConfigManager::readConfig(const std::string &path, bool load) {
+    instance = std::make_shared<ConfigManager>(path, load);
 }
 
 /**

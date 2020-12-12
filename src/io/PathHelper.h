@@ -4,9 +4,22 @@
 #ifndef IO_PATHHELPER_H
 #define IO_PATHHELPER_H
 
+#include <string>
+
 namespace io {
 class PathHelper {
+    public:
+        static void init();
 
+        static std::string appDataDir();
+
+    public:
+        static std::string logsDir() {
+            return appDataDir() + "/Logs";
+        }
+        static std::string cacheDir() {
+            return appDataDir() + "/Caches";
+        }
 };
 }
 

@@ -13,3 +13,6 @@
 [submodule "libs/ImGuiFileDialog"]
 	path = libs/ImGuiFileDialog
 	url = git@github.com:aiekick/ImGuiFileDialog.git
+[submodule "libs/Lyra"]
+	path = libs/Lyra
+	url = git@github.com:bfgroup/Lyra.git

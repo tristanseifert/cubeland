@@ -1,6 +1,8 @@
 #include "MainWindow.h"
 #include "GameUI.h"
 
+#include "io/PrefsManager.h"
+
 #include <Logging.h>
 
 #include <glbinding/gl/gl.h>
@@ -60,11 +62,17 @@ void MainWindow::makeWindow() {
     int err;
 
     // create window; allowing for HiDPI contexts
-    const auto flags = SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN;
+    const auto flags = SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN | 
+                       SDL_WINDOW_RESIZABLE;
     this->win = SDL_CreateWindow("Cubeland", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
             kDefaultWidth, kDefaultHeight, flags);
 
     XASSERT(this->win != nullptr, "Failed to create window: {}", SDL_GetError());
+
+    // resize window to stored size if needed
+    if(io::PrefsManager::getBool("window.restoreSize")) {
+        this->restoreWindowSize();
+    }
 
     // create the GL context and initialize our GL libs
     this->winCtx = SDL_GL_CreateContext(this->win);
@@ -163,5 +171,32 @@ int MainWindow::run() {
         SDL_GL_SwapWindow(this->win);
     }
 
+    // clean-up
+    this->saveWindowSize();
+
     return reason;
+}
+
+/**
+ * Restores the window size.
+ */
+void MainWindow::restoreWindowSize() {
+    int w = io::PrefsManager::getUnsigned("window.width", kDefaultWidth);
+    int h = io::PrefsManager::getUnsigned("window.height", kDefaultHeight);
+    XASSERT(w > 0 && h > 0, "Invalid window size (w {}, h {})", w, h);
+
+    SDL_SetWindowSize(this->win, w, h);
+    SDL_SetWindowPosition(this->win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+}
+/**
+ * Gets the size of the window and writes it to the preferences.
+ */
+void MainWindow::saveWindowSize() {
+    int w = 0, h = 0;
+
+    SDL_GetWindowSize(this->win, &w, &h);
+    XASSERT(w > 0 && h > 0, "Invalid window size (w {}, h {})", w, h);
+
+    io::PrefsManager::setUnsigned("window.width", w);
+    io::PrefsManager::setUnsigned("window.height", h);
 }

@@ -28,6 +28,9 @@ class MainWindow {
 
         void makeWindow();
 
+        void restoreWindowSize();
+        void saveWindowSize();
+
     private:
         // default window size
         constexpr static const int kDefaultWidth = 1024, kDefaultHeight = 768;
