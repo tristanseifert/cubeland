@@ -16,3 +16,6 @@
 [submodule "libs/Lyra"]
 	path = libs/Lyra
 	url = git@github.com:bfgroup/Lyra.git
+[submodule "libs/mutils"]
+	path = libs/mutils
+	url = git@github.com:Rezonality/mutils.git

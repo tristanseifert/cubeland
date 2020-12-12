@@ -6,19 +6,21 @@
 #include <string>
 
 namespace gui {
+class GameUI;
+
 class PreferencesWindow: public GameWindow {
     public:
         PreferencesWindow();
 
     public:
-        void draw() override;
+        void draw(GameUI *) override;
 
     private:
         void loadUiPaneState();
         void saveUiPaneState();
-        void drawUiPane();
+        void drawUiPane(GameUI *);
 
-        void drawKeyValue(const std::string &key, const std::string &value);
+        void drawKeyValue(GameUI *, const std::string &key, const std::string &value);
 
     private:
         // state for the UI prefs pane

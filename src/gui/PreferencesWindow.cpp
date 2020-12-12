@@ -1,4 +1,5 @@
 #include "PreferencesWindow.h"
+#include "GameUI.h"
 #include "io/PrefsManager.h"
 #include "io/Format.h"
 
@@ -24,7 +25,7 @@ PreferencesWindow::PreferencesWindow() {
  *
  * It has several tabbed sections.
  */
-void PreferencesWindow::draw() {
+void PreferencesWindow::draw(GameUI *ui) {
     double spacing;
 
     // constrain prefs window size
@@ -38,7 +39,7 @@ void PreferencesWindow::draw() {
     // tab bar (for each section)
     if(ImGui::BeginTabBar("head")) {
         if(ImGui::BeginTabItem("User Interface")) {
-            this->drawUiPane();
+            this->drawUiPane(ui);
             ImGui::EndTabItem();
         }
 
@@ -75,10 +76,10 @@ void PreferencesWindow::saveUiPaneState() {
 /**
  * Draws the "User Interface" preferences pane.
  */
-void PreferencesWindow::drawUiPane() {
+void PreferencesWindow::drawUiPane(GameUI *ui) {
     // current UI driver
-    this->drawKeyValue("Window driver", "SDL/OpenGL");
-    this->drawKeyValue("GL driver", f("{} ({})", glGetString(GL_RENDERER), glGetString(GL_VERSION)));
+    this->drawKeyValue(ui, "Window driver", "SDL/OpenGL");
+    this->drawKeyValue(ui, "GL driver", f("{} ({})", glGetString(GL_RENDERER), glGetString(GL_VERSION)));
 
     // restore window size checkbox
     if(ImGui::Checkbox("Restore window size", &this->stateUi.restoreWindowSize)) {
@@ -100,13 +101,14 @@ void PreferencesWindow::drawUiPane() {
 /**
  * Draws a key/value list item.
  */
-void PreferencesWindow::drawKeyValue(const std::string &key, const std::string &value) {
+void PreferencesWindow::drawKeyValue(GameUI *ui, const std::string &key, const std::string &value) {
     ImGuiIO& io = ImGui::GetIO();
 
+    ImGui::PushFont(ui->getFont(GameUI::kBoldFontName));
     ImGui::Text("%s:", key.c_str());
     ImGui::SameLine();
 
-    // ImGui::PopFont();
+    ImGui::PopFont();
     ImGui::Text("%s", value.c_str());
 }
 

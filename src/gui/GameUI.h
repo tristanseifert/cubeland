@@ -5,6 +5,9 @@
 
 #include <string>
 #include <vector>
+#include <unordered_map>
+
+struct ImFont;
 
 struct SDL_Window;
 union SDL_Event;
@@ -21,6 +24,17 @@ class GameUI {
 
         bool handleEvent(const SDL_Event &);
 
+        /// Gets the handle to a loaded font by name, or nil
+        ImFont *getFont(const std::string &name) {
+            return this->fonts[name];
+        }
+
+    public:
+        static const std::string kRegularFontName;
+        static const std::string kBoldFontName;
+        static const std::string kItalicFontName;
+        static const std::string kMonospacedFontName;
+
     private:
         void loadFonts(const double scale);
 
@@ -35,8 +49,12 @@ class GameUI {
         static const std::vector<FontInfo> kDefaultFonts;
 
     private:
+        // SDL main window
         SDL_Window *window = nullptr;
 
+        // name -> font for all loaded fonts
+        std::unordered_map<std::string, ImFont *> fonts;
+        // windows to render during the frame
         std::vector<std::shared_ptr<GameWindow>> windows;
 
 };

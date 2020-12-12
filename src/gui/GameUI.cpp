@@ -60,6 +60,11 @@ const std::vector<GameUI::FontInfo> GameUI::kDefaultFonts = {
     },
 };
 
+const std::string GameUI::kRegularFontName = "Source Sans Pro (Regular)";
+const std::string GameUI::kBoldFontName = "Source Sans Pro (Bold)";
+const std::string GameUI::kItalicFontName = "Source Sans Pro (Italic)";
+const std::string GameUI::kMonospacedFontName = "Space Mono (Regular)";
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /**
  * Sets up the user interface layer.
@@ -110,6 +115,8 @@ void GameUI::loadFonts(const double scale) {
         strncpy(cfg.Name, info.name.c_str(), sizeof(cfg.Name));
         font = io.Fonts->AddFontFromMemoryTTF((void *) file.begin(), (file.end() - file.begin()),
                 floor(info.size * scale), &cfg);
+
+        this->fonts[info.name] = font;
     }
 }
 
@@ -160,7 +167,7 @@ void GameUI::willBeginFrame() {
     // draw windows
     for(auto &w : this->windows) {
         if(w->isVisible()) {
-            w->draw();
+            w->draw(this);
         }
     }
 }
