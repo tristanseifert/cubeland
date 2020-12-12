@@ -91,10 +91,10 @@ Logging::~Logging() {
  */
 void Logging::configTtyLog(std::vector<spdlog::sink_ptr> &sinks) {
     // get console logger params
-#ifdef DEBUG
-    auto level = this->getLogLevel("logging.console.level", 0);
-#else
+#ifdef NDEBUG
     auto level = this->getLogLevel("logging.console.level", 2);
+#else
+    auto level = this->getLogLevel("logging.console.level", 0);
 #endif
     bool colorize = ConfigManager::getBool("logging.console.colorize", true);
 

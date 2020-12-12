@@ -6,7 +6,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake;${CMAKE_MODULE_PATH}")
 
 # set global C++ options
 set(CMAKE_CXX_STANDARD 20)
-#set(CMAKE_VERBOSE_MAKEFILE ON)
+# set(CMAKE_VERBOSE_MAKEFILE ON)
 
 include_directories(src)
 include_directories(src/include)
@@ -36,6 +36,8 @@ add_executable(cubeland
 # io
     src/io/ConfigManager.cpp
     src/io/PathHelper.cpp
+# UI
+    src/gui/MainWindow.cpp
 # resources and other misc stuff
     ${version_file}
 )
@@ -46,11 +48,9 @@ add_executable(cubeland
 # do NOT build shared libraries. thanks DLL hell
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
-# GLEW (for loading OpenGL functions)
-find_package(GLEW REQUIRED)
-include_directories(${GLEW_INCLUDE_DIRS})
-target_link_libraries(cubeland PUBLIC GLEW::glew_s)
-
+# glbinding (loading OpenGL functions)
+find_package(glbinding REQUIRED)
+target_link_libraries(cubeland PUBLIC glbinding::glbinding)
 
 # SDL2
 find_package(SDL2 REQUIRED)
@@ -92,11 +92,24 @@ add_library(dearimgui OBJECT
     )
 target_include_directories(dearimgui PUBLIC ${GLEW_INCLUDE_DIRS})
 
+target_include_directories(dearimgui PRIVATE ${SDL2_INCLUDE_DIRS})
 target_include_directories(dearimgui PRIVATE src/gui/imgui)
 target_include_directories(dearimgui PRIVATE libs/imgui)
 
-target_link_libraries(dearimgui PUBLIC GLEW::glew_s)
+target_link_libraries(dearimgui PUBLIC glbinding::glbinding)
 target_link_libraries(cubeland PRIVATE dearimgui)
+
+# Dear IMGui extensions
+add_library(dearimgui_ext OBJECT
+    # file browser dialog
+    libs/ImGuiFileDialog/ImGuiFileDialog/ImGuiFileDialog.cpp
+)
+
+target_include_directories(dearimgui_ext PRIVATE src/gui/imgui)
+target_include_directories(dearimgui_ext PRIVATE libs/imgui)
+
+target_link_libraries(dearimgui_ext PUBLIC glbinding::glbinding)
+target_link_libraries(cubeland PRIVATE dearimgui_ext)
 
 #### platform-specific libraries
 # macOS frameworks

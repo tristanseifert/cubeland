@@ -1,10 +1,19 @@
 #include "io/ConfigManager.h"
 #include "logging/Logging.h"
 
+#include "gui/MainWindow.h"
+
 #include <version.h>
 
 #include <iostream>
 #include <string>
+#include <memory>
+#include <cstdlib>
+
+#include <SDL.h>
+
+/// Main window
+static std::shared_ptr<gui::MainWindow> window = nullptr;
 
 /**
  * Config options as read from command line
@@ -48,13 +57,25 @@ int main(int argc, const char **argv) {
     }
 
     Logging::start();
-    Logging::info("Cubeland ({}) starting", gVERSION);
+    Logging::info("Cubeland {} (commit {}) starting", gVERSION, gVERSION_HASH);
+
+    // initialize SDL
+    err = SDL_Init(SDL_INIT_VIDEO);
+    XASSERT(err == 0, "Failed to initialize SDL ({}): {}", err, SDL_GetError());
+
+    atexit(SDL_Quit);
 
     // set up the UI layer
+    window = std::make_shared<gui::MainWindow>();
 
     // start main loop
+    window->show();
+
+    err = window->run();
+    Logging::debug("MainWindow::run() returned: {}", err);
 
     // tear down UI
+    window = nullptr;
 
     // last, stop logging
     Logging::stop();

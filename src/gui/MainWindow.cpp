@@ -1,0 +1,147 @@
+#include "MainWindow.h"
+
+#include <Logging.h>
+
+#include <glbinding/gl/gl.h>
+#include <glbinding/Binding.h>
+
+#include <SDL.h>
+
+using namespace gl;
+using namespace gui;
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+/**
+ * Initializes the window.
+ */
+MainWindow::MainWindow() {
+    this->configGLContext();
+    this->makeWindow();
+
+    this->running = true;
+}
+
+/**
+ * Sets up GL helper libraries.
+ *
+ * This is performed immediately after the first GL context is created.
+ */
+void MainWindow::initGLLibs() {
+    glbinding::Binding::initialize();
+}
+
+/**
+ * Configures the SDL options for the context.
+ *
+ * We ask for at least a OpenGL 4.0 core context. Double buffering is requested.
+ */
+void MainWindow::configGLContext() {
+    // opengl forawrd debug context flags
+    const auto ctxFlags = SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG | 
+                          (this->glDebug ? SDL_GL_CONTEXT_DEBUG_FLAG : 0);
+
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, ctxFlags);
+
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+}
+
+/**
+ * Creates the SDL window and its OpenGL context.
+ */
+void MainWindow::makeWindow() {
+    int err;
+
+    // create window; allowing for HiDPI contexts
+    const auto flags = SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN;
+    this->win = SDL_CreateWindow("Cubeland", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+            kDefaultWidth, kDefaultHeight, flags);
+
+    XASSERT(this->win != nullptr, "Failed to create window: {}", SDL_GetError());
+
+    // create the GL context
+    this->winCtx = SDL_GL_CreateContext(this->win);
+    XASSERT(this->winCtx != nullptr, "Failed to create OpenGL context: {}", SDL_GetError());
+
+    this->initGLLibs();
+
+    // enable VSync if possible
+    err = SDL_GL_SetSwapInterval(1);
+    if(err) {
+        Logging::error("Failed to enable vsync ({}): {}", err, SDL_GetError());
+    }
+
+    // set some context defaults
+    glClearColor(0, 0, 0, 1);
+
+    // log info on the GL version
+    Logging::info("GL version {}; vendor {}, renderer {}", glGetString(GL_VERSION),
+                  glGetString(GL_VENDOR), glGetString(GL_RENDERER));
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+/**
+ * Releases all SDL resources.
+ */
+MainWindow::~MainWindow() {
+    // destroy window and context
+    if(this->winCtx) {
+        SDL_GL_DeleteContext(this->winCtx);
+        this->winCtx = nullptr;
+    }
+    if(this->win) {
+        SDL_DestroyWindow(this->win);
+        this->win = nullptr;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+/**
+ * Makes the window visible.
+ */
+void MainWindow::show() {
+    XASSERT(this->win, "Window must exist");
+
+    SDL_ShowWindow(this->win);
+}
+
+/**
+ * Runs the window event loop.
+ *
+ * @return Reason the window closed.
+ */
+int MainWindow::run() {
+    int reason = 0;
+    SDL_Event event;
+
+    Logging::trace("Entering main loop");
+
+    // main run loop
+    while(this->running) {
+        // handle events
+        while (SDL_PollEvent(&event)) {
+            switch(event.type) {
+                // quit
+                case SDL_QUIT:
+                    this->running = false;
+                    reason = 1;
+                    break;
+
+                // unhandled event type
+                default:
+                    break;
+            }
+        }
+
+        // clear the output buffer, then draw the scene and UI ontop
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        // swap buffers (this will synchronize to vblank if enabled)
+        SDL_GL_SwapWindow(this->win);
+    }
+
+    return reason;
+}

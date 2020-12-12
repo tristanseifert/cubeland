@@ -101,7 +101,7 @@
 //---- Debug Tools: Enable slower asserts
 //#define IMGUI_DEBUG_PARANOID
 
-// we are using the GLEW to load OpenGL functions
-#define IMGUI_IMPL_OPENGL_LOADER_GLEW 1
+// we are using the glbinding v2 to load OpenGL functions
+#define IMGUI_IMPL_OPENGL_LOADER_GLBINDING2 1
 
 #endif // IMCONFIG_H
