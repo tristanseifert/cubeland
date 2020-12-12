@@ -27,7 +27,8 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/version.cpp.in
     ${CMAKE_CURRENT_BINARY_DIR}/version.cpp)
 set(version_file "${CMAKE_CURRENT_BINARY_DIR}/version.cpp")
 
-### sources
+###################################################################################################
+#### sources
 # build main executable and all modules
 add_executable(cubeland
     src/main.cpp
@@ -38,13 +39,33 @@ add_executable(cubeland
     src/io/PathHelper.cpp
 # UI
     src/gui/MainWindow.cpp
+    src/gui/GameUI.cpp
 # resources and other misc stuff
     ${version_file}
 )
 
 # platform-specific stuff
 
-### libraries
+###################################################################################################
+#### resources
+include(CMakeRC)
+
+# UI resources
+cmrc_add_resource_library(cubeland-rsrc-ui
+# fonts
+    rsrc/fonts/SourceSansPro-Regular.ttf
+    rsrc/fonts/SourceSansPro-Italic.ttf
+    rsrc/fonts/SourceSansPro-Bold.ttf
+    rsrc/fonts/SourceSansPro-BoldItalic.ttf
+    rsrc/fonts/SpaceMono-Regular.ttf
+    rsrc/fonts/SpaceMono-Bold.ttf
+# define the namespace and alias we put this lib in
+ALIAS cubeland::rsrc_ui WHENCE rsrc NAMESPACE ui)
+
+target_link_libraries(cubeland PRIVATE cubeland::rsrc_ui)
+
+###################################################################################################
+#### libraries
 # do NOT build shared libraries. thanks DLL hell
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
@@ -85,6 +106,7 @@ add_library(dearimgui OBJECT
     libs/imgui/imgui_draw.cpp
     libs/imgui/imgui_widgets.cpp
     libs/imgui/imgui_tables.cpp
+    libs/imgui/imgui_demo.cpp
 
     # use the generic OpenGL/SDL backends
     libs/imgui/backends/imgui_impl_sdl.cpp
@@ -97,6 +119,9 @@ target_include_directories(dearimgui PRIVATE src/gui/imgui)
 target_include_directories(dearimgui PRIVATE libs/imgui)
 
 target_link_libraries(dearimgui PUBLIC glbinding::glbinding)
+
+target_include_directories(cubeland PRIVATE src/gui/imgui)
+target_include_directories(cubeland PRIVATE libs/imgui)
 target_link_libraries(cubeland PRIVATE dearimgui)
 
 # Dear IMGui extensions
@@ -111,6 +136,7 @@ target_include_directories(dearimgui_ext PRIVATE libs/imgui)
 target_link_libraries(dearimgui_ext PUBLIC glbinding::glbinding)
 target_link_libraries(cubeland PRIVATE dearimgui_ext)
 
+###################################################################################################
 #### platform-specific libraries
 # macOS frameworks
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")

@@ -7,10 +7,13 @@
 #define GUI_MAINWINDOW_H
 
 #include <atomic>
+#include <memory>
 
 struct SDL_Window;
 
 namespace gui {
+class GameUI;
+
 class MainWindow {
     public:
         MainWindow();
@@ -39,6 +42,9 @@ class MainWindow {
 
         // run the main render loop as long as this is true
         std::atomic_bool running;
+
+        // various rendering pieces
+        std::shared_ptr<GameUI> ui;
 };
 }
 

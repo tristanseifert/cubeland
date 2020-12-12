@@ -1,4 +1,5 @@
 #include "MainWindow.h"
+#include "GameUI.h"
 
 #include <Logging.h>
 
@@ -17,6 +18,9 @@ using namespace gui;
 MainWindow::MainWindow() {
     this->configGLContext();
     this->makeWindow();
+
+    // create the renderers
+    this->ui = std::make_shared<GameUI>(this->win, this->winCtx);
 
     this->running = true;
 }
@@ -62,9 +66,11 @@ void MainWindow::makeWindow() {
 
     XASSERT(this->win != nullptr, "Failed to create window: {}", SDL_GetError());
 
-    // create the GL context
+    // create the GL context and initialize our GL libs
     this->winCtx = SDL_GL_CreateContext(this->win);
     XASSERT(this->winCtx != nullptr, "Failed to create OpenGL context: {}", SDL_GetError());
+
+    SDL_GL_MakeCurrent(this->win, this->winCtx);
 
     this->initGLLibs();
 
@@ -87,6 +93,9 @@ void MainWindow::makeWindow() {
  * Releases all SDL resources.
  */
 MainWindow::~MainWindow() {
+    // get rid of renderers
+    this->ui = nullptr;
+
     // destroy window and context
     if(this->winCtx) {
         SDL_GL_DeleteContext(this->winCtx);
@@ -123,6 +132,12 @@ int MainWindow::run() {
     while(this->running) {
         // handle events
         while (SDL_PollEvent(&event)) {
+            // ignore event if handled by GUI layer
+            if(this->ui->handleEvent(event)) {
+                continue;
+            }
+
+            // otherwise, check the event out
             switch(event.type) {
                 // quit
                 case SDL_QUIT:
@@ -136,8 +151,13 @@ int MainWindow::run() {
             }
         }
 
+        // prepare renderers
+        this->ui->willBeginFrame();
+
         // clear the output buffer, then draw the scene and UI ontop
         glClear(GL_COLOR_BUFFER_BIT);
+
+        this->ui->draw();
 
         // swap buffers (this will synchronize to vblank if enabled)
         SDL_GL_SwapWindow(this->win);
