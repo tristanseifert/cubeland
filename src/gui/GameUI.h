@@ -1,6 +1,8 @@
 #ifndef GUI_GAMEUI_H
 #define GUI_GAMEUI_H
 
+#include "GameWindow.h"
+
 #include <string>
 #include <vector>
 
@@ -34,6 +36,8 @@ class GameUI {
 
     private:
         SDL_Window *window = nullptr;
+
+        std::vector<std::shared_ptr<GameWindow>> windows;
 
 };
 }

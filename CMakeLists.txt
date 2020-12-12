@@ -41,6 +41,7 @@ add_executable(cubeland
 # UI
     src/gui/MainWindow.cpp
     src/gui/GameUI.cpp
+    src/gui/PreferencesWindow.cpp
 # resources and other misc stuff
     ${version_file}
 )
@@ -64,6 +65,7 @@ cmrc_add_resource_library(cubeland-rsrc-ui
     rsrc/fonts/SourceSansPro-Italic.ttf
     rsrc/fonts/SourceSansPro-Bold.ttf
     rsrc/fonts/SourceSansPro-BoldItalic.ttf
+    rsrc/fonts/SourceSansPro-Black.ttf
     rsrc/fonts/SpaceMono-Regular.ttf
     rsrc/fonts/SpaceMono-Bold.ttf
 # define the namespace and alias we put this lib in

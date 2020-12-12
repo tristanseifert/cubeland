@@ -1,4 +1,5 @@
 #include "GameUI.h"
+#include "PreferencesWindow.h"
 
 #include <Logging.h>
 
@@ -39,6 +40,13 @@ const std::vector<GameUI::FontInfo> GameUI::kDefaultFonts = {
     {
         .path = "fonts/SourceSansPro-BoldItalic.ttf",
         .name = "Source Sans Pro (Bold + Italic)",
+    },
+
+    // the black version of Source Sans Pro is used for headings; accordingly, make it bigger
+    {
+        .path = "fonts/SourceSansPro-Black.ttf",
+        .name = "Source Sans Pro (Black)",
+        .size = 35,
     },
 
     // monospaced font
@@ -149,13 +157,12 @@ void GameUI::willBeginFrame() {
     ImGui_ImplSDL2_NewFrame(this->window);
     ImGui::NewFrame();
 
-    // XXX: testing
-    ImGui::Begin("Megafaggot Deluxe Edition");
-
-    ImGui::Text("Hello, world %d", 42069);
-    ImGui::Button("Large Cheeseburger");
-
-    ImGui::End();
+    // draw windows
+    for(auto &w : this->windows) {
+        if(w->isVisible()) {
+            w->draw();
+        }
+    }
 }
 
 /**
