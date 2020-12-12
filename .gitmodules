@@ -1,0 +1,12 @@
+[submodule "libs/libconfig"]
+	path = libs/libconfig
+	url = git@github.com:hyperrealm/libconfig.git
+[submodule "libs/spdlog"]
+	path = libs/spdlog
+	url = git@github.com:gabime/spdlog.git
+[submodule "libs/fmt"]
+	path = libs/fmt
+	url = git@github.com:fmtlib/fmt.git
+[submodule "libs/imgui"]
+	path = libs/imgui
+	url = git@github.com:ocornut/imgui.git
