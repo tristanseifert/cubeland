@@ -21,20 +21,16 @@ namespace gfx {
 }
 
 namespace render {
-class WorldRenderer;
-
 class FXAA : public RenderStep {
-    friend class Renderer;
-
     public:
         FXAA();
         ~FXAA();
 
         void startOfFrame(void) { }
 
-        void preRender(void);
+        void preRender(WorldRenderer *);
         void render(WorldRenderer *);
-        void postRender(void);
+        void postRender(WorldRenderer *);
 
         const bool requiresBoundGBuffer() { return false; }
         const bool requiresBoundHDRBuffer() { return false; }

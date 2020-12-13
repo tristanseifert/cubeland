@@ -1,8 +1,10 @@
 #include "WorldRenderer.h"
 #include "RenderStep.h"
+#include "scene/SceneRenderer.h"
 #include "input/InputManager.h"
 
 #include "steps/FXAA.h"
+#include "steps/Lighting.h"
 
 #include "gfx/gl/buffer/FrameBuffer.h"
 
@@ -19,12 +21,25 @@ using namespace render;
 WorldRenderer::WorldRenderer() {
     // create the IO manager
     this->input = std::make_shared<input::InputManager>();
+
+    // then, the render steps
+    auto scnRnd = std::make_shared<SceneRenderer>();
+    this->steps.push_back(scnRnd);
+
+    this->lighting = std::make_shared<Lighting>();
+    this->steps.push_back(this->lighting);
+
+    this->fxaa = std::make_shared<FXAA>();
+    this->steps.push_back(this->fxaa);
+
+    // Set up some shared buffers
+    this->lighting->setSceneRenderer(scnRnd);
 }
 /**
  * Releases all of our render resources.
  */
 WorldRenderer::~WorldRenderer() {
-
+    this->steps.clear();
 }
 
 /**
@@ -33,13 +48,41 @@ WorldRenderer::~WorldRenderer() {
 void WorldRenderer::willBeginFrame() {
     this->input->startFrame();
     this->updateView();
+
+    for(auto &step : this->steps) {
+        step->startOfFrame();
+    }
 }
 
 /**
  * Handle the drawing stages.
  */
 void WorldRenderer::draw() {
+    // perform the pre-render, render and post-render stages
+    for(auto step : this->steps) {
+        // unbind any existing framebuffers
+        gfx::FrameBuffer::unbindRW();
 
+        // do we need to bind the G-buffer?
+        if(step->requiresBoundGBuffer()) {
+            this->lighting->bindGBuffer();
+        }
+
+        // execute pre-render steps
+        step->preRender(this);
+
+        // render
+        step->render(this);
+
+        // clean up
+        step->postRender(this);
+
+        if(step->requiresBoundGBuffer()) {
+            this->lighting->unbindGBuffer();
+        }/* else if(step->requiresBoundHDRBuffer()) {
+            this->hdr->unbindHDRBuffer();
+        }*/
+    }
 }
 
 /**

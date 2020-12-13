@@ -70,6 +70,8 @@ add_executable(cubeland
 # rendering pipeline
     src/render/WorldRenderer.cpp
     src/render/Camera.cpp
+    src/render/scene/SceneRenderer.cpp
+    src/render/steps/Lighting.cpp
     src/render/steps/FXAA.cpp
 # resources and other misc stuff
     ${version_file}

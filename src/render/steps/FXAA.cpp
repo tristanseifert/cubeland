@@ -84,7 +84,7 @@ FXAA::~FXAA() {
 /**
  * Sets up the state before rendering.
  */
-void FXAA::preRender(void) {
+void FXAA::preRender(WorldRenderer *) {
     // disable depth testing
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
@@ -120,7 +120,7 @@ void FXAA::render(WorldRenderer *renderer) {
 /**
  * Restores some GL state after rendering.
  */
-void FXAA::postRender(void) {
+void FXAA::postRender(WorldRenderer *) {
 
 }
 

@@ -4,6 +4,7 @@
 #include "gui/RunLoopStep.h"
 #include "Camera.h"
 
+#include <glm/vec2.hpp>
 #include <glm/mat4x4.hpp>
 
 #include <memory>
@@ -30,6 +31,15 @@ class WorldRenderer: public gui::RunLoopStep {
 
         void reshape(unsigned int width, unsigned int height);
         bool handleEvent(const SDL_Event &);
+
+        /// returns a vector of (zNear, zFar) for clipping
+        glm::vec2 getZPlane(void) const {
+            return glm::vec2(this->zNear, this->zFar);
+        }
+        /// gets a const reference to the camera
+        const Camera &getCamera() const {
+            return this->camera;
+        }
 
     private:
         void updateView();

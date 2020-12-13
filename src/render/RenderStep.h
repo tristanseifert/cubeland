@@ -18,9 +18,9 @@ class RenderStep {
 
         virtual void startOfFrame() {};
 
-        virtual void preRender() = 0;
+        virtual void preRender(WorldRenderer *) = 0;
         virtual void render(WorldRenderer *) = 0;
-        virtual void postRender() = 0;
+        virtual void postRender(WorldRenderer *) = 0;
 
         virtual const bool requiresBoundGBuffer() = 0;
         virtual const bool requiresBoundHDRBuffer() = 0;
