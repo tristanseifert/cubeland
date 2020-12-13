@@ -9,10 +9,10 @@
 
 namespace gfx {
 class RenderProgram;
-class Model;
 }
 
 namespace render {
+class Drawable;
 class SceneRenderer: public RenderStep {
     friend class Lighting;
 
@@ -35,7 +35,7 @@ class SceneRenderer: public RenderStep {
 
     private:
         std::shared_ptr<gfx::RenderProgram> program;
-        std::shared_ptr<gfx::Model> model;
+        std::shared_ptr<Drawable> model;
 
         double time = 0;
 };

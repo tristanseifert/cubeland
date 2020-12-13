@@ -26,7 +26,7 @@ CMRC_DECLARE(models);
 Model::Model(const std::string &path) {
     // get base directory (for texture loading later)
     std::filesystem::path p(path);
-    this->modelBase = p.root_directory().string();
+    this->modelBase = p.parent_path().string();
     Logging::debug("Base for model '{}' = '{}'", path, this->modelBase);
 
     // try to open the model file

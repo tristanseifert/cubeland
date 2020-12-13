@@ -122,6 +122,14 @@ cmrc_add_resource_library(cubeland-rsrc-models
 ALIAS cubeland::rsrc_models WHENCE rsrc/models NAMESPACE models)
 target_link_libraries(cubeland PRIVATE cubeland::rsrc_models)
 
+# textures
+file(GLOB TEXTURE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/rsrc/textures/*/*/*.png)
+
+cmrc_add_resource_library(cubeland-rsrc-textures
+    ${TEXTURE_FILES}
+ALIAS cubeland::rsrc_textures WHENCE rsrc/textures NAMESPACE textures)
+target_link_libraries(cubeland PRIVATE cubeland::rsrc_textures)
+
 ###################################################################################################
 #### libraries
 # do NOT build shared libraries. thanks DLL hell

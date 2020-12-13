@@ -15,7 +15,7 @@
 #include <algorithm>
 
 #include <SOIL/SOIL.h>
-
+#include <cmrc/cmrc.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
@@ -30,20 +30,22 @@ using namespace std;
 using namespace gl;
 using namespace gfx;
 
+CMRC_DECLARE(textures);
+
 /**
  * Allocates a texture object.
  */
 Texture::Texture(int unit) {
-	// allocate a texture
-	glGenTextures(1, &this->texture);
-	this->unit = unit;
+    // allocate a texture
+    glGenTextures(1, &this->texture);
+    this->unit = unit;
 }
 
 /**
  * Deallocates the texture.
  */
 Texture::~Texture() {
-	glDeleteTextures(1, &this->texture);
+    glDeleteTextures(1, &this->texture);
 }
 
 /**
@@ -51,12 +53,16 @@ Texture::~Texture() {
  *
  * @note width, height and format MUST be specified.
  */
-void *Texture::loadImageData(string path, int *width, int *height, GLenum *format) {
+void *Texture::loadImageData(const std::string &path, int *width, int *height, GLenum *format) {
+    // read image data from resource directory
+    auto fs = cmrc::textures::get_filesystem();
+    auto texture = fs.open(path);
+
+    std::vector<unsigned char> data(texture.begin(), texture.end());
+
 	// load image
 	int channels;
-	unsigned char* image = SOIL_load_image(path.c_str(),
-										   width, height, &channels,
-										   SOIL_LOAD_AUTO);
+        unsigned char *image = SOIL_load_image_from_memory(data.data(), data.size(), width, height, &channels, SOIL_LOAD_AUTO);
 
 	// Determine type (RGB/RGBA)
 	*format = GL_RGBA;

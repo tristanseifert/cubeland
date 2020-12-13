@@ -178,7 +178,8 @@ int MainWindow::run() {
             this->handleEvent(event, reason);
         }
         // prepare renderers
-        for(auto &render : this->stages) {
+        for(auto rit = this->stages.rbegin(); rit != this->stages.rend(); ++rit) {
+            auto &render = *rit;
             render->willBeginFrame();
         }
 

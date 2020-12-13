@@ -86,36 +86,36 @@ void TextureCube::dump(const std::string &base) {
  * @note Each of the six faces is allocated the same format texture.
  */
 void TextureCube::allocateBlank(unsigned int width, unsigned int height, TextureFormat format) {
-	this->bind();
+    this->bind();
 
-	// copy format
-	this->format = format;
+    // copy format
+    this->format = format;
 
-	this->width = width;
-	this->height = height;
+    this->width = width;
+    this->height = height;
 
-	// Get the colour format
-	GLenum colourFormat = GL_RGB;
-	GLenum dataType = GL_FLOAT;
+    // Get the colour format
+    GLenum colourFormat = GL_RGB;
+    GLenum dataType = GL_FLOAT;
 
-	if(format == RGBA || format == RGBA8 || format == RGBA16F || format == RGBA32F) {
-		colourFormat = GL_RGBA;
-	} else if(format == Depth24Stencil8) {
-		colourFormat = GL_DEPTH_COMPONENT;
-	}
+    if(format == RGBA || format == RGBA8 || format == RGBA16F || format == RGBA32F) {
+        colourFormat = GL_RGBA;
+    } else if(format == Depth24Stencil8) {
+        colourFormat = GL_DEPTH_COMPONENT;
+    }
 
-	if(format == RGB || format == RGBA || format == RGB8 || format == RGBA8) {
-		dataType = GL_UNSIGNED_BYTE;
-	}
+    if(format == RGB || format == RGBA || format == RGB8 || format == RGBA8) {
+        dataType = GL_UNSIGNED_BYTE;
+    }
 
-	// allocate memory
-	GLint type = (GLint) glFormat();
+    // allocate memory
+    GLint type = (GLint) glFormat();
 
-	glTexImage2D(GL_TEXTURE_CUBE_MAP, 0, type, (GLsizei) width, (GLsizei) height, 0, colourFormat,
-                 dataType, nullptr);
+    glTexImage2D(GL_TEXTURE_CUBE_MAP, 0, type, (GLsizei) width, (GLsizei) height, 0, colourFormat,
+             dataType, nullptr);
 
-	// unbind texture
-	TextureCube::unbind();
+    // unbind texture
+    TextureCube::unbind();
 }
 
 /**
@@ -143,9 +143,9 @@ void TextureCube::loadFromImages(const std::vector<std::string> &paths, bool sRG
 	GLenum format, internalFormat, target = GL_TEXTURE_CUBE_MAP_POSITIVE_X;
 
 	for(auto & path : paths) {
-		// store path
-		this->loadPaths.push_back(path);
-        
+        // store path
+        this->loadPaths.push_back(path);
+
         int width, height;
         void *data;
 

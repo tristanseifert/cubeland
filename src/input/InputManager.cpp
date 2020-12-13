@@ -4,6 +4,7 @@
 #include <Logging.h>
 #include "io/Format.h"
 
+#include <imgui.h>
 #include <glm/vec3.hpp>
 #include <SDL.h>
 
@@ -29,6 +30,11 @@ void InputManager::startFrame() {
     // reset deltas
     this->mouseDeltaX = this->mouseDeltaY = 0;
     this->moveDeltaX = this->moveDeltaY = this->moveDeltaZ = 0;
+
+    // draw the UI
+    if(this->showDebugWindow) {
+        this->drawDebugWindow();
+    }
 }
 
 /**
@@ -45,8 +51,8 @@ void InputManager::updateAngles() {
     this->pitch += yOffset;
 
     // Limit the yaw and pitch.
-    this->pitch = std::min(this->pitch, 89.);
-    this->pitch = std::max(this->pitch, -89.);
+    this->pitch = std::min(this->pitch, 89.f);
+    this->pitch = std::max(this->pitch, -89.f);
 
     // update the Euler angles
     this->eulerAngles.x = cos(glm::radians(this->pitch)) * cos(glm::radians(this->yaw));
@@ -93,11 +99,14 @@ void InputManager::updatePosition() {
  * Currently, we capture all keyboard and mouse movement events.
  */
 bool InputManager::handleEvent(const SDL_Event &event) {
+
     switch(event.type) {
         // mouse moved
         case SDL_MOUSEMOTION:
-            this->mouseDeltaX = (double) event.motion.xrel;
-            this->mouseDeltaY = (double) event.motion.yrel;
+            if(this->inputUpdatesCamera) {
+                this->mouseDeltaX = (double) event.motion.xrel;
+                this->mouseDeltaY = (double) event.motion.yrel;
+            }
             break;
 
         // key down
@@ -122,6 +131,28 @@ bool InputManager::handleEvent(const SDL_Event &event) {
  * Handles an SDL keyboard event, taking the scancode, modifier state, and up/down state.
  */
 void InputManager::handleKey(int scancode, unsigned int modifiers, bool isDown) {
+    // these keys are always handled
+  switch(scancode) {
+        // pressing "P" will save all the textures
+        case SDL_SCANCODE_P:
+            if(isDown) {
+                gfx::TextureDumper::sharedDumper()->dump();
+            }
+            break;
+
+        // F6 toggles the accepts user input flag if debug window is open
+        case SDL_SCANCODE_F6:
+            if(this->showDebugWindow && !isDown) {
+                this->inputUpdatesCamera = !this->inputUpdatesCamera;
+            }
+            break;
+
+        default:
+            break;
+    }
+    // only handled for user interaction
+    if(!this->inputUpdatesCamera) return;
+
     switch(scancode) {
         case SDL_SCANCODE_W:
             this->keys[KeyMoveFront] = isDown;
@@ -148,14 +179,42 @@ void InputManager::handleKey(int scancode, unsigned int modifiers, bool isDown) 
             this->keys[KeyMoveDown] = isDown;
             break;
 
-        // pressing "P" will save all the textures
-        case SDL_SCANCODE_P:
-            if(isDown == true) {
-                gfx::TextureDumper::sharedDumper()->dump();
-            }
-            break;
-
         default:
             break;
     }
+}
+
+
+
+/**
+ * Draws the input manager debug window
+ */
+void InputManager::drawDebugWindow() {
+    // short circuit drawing if not visible
+    if(!ImGui::Begin("Input Manager", &this->showDebugWindow, ImGuiWindowFlags_NoResize)) {
+        goto done;
+    }
+
+    // various checkboxes
+    ImGui::Checkbox("Accept user input", &this->inputUpdatesCamera);
+    if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Press F6 to toggle while this window is open");
+    }
+
+    ImGui::Checkbox("Reverses Y", &this->reverseLookUpDown);
+
+    // pitch, yaw and roll
+    ImGui::PushItemWidth(74);
+    ImGui::DragFloat("Pitch", &this->pitch, 1, -90, 90);
+    ImGui::DragFloat("Yaw", &this->yaw, 1);
+    // ImGui::DragFloat("Roll", &this->roll, 1);
+
+    // sensitivities
+    ImGui::DragFloat("Look sensitivity", &this->lookSensitivity, 0);
+    ImGui::DragFloat("Move sensitivity", &this->movementSensitivity, 0);
+
+    ImGui::PopItemWidth();
+
+done:;
+    ImGui::End();
 }

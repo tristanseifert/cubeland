@@ -128,7 +128,7 @@ class Texture {
 
         // functions for loading image data
     protected:
-        void *loadImageData(std::string path, int *width, int *height, gl::GLenum *format);
+        void *loadImageData(const std::string &path, int *width, int *height, gl::GLenum *format);
         void releaseImageData(void *data);
 
         int loadDDSFile(std::string path);

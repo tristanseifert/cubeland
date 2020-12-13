@@ -52,6 +52,8 @@ class InputManager {
         void updateAngles();
         void updatePosition();
 
+        void drawDebugWindow();
+
     private:
         /**
          * A vector containing the pitch, yaw, and roll angles, calculated from user input.
@@ -63,9 +65,9 @@ class InputManager {
         /**
          * Pitch, yaw and roll values for the camera. They are in degrees.
          */
-        double pitch = 0.;
-        double yaw = 0.;
-        double roll = 0.;
+        float pitch = 0.;
+        float yaw = 0.;
+        float roll = 0.;
 
         /**
          * A vector containing the distance that the camera should move, in each of the X, Y and 
@@ -76,7 +78,7 @@ class InputManager {
         /**
          * Camera look sensitivity. This serves as a multiplier on the basic angle value delta.
          */
-        double lookSensitivity = 0.05;
+        float lookSensitivity = 0.05;
 
         /**
          * When set, the up/down movement is reversed.
@@ -86,7 +88,12 @@ class InputManager {
         /**
          * Player movement sensitivity. It multiplies the basic movement delta.
          */
-        double movementSensitivity = 0.125;
+        float movementSensitivity = 0.125;
+
+        // whether user input has any effect on the camera position
+        bool inputUpdatesCamera = true;
+        // when set, the input debug view is visible
+        bool showDebugWindow = true;
 
     private:
         double mouseDeltaX = 0., mouseDeltaY = 0.;

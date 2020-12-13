@@ -8,6 +8,7 @@
 
 #include <Logging.h>
 
+#include <imgui.h>
 #include <glbinding/gl/gl.h>
 #include <glbinding/Binding.h>
 
@@ -56,7 +57,7 @@ void HDR::setUpInputBuffers(void) {
     using namespace gfx;
 
     // Load the shader program
-    this->inHdrProgram = std::make_shared<ShaderProgram>("hdr/hdr.vert", "hdr/hdr.frag");
+    this->inHdrProgram = std::make_shared<ShaderProgram>("/hdr/hdr.vert", "/hdr/hdr.frag");
     this->inHdrProgram->link();
 
     // allocate the FBO
@@ -140,7 +141,7 @@ void HDR::setUpBloom(void) {
     using namespace gfx;
 
     // Load the shader program
-    this->bloomBlurProgram = std::make_shared<ShaderProgram>("hdr/bloom.vert", "hdr/bloom.frag");
+    this->bloomBlurProgram = std::make_shared<ShaderProgram>("/hdr/bloom.vert", "/hdr/bloom.frag");
     this->bloomBlurProgram->link();
 
     // get size of the viewport
@@ -192,7 +193,7 @@ void HDR::setUpBloom(void) {
  */
 void HDR::setUpTonemap(void) {
     // Load the shader program
-    this->tonemapProgram = std::make_shared<gfx::ShaderProgram>("hdr/tonemap.vert", "hdr/tonemap.frag");
+    this->tonemapProgram = std::make_shared<gfx::ShaderProgram>("/hdr/tonemap.vert", "/hdr/tonemap.frag");
     this->tonemapProgram->link();
 }
 
@@ -378,6 +379,10 @@ void HDR::postRender(WorldRenderer *) {
  * Perform the luma histogram calculation
  */
 void HDR::startOfFrame(void) {
+    if(this->showDebugWindow) {
+        this->drawDebugWindow();
+    }
+
     if((this->histoCounter++) == this->histoFrameWait) {
         // reset counter
         this->histoCounter = 0;
@@ -484,4 +489,26 @@ void HDR::_exposureStep() {
     // clamp exposure to reasonable values
     this->exposure = fmax(this->exposure, 0.3f);
     this->exposure = fmin(this->exposure, 5.3f);
+}
+
+
+
+/**
+ * Draws the HDR renderer debug window
+ */
+void HDR::drawDebugWindow() {
+  // short circuit drawing if not visible
+    if(!ImGui::Begin("HDR Renderer", &this->showDebugWindow, ImGuiWindowFlags_NoResize)) {
+        goto done;
+    }
+
+    // exposure
+    ImGui::PushItemWidth(74);
+
+    ImGui::DragFloat("Exposure", &this->exposure, 0.025, 0.1, 6);
+
+    ImGui::PopItemWidth();
+
+done:;
+    ImGui::End();
 }

@@ -32,6 +32,11 @@ class Camera {
             this->camera_position = position;
         }
 
+        void startFrame();
+
+    private:
+        void drawDebugWindow();
+
     private:
         glm::vec3 camera_position;
         glm::vec3 camera_front;
@@ -42,6 +47,9 @@ class Camera {
         glm::vec3 world_up;
 
         glm::mat4 view;
+
+        // when set, the camera debug window is visible
+        bool showDebugWindow = true;
 };
 }
 

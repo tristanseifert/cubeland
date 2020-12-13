@@ -3,6 +3,7 @@
 #include <Logging.h>
 #include "io/Format.h"
 
+#include <imgui.h>
 #include <glm/ext.hpp>
 
 using namespace render;
@@ -47,9 +48,33 @@ void Camera::updateViewMatrix(const glm::vec3 &euler, float xDelta, float zDelta
 
     // recalculate the view matrix
     this->view = glm::lookAt(this->camera_position, this->camera_look_at, this->up);
+}
 
-    // debug
-    /*cout << this->camera_position.x << ", " << this->camera_position.y << ", " <<
-                    this->camera_position.z << endl;
-    cout << euler.x << ", " << euler.y << ", " << euler.z << endl;*/
+/**
+ * Indicates a new frame has begun. Primarily used for debug ui.
+ */
+void Camera::startFrame() {
+    if(this->showDebugWindow) {
+        this->drawDebugWindow();
+    }
+}
+/**
+ * Draws the debug window
+ */
+void Camera::drawDebugWindow() {
+    // short circuit drawing if not visible
+    if(!ImGui::Begin("Camera", &this->showDebugWindow, ImGuiWindowFlags_NoResize)) {
+        goto done;
+    }
+
+    ImGui::PushItemWidth(225);
+
+    ImGui::DragFloat3("Position", &this->camera_position.x);
+    ImGui::DragFloat3("Front", &this->camera_front.x);
+    ImGui::DragFloat3("Look-at", &this->camera_look_at.x);
+
+    ImGui::PopItemWidth();
+
+done:;
+    ImGui::End();
 }

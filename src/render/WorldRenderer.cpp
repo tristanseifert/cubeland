@@ -54,6 +54,8 @@ WorldRenderer::~WorldRenderer() {
  */
 void WorldRenderer::willBeginFrame() {
     this->input->startFrame();
+    this->camera.startFrame();
+
     this->updateView();
 
     for(auto &step : this->steps) {

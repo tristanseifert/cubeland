@@ -67,9 +67,9 @@ class HDR: public RenderStep {
 
     // stuff to render bloom
     private:
-        std::shared_ptr<gfx::ShaderProgram> bloomBlurProgram = NULL;
-        std::shared_ptr<gfx::FrameBuffer> inFBOBloom1 = NULL, inFBOBloom2 = NULL;
-        std::shared_ptr<gfx::Texture2D> inBloom1 = NULL, inBloom2 = NULL;
+        std::shared_ptr<gfx::ShaderProgram> bloomBlurProgram = nullptr;
+        std::shared_ptr<gfx::FrameBuffer> inFBOBloom1 = nullptr, inFBOBloom2 = nullptr;
+        std::shared_ptr<gfx::Texture2D> inBloom1 = nullptr, inBloom2 = nullptr;
 
         // number of passes to perform for blurring (must be a multiple of 2)
         const int numBlurPasses = 3;
@@ -80,7 +80,7 @@ class HDR: public RenderStep {
 
     private:
         // exposure value
-        double exposure = 0.4f;
+        float exposure = 0.4f;
         // current frame's avg luminance
         double frameAvgLuma = 0.f;
 
@@ -118,6 +118,12 @@ class HDR: public RenderStep {
     private:
         std::unique_ptr<gfx::VertexArray> quadVAO;
         std::unique_ptr<gfx::Buffer> quadVBO;
+
+    private:
+        void drawDebugWindow();
+
+        // when set, the render debug window is shown
+        bool showDebugWindow = true;
 };
 }
 

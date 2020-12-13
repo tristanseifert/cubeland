@@ -110,7 +110,7 @@ Lighting::Lighting() {
     using namespace gfx;
 
     // Load the shader program
-    this->program = std::make_shared<ShaderProgram>("lighting/lighting.vert", "lighting/lighting.frag");
+    this->program = std::make_shared<ShaderProgram>("/lighting/lighting.vert", "/lighting/lighting.frag");
     this->program->link();
 
     this->setUpRenderBuffer();
@@ -158,7 +158,7 @@ void Lighting::setUpShadowing() {
     using namespace gfx;
 
     // Set up new render program
-    this->shadowRenderProgram = std::make_shared<RenderProgram>("model/model_shadow.vert", "model/model_shadow.frag");
+    this->shadowRenderProgram = std::make_shared<RenderProgram>("/model/model_shadow.vert", "/model/model_shadow.frag");
     this->shadowRenderProgram->link();
 
     // Create FBO for shadow rendering
@@ -265,7 +265,7 @@ void Lighting::setUpSkybox() {
     using namespace gfx;
 
     // Compile skybox shader and set up some vertex data
-    this->skyboxProgram = std::make_shared<ShaderProgram>("lighting/skybox.vert", "lighting/skybox.frag");
+    this->skyboxProgram = std::make_shared<ShaderProgram>("/lighting/skybox.vert", "/lighting/skybox.frag");
     this->skyboxProgram->link();
 
     vaoSkybox = std::make_shared<VertexArray>();
@@ -282,16 +282,16 @@ void Lighting::setUpSkybox() {
 
     // load cubemap texture
     std::vector<std::string> faces;
-    faces.push_back("rsrc/tex/cube/potato/right.png");
-    faces.push_back("rsrc/tex/cube/potato/left.png");
-    faces.push_back("rsrc/tex/cube/potato/top.png");
-    faces.push_back("rsrc/tex/cube/potato/bottom.png");
-    faces.push_back("rsrc/tex/cube/potato/back.png");
-    faces.push_back("rsrc/tex/cube/potato/front.png");
+    faces.push_back("/cube/potato/right.png");
+    faces.push_back("/cube/potato/left.png");
+    faces.push_back("/cube/potato/top.png");
+    faces.push_back("/cube/potato/bottom.png");
+    faces.push_back("/cube/potato/back.png");
+    faces.push_back("/cube/potato/front.png");
 
     this->skyboxTexture = std::make_shared<TextureCube>(0);
     this->skyboxTexture->setDebugName("SkyCube");
-    // this->skyboxTexture->loadFromImages(faces, true);
+    this->skyboxTexture->loadFromImages(faces, true);
     TextureCube::unbind();
 }
 

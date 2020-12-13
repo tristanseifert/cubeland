@@ -37,11 +37,11 @@ static const glm::vec3 cubePositions[] = {
  */
 SceneRenderer::SceneRenderer() {
     // Create a shader
-    this->program = std::make_shared<gfx::RenderProgram>("model/model.vert", "model/model.frag", true);
+    this->program = std::make_shared<gfx::RenderProgram>("/model/model.vert", "/model/model.frag", true);
     this->program->link();
 
     // load the model
-    this->model = std::make_shared<gfx::Model>("teapot/teapot.obj");
+    this->model = std::make_shared<gfx::Model>("/teapot/teapot.obj");
 }
 
 /**
