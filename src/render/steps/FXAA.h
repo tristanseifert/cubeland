@@ -21,7 +21,11 @@ namespace gfx {
 }
 
 namespace render {
+class WorldRenderer;
+
 class FXAA : public RenderStep {
+    friend class WorldRenderer;
+
     public:
         FXAA();
         ~FXAA();

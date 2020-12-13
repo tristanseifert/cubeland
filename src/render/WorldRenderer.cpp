@@ -5,6 +5,7 @@
 
 #include "steps/FXAA.h"
 #include "steps/Lighting.h"
+#include "steps/HDR.h"
 
 #include "gfx/gl/buffer/FrameBuffer.h"
 
@@ -29,11 +30,17 @@ WorldRenderer::WorldRenderer() {
     this->lighting = std::make_shared<Lighting>();
     this->steps.push_back(this->lighting);
 
+    this->hdr = std::make_shared<HDR>();
+    this->steps.push_back(this->hdr);
+
     this->fxaa = std::make_shared<FXAA>();
     this->steps.push_back(this->fxaa);
 
     // Set up some shared buffers
     this->lighting->setSceneRenderer(scnRnd);
+
+    this->hdr->setDepthBuffer(this->lighting->gDepth);
+    this->hdr->setOutputFBO(this->fxaa->getFXAABuffer());
 }
 /**
  * Releases all of our render resources.
@@ -67,6 +74,10 @@ void WorldRenderer::draw() {
         if(step->requiresBoundGBuffer()) {
             this->lighting->bindGBuffer();
         }
+        // do we need to bind the HDR buffer?
+        else if(step->requiresBoundHDRBuffer()) {
+            this->hdr->bindHDRBuffer();
+        }
 
         // execute pre-render steps
         step->preRender(this);
@@ -79,9 +90,9 @@ void WorldRenderer::draw() {
 
         if(step->requiresBoundGBuffer()) {
             this->lighting->unbindGBuffer();
-        }/* else if(step->requiresBoundHDRBuffer()) {
+        } else if(step->requiresBoundHDRBuffer()) {
             this->hdr->unbindHDRBuffer();
-        }*/
+        }
     }
 }
 
@@ -96,6 +107,7 @@ void WorldRenderer::reshape(unsigned int width, unsigned int height) {
 
     // reshape all render steps as well
     for(auto &step : this->steps) {
+        step->viewportSize = glm::vec2(width, height);
         step->reshape(width, height);
     }
 }

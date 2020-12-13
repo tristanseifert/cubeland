@@ -31,6 +31,8 @@ class RenderStep {
     public:
         glm::mat4 projectionMatrix;
 
+        glm::vec2 viewportSize;
+
         glm::mat4 viewMatrix;
         glm::vec3 viewPosition; // camera position
         glm::vec3 viewLookAt; // camera "look at" vector

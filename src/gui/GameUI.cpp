@@ -78,7 +78,9 @@ GameUI::GameUI(SDL_Window *_window, void *context) : window(_window) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
 
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    ImGuiIO& io = ImGui::GetIO();
+
+    io.MouseDrawCursor = true;
 
     // set up the styles based on the window's scale factor
     // double scale = 2.0;
@@ -91,6 +93,13 @@ GameUI::GameUI(SDL_Window *_window, void *context) : window(_window) {
     // initialize the GL drawing layer
     ImGui_ImplSDL2_InitForOpenGL(this->window, context);
     ImGui_ImplOpenGL3_Init(nullptr);
+}
+
+/**
+ * On display size update, propagate this to the UI layer.
+ */
+void GameUI::reshape(unsigned int width, unsigned int height) {
+    // TODO: do we need to do anything?
 }
 
 /**
@@ -187,9 +196,6 @@ void GameUI::draw() {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     glViewport(0, 0, (int) io.DisplaySize.x, (int) io.DisplaySize.y);
-
-    // glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-    // glClear(GL_COLOR_BUFFER_BIT);
 
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }

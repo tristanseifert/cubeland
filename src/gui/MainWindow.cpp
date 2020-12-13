@@ -137,7 +137,22 @@ MainWindow::~MainWindow() {
  * Makes the window visible.
  */
 void MainWindow::show() {
+    int w, h;
+
     XASSERT(this->win, "Window must exist");
+
+    // capture mouse
+    // SDL_SetRelativeMouseMode(SDL_TRUE);
+    SDL_ShowCursor(1);
+
+    /**
+     * MacOS kludge: we need to give SDL an extra hint to make relative mouse
+     * mode work. (see https://forums.libsdl.org/viewtopic.php?p=50057)
+     */
+#if MACOS
+    Logging::info("Using relative mouse mode warp kludge");
+    SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
+#endif
 
     SDL_ShowWindow(this->win);
 }

@@ -25,6 +25,8 @@ class GameUI: public RunLoopStep {
 
         bool handleEvent(const SDL_Event &);
 
+        void reshape(unsigned int width, unsigned int height);
+
         /// Gets the handle to a loaded font by name, or nil
         ImFont *getFont(const std::string &name) {
             return this->fonts[name];
