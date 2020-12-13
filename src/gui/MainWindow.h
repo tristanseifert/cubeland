@@ -26,6 +26,8 @@ class MainWindow {
         void show();
         int run();
 
+        void setMouseCaptureState(bool);
+
     private:
         void initGLLibs();
         void configGLContext();

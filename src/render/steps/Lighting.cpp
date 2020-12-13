@@ -11,17 +11,22 @@
 #include "gfx/gl/buffer/FrameBuffer.h"
 #include "gfx/gl/buffer/VertexArray.h"
 
+#include "gfx/lights/abstract/AbstractLight.h"
 #include "gfx/lights/SpotLight.h"
 #include "gfx/lights/DirectionalLight.h"
 #include "gfx/lights/PointLight.h"
 
 #include <Logging.h>
+#include "io/Format.h"
+
 #include <glbinding/gl/gl.h>
 #include <glbinding/Binding.h>
-
+#include <imgui.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+#include <cstdio>
 
 #define SHADOW_COLOR_ATTACHMENT 0
 
@@ -340,6 +345,16 @@ Lighting::~Lighting() {
 
 
 /**
+ * Draws the debug view if enabled.
+ */
+void Lighting::startOfFrame() {
+    if(this->showDebugWindow) {
+        this->drawDebugWindow();
+    }
+}
+
+
+/**
  * Sends the different lights' data to the shader, which is currently bound.
  */
 void Lighting::sendLightsToShader(void) {
@@ -477,7 +492,9 @@ void Lighting::render(WorldRenderer *renderer) {
     this->shadowTex->unbind();
 
     // render the skybox
-    this->renderSkybox();
+    if(this->skyboxEnabled) {
+        this->renderSkybox();
+    }
 }
 
 /**
@@ -629,4 +646,149 @@ void Lighting::renderShadowMap(WorldRenderer *wr) {
     // reset viewport
     glViewport(last_viewport[0], last_viewport[1], (GLsizei)last_viewport[2], (GLsizei)last_viewport[3]);
     glCullFace(GL_BACK);
+}
+
+
+
+/**
+ * Draws the lighting renderer debug window
+ */
+void Lighting::drawDebugWindow() {
+  // short circuit drawing if not visible
+    if(!ImGui::Begin("Lighting Renderer", &this->showDebugWindow)) {
+        goto done;
+    }
+
+    // skybox
+    ImGui::Text("Skybox");
+    ImGui::Separator();
+
+    ImGui::Checkbox("Enabled", &this->skyboxEnabled);
+
+    // fog section
+    ImGui::Text("Fog");
+    ImGui::Separator();
+
+    ImGui::DragFloat("Density", &this->fogDensity, 0.02, 0);
+    ImGui::DragFloat("Offset", &this->fogOffset, 0.02, 0);
+
+    ImGui::ColorEdit3("Color", &this->fogColor.x);
+
+    // shadow section
+    ImGui::Text("Shadows");
+    ImGui::Separator();
+
+    ImGui::DragFloat("Shadow Coefficient", &this->shadowDirectionCoefficient, 0.02, 0.1, 6);
+
+    // configured lights
+    ImGui::Text("Lights");
+    ImGui::Separator();
+
+    this->drawLightsTable();
+
+done:;
+    ImGui::End();
+}
+
+/**
+ * Draws the table that contains detail info on each of our lights.
+ */
+void Lighting::drawLightsTable() {
+    using namespace gfx::lights;
+
+    if(ImGui::BeginTable("lights", 6, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch)) {
+        // headers
+        ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 28);
+        ImGui::TableSetupColumn("Diffuse");
+        ImGui::TableSetupColumn("Specular");
+        ImGui::TableSetupColumn("Position");
+        ImGui::TableSetupColumn("Direction");
+        ImGui::TableSetupColumn("Attenuation");
+        ImGui::TableHeadersRow();
+
+        // per light info
+        int i = 0;
+        for(const auto &light : this->lights) {
+            ImGui::TableNextRow();
+
+            // labels for each component
+            char labelDiff[32], labelSpec[32], labelPos[32], labelDir[32];
+            ImGui::PushID(i++);
+
+            // render based on light type
+            switch(light->getType()) {
+                case AbstractLight::Ambient:
+                    ImGui::TableNextColumn();
+                    ImGui::Text("A");
+                    if(ImGui::IsItemHovered()) {
+                        ImGui::SetTooltip("Ambient");
+                    }
+
+                    ImGui::TableNextColumn();
+                    ImGui::ColorEdit3("##diff", &light->diffuseColor.x);
+                    ImGui::TableNextColumn();
+                    ImGui::ColorEdit3("##spec", &light->specularColor.x);
+                    break;
+
+                case AbstractLight::Directional: {
+                    auto dir = std::dynamic_pointer_cast<gfx::DirectionalLight>(light);
+
+                    ImGui::TableNextColumn();
+                    ImGui::Text("D");
+                    if(ImGui::IsItemHovered()) {
+                        ImGui::SetTooltip("Directional");
+                    }
+
+                    ImGui::TableNextColumn();
+                    ImGui::ColorEdit3("##diff", &light->diffuseColor.x);
+                    ImGui::TableNextColumn();
+                    ImGui::ColorEdit3("##spec", &light->specularColor.x);
+
+                    ImGui::TableNextColumn();
+                    ImGui::TextDisabled("-");
+
+                    ImGui::TableNextColumn();
+                    ImGui::DragFloat3("##dir", &dir->direction.x);
+
+                    ImGui::TableNextColumn();
+                    ImGui::TextDisabled("-");
+                    break;
+                }
+
+                case AbstractLight::Point: {
+                    auto pt = std::dynamic_pointer_cast<gfx::PointLight>(light);
+
+                    ImGui::TableNextColumn();
+                    ImGui::Text("P");
+                    if(ImGui::IsItemHovered()) {
+                        ImGui::SetTooltip("Point");
+                    }
+
+                    ImGui::TableNextColumn();
+                    ImGui::ColorEdit3("##diff", &light->diffuseColor.x);
+                    ImGui::TableNextColumn();
+                    ImGui::ColorEdit3("##spec", &light->specularColor.x);
+
+                    ImGui::TableNextColumn();
+                    ImGui::DragFloat3("##pos", &pt->position.x);
+
+                    ImGui::TableNextColumn();
+                    ImGui::TextDisabled("-");
+
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%.3g/%.3g", pt->linearAttenuation, pt->quadraticAttenuation);
+                    break;
+                }
+
+                default:
+                    ImGui::TableNextColumn();
+                    ImGui::Text("?");
+                    break;
+            }
+
+            ImGui::PopID();
+        }
+
+        ImGui::EndTable();
+    }
 }

@@ -1,5 +1,6 @@
 #include "SceneRenderer.h"
 #include "Drawable.h"
+#include "WorldChunk.h"
 
 #include "gfx/gl/buffer/Buffer.h"
 #include "gfx/gl/buffer/VertexArray.h"
@@ -41,7 +42,8 @@ SceneRenderer::SceneRenderer() {
     this->program->link();
 
     // load the model
-    this->model = std::make_shared<gfx::Model>("/teapot/teapot.obj");
+    // this->model = std::make_shared<gfx::Model>("/teapot/teapot.obj");
+    this->model = std::make_shared<WorldChunk>();
 }
 
 /**

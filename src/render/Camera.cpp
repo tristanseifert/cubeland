@@ -13,11 +13,12 @@ using namespace render;
  */
 Camera::Camera() {
     // default camera position
-    this->camera_position = glm::vec3(15.6459, 25.0754, -14.6763);
-    this->camera_front = glm::vec3(-0.99, 0.06, -0.14);
-
-    // some defaults for rendering
-    this->world_up = glm::vec3(0.0f, 2.0f, 0.0f);
+    // this->camera_position = glm::vec3(15.6459, 25.0754, -14.6763);
+    // this->camera_front = glm::vec3(-0.99, 0.06, -0.14);
+    
+    this->camera_position = glm::vec3(0, 0, 3);
+    this->camera_front = glm::vec3(0, 0, -1);
+    this->world_up = glm::vec3(0.0f, 1.0f, 0.0f);
 }
 
 /**

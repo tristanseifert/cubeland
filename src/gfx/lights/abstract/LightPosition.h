@@ -15,11 +15,17 @@
 #include <memory>
 #include <string>
 
+namespace render {
+class Lighting;
+}
+
 namespace gfx {
 class ShaderProgram;
 
 namespace lights {
 class LightPosition {
+    friend class render::Lighting;
+
     public:
         LightPosition();
         virtual ~LightPosition();

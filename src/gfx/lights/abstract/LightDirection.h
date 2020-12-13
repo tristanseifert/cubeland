@@ -15,11 +15,17 @@
 #include <string>
 #include <memory>
 
+namespace render {
+class Lighting;
+}
+
 namespace gfx {
 class ShaderProgram;
 
 namespace lights {
 class LightDirection {
+    friend class render::Lighting;
+
     public:
         LightDirection();
         virtual ~LightDirection() {};

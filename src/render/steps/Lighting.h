@@ -38,6 +38,7 @@ class Lighting : public RenderStep {
         Lighting();
         ~Lighting();
 
+        void startOfFrame();
         void preRender(WorldRenderer *);
         void render(WorldRenderer *);
         void postRender(WorldRenderer *);
@@ -99,6 +100,8 @@ class Lighting : public RenderStep {
 
         std::shared_ptr<gfx::TextureCube> skyboxTexture = nullptr;
 
+        bool skyboxEnabled = false;
+
     private:
         // Fog density and color
         float fogDensity = 0.03f;
@@ -128,6 +131,13 @@ class Lighting : public RenderStep {
 
         // XXX: testing
         double time = 0;
+
+    private:
+        void drawDebugWindow();
+        void drawLightsTable();
+
+        // when set, the render debug window is shown
+        bool showDebugWindow = true;
 };
 }
 

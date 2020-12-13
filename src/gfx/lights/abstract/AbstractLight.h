@@ -16,12 +16,18 @@
 #include <string>
 #include <memory>
 
+namespace render {
+class Lighting;
+}
+
 namespace gfx {
-	// forward-declare a class for compilation
-	class ShaderProgram;
+// forward-declare a class for compilation
+class ShaderProgram;
 
 namespace lights {
 class AbstractLight {
+    friend class render::Lighting;
+
     public:
         enum LightType {
             Ambient = 1,

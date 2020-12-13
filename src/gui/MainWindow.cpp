@@ -26,7 +26,7 @@ MainWindow::MainWindow() {
     this->makeWindow();
 
     // create the renderers
-    auto world = std::make_shared<render::WorldRenderer>();
+    auto world = std::make_shared<render::WorldRenderer>(this);
     this->stages.push_back(world);
 
     auto ui = std::make_shared<GameUI>(this->win, this->winCtx);
@@ -155,6 +155,19 @@ void MainWindow::show() {
 #endif
 
     SDL_ShowWindow(this->win);
+}
+
+/**
+ * Sets the mouse capture state.
+ */
+void MainWindow::setMouseCaptureState(bool captured) {
+    if(captured) {
+        SDL_SetRelativeMouseMode(SDL_TRUE);
+        SDL_ShowCursor(1);
+    } else {
+        SDL_SetRelativeMouseMode(SDL_FALSE);
+        SDL_ShowCursor(1);
+    }
 }
 
 /**

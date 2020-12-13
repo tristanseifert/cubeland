@@ -10,8 +10,12 @@
 #include <memory>
 #include <vector>
 
+namespace gui {
+class MainWindow;
+}
+
 namespace input {
-    class InputManager;
+class InputManager;
 }
 
 namespace render {
@@ -22,7 +26,7 @@ class FXAA;
 
 class WorldRenderer: public gui::RunLoopStep {
     public:
-        WorldRenderer();
+        WorldRenderer(gui::MainWindow *);
         virtual ~WorldRenderer();
 
     public:

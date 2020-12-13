@@ -1,5 +1,6 @@
 #include "InputManager.h"
 #include "gfx/gl/texture/TextureDumper.h"
+#include "gui/MainWindow.h"
 
 #include <Logging.h>
 #include "io/Format.h"
@@ -15,7 +16,7 @@ using namespace input;
 /**
  * Initializes the input manager./
  */
-InputManager::InputManager() {
+InputManager::InputManager(gui::MainWindow *_w) : window(_w) {
     this->keys.reset();
 }
 
@@ -144,6 +145,7 @@ void InputManager::handleKey(int scancode, unsigned int modifiers, bool isDown) 
         case SDL_SCANCODE_F6:
             if(this->showDebugWindow && !isDown) {
                 this->inputUpdatesCamera = !this->inputUpdatesCamera;
+                this->window->setMouseCaptureState(this->inputUpdatesCamera);
             }
             break;
 
@@ -196,7 +198,9 @@ void InputManager::drawDebugWindow() {
     }
 
     // various checkboxes
-    ImGui::Checkbox("Accept user input", &this->inputUpdatesCamera);
+    if(ImGui::Checkbox("Accept user input", &this->inputUpdatesCamera)) {
+        this->window->setMouseCaptureState(this->inputUpdatesCamera);
+    }
     if(ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Press F6 to toggle while this window is open");
     }

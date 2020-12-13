@@ -19,9 +19,9 @@ using namespace render;
 /**
  * Creates the renderer resources.
  */
-WorldRenderer::WorldRenderer() {
+WorldRenderer::WorldRenderer(gui::MainWindow *win) {
     // create the IO manager
-    this->input = std::make_shared<input::InputManager>();
+    this->input = std::make_shared<input::InputManager>(win);
 
     // then, the render steps
     auto scnRnd = std::make_shared<SceneRenderer>();

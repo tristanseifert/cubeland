@@ -14,11 +14,17 @@
 #include <string>
 #include <memory>
 
+namespace render {
+class Lighting;
+}
+
 namespace gfx {
 class ShaderProgram;
 
 namespace lights {
 class LightAttenuation {
+    friend class render::Lighting;
+
     public:
         LightAttenuation() {};
         virtual ~LightAttenuation() {};

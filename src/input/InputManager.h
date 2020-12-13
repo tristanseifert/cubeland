@@ -11,10 +11,14 @@
 
 union SDL_Event;
 
+namespace gui {
+class MainWindow;
+}
+
 namespace input {
 class InputManager {
     public:
-        InputManager();
+        InputManager(gui::MainWindow *);
 
     public:
         void startFrame();
@@ -94,6 +98,9 @@ class InputManager {
         bool inputUpdatesCamera = true;
         // when set, the input debug view is visible
         bool showDebugWindow = true;
+
+        // main window handle (for adjusting mouse behavior)
+        gui::MainWindow *window = nullptr;
 
     private:
         double mouseDeltaX = 0., mouseDeltaY = 0.;
