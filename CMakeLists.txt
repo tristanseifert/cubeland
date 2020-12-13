@@ -42,6 +42,26 @@ add_executable(cubeland
     src/gui/MainWindow.cpp
     src/gui/GameUI.cpp
     src/gui/PreferencesWindow.cpp
+# GL wrappers
+    src/gfx/gl/texture/Texture.cpp
+    src/gfx/gl/texture/Texture2D.cpp
+    src/gfx/gl/texture/TextureCube.cpp
+    src/gfx/gl/texture/TextureDumper.cpp
+    src/gfx/gl/program/Shader.cpp
+    src/gfx/gl/program/ShaderProgram.cpp
+    src/gfx/gl/buffer/Buffer.cpp
+    src/gfx/gl/buffer/FrameBuffer.cpp
+    src/gfx/gl/buffer/PixelBuffer.cpp
+    src/gfx/gl/buffer/RenderBuffer.cpp
+    src/gfx/gl/buffer/VertexArray.cpp
+# lighting
+    src/gfx/lights/abstract/AbstractLight.cpp
+    src/gfx/lights/abstract/LightPosition.cpp
+    src/gfx/lights/abstract/LightAttenuation.cpp
+    src/gfx/lights/abstract/LightDirection.cpp
+    src/gfx/lights/SpotLight.cpp
+    src/gfx/lights/PointLight.cpp
+    src/gfx/lights/DirectionalLight.cpp
 # resources and other misc stuff
     ${version_file}
 )
@@ -145,6 +165,24 @@ target_include_directories(dearimgui_ext PRIVATE libs/imgui)
 
 target_link_libraries(dearimgui_ext PUBLIC glbinding::glbinding)
 target_link_libraries(cubeland PRIVATE dearimgui_ext)
+
+# GLM
+#find_package(glm REQUIRED)
+#target_link_libraries(cubeland PRIVATE glm::glm)
+target_include_directories(cubeland PRIVATE libs/glm)
+
+# SOIL (image loading)
+add_library(soil OBJECT
+    libs/soil/src/soil.c
+    libs/soil/src/image_dxt.c
+    libs/soil/src/image_helper.c
+    libs/soil/src/stb_image_aug.c
+)
+target_include_directories(soil PRIVATE libs/soil/include)
+target_compile_definitions(soil PUBLIC GL_SILENCE_DEPRECATION)
+
+target_link_libraries(cubeland PRIVATE soil)
+target_include_directories(cubeland PRIVATE libs/soil/include)
 
 ###################################################################################################
 #### platform-specific libraries

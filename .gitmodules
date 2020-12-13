@@ -19,3 +19,9 @@
 [submodule "libs/mutils"]
 	path = libs/mutils
 	url = git@github.com:Rezonality/mutils.git
+[submodule "libs/glm"]
+	path = libs/glm
+	url = git@github.com:g-truc/glm.git
+[submodule "libs/soil"]
+	path = libs/soil
+	url = git@github.com:littlstar/soil.git

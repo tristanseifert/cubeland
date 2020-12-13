@@ -52,6 +52,7 @@ void MainWindow::configGLContext() {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, ctxFlags);
 
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0); // no depth required
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 }
 
