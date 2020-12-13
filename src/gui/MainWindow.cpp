@@ -32,8 +32,10 @@ MainWindow::MainWindow() {
     auto ui = std::make_shared<GameUI>(this->win, this->winCtx);
     this->stages.push_back(ui);
 
-    // initialize renderers with current window size
-    SDL_GetWindowSize(this->win, &w, &h);
+    // initialize renderers with current viewport size
+    SDL_GL_GetDrawableSize(this->win, &w, &h);
+    glViewport(0, 0, (GLsizei) w, (GLsizei) h);
+
     for(auto &render : this->stages) {
         render->reshape(w, h);
     }
@@ -77,7 +79,7 @@ void MainWindow::makeWindow() {
     int err;
 
     // create window; allowing for HiDPI contexts
-    const auto flags = SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN | 
+    const auto flags = SDL_WINDOW_OPENGL | /*SDL_WINDOW_ALLOW_HIGHDPI |*/ SDL_WINDOW_HIDDEN | 
                        SDL_WINDOW_RESIZABLE;
     this->win = SDL_CreateWindow("Cubeland", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
             kDefaultWidth, kDefaultHeight, flags);
@@ -166,6 +168,7 @@ int MainWindow::run() {
         }
 
         // clear the output buffer, then draw the scene and UI ontop
+        glClearColor(0, 0, 0, 0);
         glClear(GL_COLOR_BUFFER_BIT);
 
         for(auto &render : this->stages) {
@@ -193,6 +196,8 @@ int MainWindow::run() {
  * Handles events provided by SDL.
  */
 void MainWindow::handleEvent(const SDL_Event &event, int &reason) {
+    int w, h;
+
     // always handle some events
     switch(event.type) {
         // window events
@@ -209,10 +214,14 @@ void MainWindow::handleEvent(const SDL_Event &event, int &reason) {
                     unsigned int width = event.window.data1;
                     unsigned int height = event.window.data2;
 
+                    // update viewport
+                    SDL_GetWindowSize(this->win, &w, &h);
+                    glViewport(0, 0, (GLsizei) w, (GLsizei) h);
+
                     this->saveWindowSize();
 
                     for(auto &render : this->stages) {
-                        render->reshape(width, height);
+                        render->reshape(w, h);
                     }
                     break;
                 }

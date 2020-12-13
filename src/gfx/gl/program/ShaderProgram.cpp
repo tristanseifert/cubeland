@@ -47,7 +47,7 @@ ShaderProgram::ShaderProgram(const std::string &vertPath, const std::string &fra
     auto vertex = fs.open(vertPath);
     const auto vertSource = std::string(vertex.begin(), vertex.end());
 
-    auto fragment = fs.open(vertPath);
+    auto fragment = fs.open(fragPath);
     const auto fragSource = std::string(fragment.begin(), fragment.end());
 
     // add shaders

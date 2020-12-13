@@ -85,6 +85,8 @@ void main() {
 		vec3 correctedColour = pow(inColour.rgb, vec3(1.0 / gamma));
 		FragColour = correctedColour;
 	}*/
+
+        // FragColour = vec3(TexCoords.x, TexCoords.y, 0);
 }
 
 /*============================================================================

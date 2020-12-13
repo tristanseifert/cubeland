@@ -11,10 +11,10 @@ out vec4 TexCoordsPosPos;
 uniform vec2 rcpFrame;
 
 void main() {
-	gl_Position = vec4(VtxPosition, 1.0f);
+    gl_Position = vec4(VtxPosition, 1.0f);
 
-	TexCoords = VtxTexCoord;
+    TexCoords = VtxTexCoord;
 
-	TexCoordsPosPos.xy = VtxTexCoord.xy;
-	TexCoordsPosPos.zw = VtxTexCoord.xy - (rcpFrame * (0.5 + (1.0/4.0)));
+    TexCoordsPosPos.xy = VtxTexCoord.xy;
+    TexCoordsPosPos.zw = VtxTexCoord.xy - (rcpFrame * (0.5 + (1.0/4.0)));
 }

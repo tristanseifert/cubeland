@@ -1,5 +1,10 @@
 #include "WorldRenderer.h"
+#include "RenderStep.h"
 #include "input/InputManager.h"
+
+#include "steps/FXAA.h"
+
+#include "gfx/gl/buffer/FrameBuffer.h"
 
 #include <Logging.h>
 
@@ -45,6 +50,11 @@ void WorldRenderer::reshape(unsigned int width, unsigned int height) {
 
     this->viewportWidth = width;
     this->viewportHeight = height;
+
+    // reshape all render steps as well
+    for(auto &step : this->steps) {
+        step->reshape(width, height);
+    }
 }
 
 /**
@@ -77,7 +87,7 @@ void WorldRenderer::updateView() {
 
 
     // give each of the stages some information from the camera for rendering
-    /*for(auto stage : this->stages) {
+    for(auto stage : this->steps) {
         stage->viewMatrix = this->camera.getViewMatrix();
         stage->viewPosition = this->camera.getCameraPosition();
         stage->viewLookAt = this->camera.getCameraLookAt();
@@ -85,5 +95,5 @@ void WorldRenderer::updateView() {
         stage->viewUp = this->camera.getCameraUp();
 
         stage->projectionMatrix = this->projection;
-    }*/
+    }
 }

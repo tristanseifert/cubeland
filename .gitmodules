@@ -25,3 +25,6 @@
 [submodule "libs/soil"]
 	path = libs/soil
 	url = git@github.com:littlstar/soil.git
+[submodule "libs/tinyobjloader"]
+	path = libs/tinyobjloader
+	url = git@github.com:tinyobjloader/tinyobjloader.git

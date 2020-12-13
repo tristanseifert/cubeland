@@ -48,11 +48,6 @@ void Camera::updateViewMatrix(const glm::vec3 &euler, float xDelta, float zDelta
     // recalculate the view matrix
     this->view = glm::lookAt(this->camera_position, this->camera_look_at, this->up);
 
-    static int i = 0;
-    if(++i % 10 == 0) {
-        Logging::trace("Position {}, look-at {}", this->camera_position, this->camera_look_at);
-    }
-
     // debug
     /*cout << this->camera_position.x << ", " << this->camera_position.y << ", " <<
                     this->camera_position.z << endl;

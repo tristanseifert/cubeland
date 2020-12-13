@@ -56,6 +56,9 @@ add_executable(cubeland
     src/gfx/gl/buffer/PixelBuffer.cpp
     src/gfx/gl/buffer/RenderBuffer.cpp
     src/gfx/gl/buffer/VertexArray.cpp
+# model loading
+    src/gfx/model/Mesh.cpp
+    src/gfx/model/Model.cpp
 # lighting
     src/gfx/lights/abstract/AbstractLight.cpp
     src/gfx/lights/abstract/LightPosition.cpp
@@ -67,6 +70,7 @@ add_executable(cubeland
 # rendering pipeline
     src/render/WorldRenderer.cpp
     src/render/Camera.cpp
+    src/render/steps/FXAA.cpp
 # resources and other misc stuff
     ${version_file}
 )
@@ -107,6 +111,13 @@ cmrc_add_resource_library(cubeland-rsrc-shaders
 ALIAS cubeland::rsrc_shaders WHENCE rsrc/shaders NAMESPACE shaders)
 target_link_libraries(cubeland PRIVATE cubeland::rsrc_shaders)
 
+# models
+file(GLOB MODEL_FILES ${CMAKE_CURRENT_SOURCE_DIR}/rsrc/models/*/*)
+
+cmrc_add_resource_library(cubeland-rsrc-models
+    ${MODEL_FILES}
+ALIAS cubeland::rsrc_models WHENCE rsrc/models NAMESPACE models)
+target_link_libraries(cubeland PRIVATE cubeland::rsrc_models)
 
 ###################################################################################################
 #### libraries
@@ -199,6 +210,14 @@ target_compile_definitions(soil PUBLIC GL_SILENCE_DEPRECATION)
 target_link_libraries(cubeland PRIVATE soil)
 target_include_directories(cubeland PRIVATE libs/soil/include)
 
+# tinyobjloader (loading obj formatted models.. duh)
+add_library(tinyobjloader OBJECT
+    libs/tinyobjloader/tiny_obj_loader.cc
+)
+target_include_directories(tinyobjloader PRIVATE libs/tinyobjloader)
+
+target_link_libraries(cubeland PRIVATE tinyobjloader)
+target_include_directories(cubeland PRIVATE libs/tinyobjloader)
 ###################################################################################################
 #### platform-specific libraries
 # macOS frameworks

@@ -7,12 +7,18 @@
 #include <glm/mat4x4.hpp>
 
 #include <memory>
+#include <vector>
 
 namespace input {
     class InputManager;
 }
 
 namespace render {
+class RenderStep;
+class Lighting;
+class HDR;
+class FXAA;
+
 class WorldRenderer: public gui::RunLoopStep {
     public:
         WorldRenderer();
@@ -46,6 +52,13 @@ class WorldRenderer: public gui::RunLoopStep {
 
         // camera
         Camera camera;
+
+        // render stages
+        std::vector<std::shared_ptr<RenderStep>> steps;
+
+        std::shared_ptr<Lighting> lighting = nullptr;
+        std::shared_ptr<HDR> hdr = nullptr;
+        std::shared_ptr<FXAA> fxaa = nullptr;
 };
 }
 
