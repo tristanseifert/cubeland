@@ -26,54 +26,68 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <cmrc/cmrc.hpp>
+
+CMRC_DECLARE(shaders);
+
 using namespace gl;
 using namespace gfx;
 
 /**
- * Creates a shader program with the given vertex and fragment shader source
+ * Creates a rendering shader that loads the vertex and fragment code from the shader resource
+ * catalog at the given path.
  */
-ShaderProgram::ShaderProgram(const std::string &vertSource, const std::string &fragSource) {
-	// create gl program object
-	this->program = glCreateProgram();
+ShaderProgram::ShaderProgram(const std::string &vertPath, const std::string &fragPath) {
+    // create gl program object
+    this->program = glCreateProgram();
 
-	// add shaders
-	this->addShaderSource(vertSource);
-	this->addShaderSource(fragSource);
+    // load the vertex and fragment shader code
+    auto fs = cmrc::shaders::get_filesystem();
+
+    auto vertex = fs.open(vertPath);
+    const auto vertSource = std::string(vertex.begin(), vertex.end());
+
+    auto fragment = fs.open(vertPath);
+    const auto fragSource = std::string(fragment.begin(), fragment.end());
+
+    // add shaders
+    this->addShaderSource(vertSource);
+    this->addShaderSource(fragSource);
 }
 
 /**
  * Initialises the shader program.
  */
 ShaderProgram::ShaderProgram() {
-	this->program = glCreateProgram();
+    this->program = glCreateProgram();
 }
 
 /**
  * Deallocates the shader program, and associated resources.
  */
 ShaderProgram::~ShaderProgram() {
-	glDeleteProgram(this->program);
+    glDeleteProgram(this->program);
 }
 
 /**
  * Adds a shader to this program from the given string.
  */
 void ShaderProgram::addShaderSource(const std::string &source) {
-	Shader::ShaderType type;
+    Shader::ShaderType type;
 
-	// create the shader
-	type = Shader::typeFromSource(source);
-	auto shader = std::make_shared<Shader>(type, source);
+    // create the shader
+    type = Shader::typeFromSource(source);
+    auto shader = std::make_shared<Shader>(type, source);
 
-	// add it to our program
-	this->addShader(shader);
+    // add it to our program
+    this->addShader(shader);
 }
 
 /**
  * Adds a shader to this program.
  */
 void ShaderProgram::addShader(std::shared_ptr<Shader> shader) {
-	this->shaders.push_back(shader);
+    this->shaders.push_back(shader);
 }
 
 /**
@@ -81,26 +95,26 @@ void ShaderProgram::addShader(std::shared_ptr<Shader> shader) {
  * occurs, an exception is thrown.
  */
 void ShaderProgram::link() {
-	// attach all shaders, and compile them, if needed.
-	for (auto& shader : this->shaders) {
-		// is this shader not yet compiled?
-		if(shader->isCompiled() == false) {
-			shader->compile();
-		}
+    // attach all shaders, and compile them, if needed.
+    for (auto& shader : this->shaders) {
+        // is this shader not yet compiled?
+        if(shader->isCompiled() == false) {
+            shader->compile();
+        }
 
-		// attach to our program
-		shader->attachToProgram(this->program);
-	}
+        // attach to our program
+        shader->attachToProgram(this->program);
+    }
 
-	// link the program
-	glLinkProgram(this->program);
+    // link the program
+    glLinkProgram(this->program);
 
-	// check for errors
+    // check for errors
     constexpr static size_t kErrorLogSz = 1024;
     char errorLog[kErrorLogSz];
     memset(&errorLog, 0, kErrorLogSz);
 
-	GLint success;
+    GLint success;
     glGetProgramiv(this->program, GL_LINK_STATUS, &success);
 
     if (!success) {
@@ -115,21 +129,21 @@ void ShaderProgram::link() {
  * Binds the program to the current context, thus allowing rendering with it.
  */
 void ShaderProgram::bind() {
-	glUseProgram(this->program);
+    glUseProgram(this->program);
 }
 
 /**
  * Finds the location of a certain attribute.
  */
 GLint ShaderProgram::getAttribLocation(const std::string &name) {
-	return glGetAttribLocation(this->program, name.c_str());
+    return glGetAttribLocation(this->program, name.c_str());
 }
 
 /**
  * Finds the location of a certain uniform.
  */
 GLint ShaderProgram::getUniformLocation(const std::string &name) {
-	return glGetUniformLocation(this->program, name.c_str());
+    return glGetUniformLocation(this->program, name.c_str());
 }
 
 /**
@@ -137,61 +151,61 @@ GLint ShaderProgram::getUniformLocation(const std::string &name) {
  * output buffer.
  */
 void ShaderProgram::setFragDataLocation(const std::string &name, GLuint loc) {
-	glBindFragDataLocation(this->program, loc, name.c_str());
+    glBindFragDataLocation(this->program, loc, name.c_str());
 }
 
 /**
  * Sets a uniform's value to the specified single integer.
  */
 void ShaderProgram::setUniform1i(const std::string &name, GLint i1) {
-	GLint loc = getUniformLocation(name);
-	glUniform1i(loc, i1);
+    GLint loc = this->getUniformLocation(name);
+    glUniform1i(loc, i1);
 }
 
 /**
  * Sends a single float value to the specified uniform.
  */
 void ShaderProgram::setUniform1f(const std::string &name, gl::GLfloat f1) {
-	GLint loc = getUniformLocation(name);
-	glUniform1f(loc, f1);
+    GLint loc = this->getUniformLocation(name);
+    glUniform1f(loc, f1);
 }
 
 /**
  * Sends a two-component vector to the specified uniform.
  */
 void ShaderProgram::setUniformVec(const std::string &name, glm::vec2 vec) {
-	GLint loc = getUniformLocation(name);
-	glUniform2f(loc, vec.x, vec.y);
+    GLint loc = this->getUniformLocation(name);
+    glUniform2f(loc, vec.x, vec.y);
 }
 
 /**
  * Sends a three-component vector to the specified uniform.
  */
 void ShaderProgram::setUniformVec(const std::string &name, glm::vec3 vec) {
-	GLint loc = getUniformLocation(name);
-	glUniform3f(loc, vec.x, vec.y, vec.z);
+    GLint loc = this->getUniformLocation(name);
+    glUniform3f(loc, vec.x, vec.y, vec.z);
 }
 
 /**
  * Sends a four-component vector to the specified uniform.
  */
 void ShaderProgram::setUniformVec(const std::string &name, glm::vec4 vec) {
-	GLint loc = getUniformLocation(name);
-	glUniform4f(loc, vec.x, vec.y, vec.z, vec.w);
+    GLint loc = this->getUniformLocation(name);
+    glUniform4f(loc, vec.x, vec.y, vec.z, vec.w);
 }
 
 /**
  * Sends a 3x3 matrix to the specified uniform.
  */
 void ShaderProgram::setUniformMatrix(const std::string &name, glm::mat3 matrix) {
-	GLint loc = getUniformLocation(name);
-	glUniformMatrix3fv(loc, 1, GL_FALSE, glm::value_ptr(matrix));
+    GLint loc = this->getUniformLocation(name);
+    glUniformMatrix3fv(loc, 1, GL_FALSE, glm::value_ptr(matrix));
 }
 
 /**
  * Sends a 4x4 matrix to the specified uniform.
  */
 void ShaderProgram::setUniformMatrix(const std::string &name, glm::mat4 matrix) {
-	GLint loc = getUniformLocation(name);
-	glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(matrix));
+    GLint loc = this->getUniformLocation(name);
+    glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(matrix));
 }

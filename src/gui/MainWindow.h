@@ -6,13 +6,17 @@
 #ifndef GUI_MAINWINDOW_H
 #define GUI_MAINWINDOW_H
 
+#include <vector>
 #include <atomic>
 #include <memory>
+#include <queue>
 
 struct SDL_Window;
+union SDL_Event;
 
 namespace gui {
 class GameUI;
+class RunLoopStep;
 
 class MainWindow {
     public:
@@ -28,8 +32,12 @@ class MainWindow {
 
         void makeWindow();
 
+        void handleEvent(const SDL_Event &, int &);
         void restoreWindowSize();
         void saveWindowSize();
+
+        void startFrameFpsUpdate();
+        void endFrameFpsUpdate();
 
     private:
         // default window size
@@ -47,7 +55,24 @@ class MainWindow {
         std::atomic_bool running;
 
         // various rendering pieces
-        std::shared_ptr<GameUI> ui;
+        std::vector<std::shared_ptr<RunLoopStep>> stages;
+
+    private:
+        // number of frames for which to average fps
+        constexpr static const size_t kNumFrameValues = 20;
+
+        double time = 0.f;
+        std::queue<double> frameTimes;
+        std::queue<double> frameTimesTrue;
+        size_t framesExecuted = 0;
+
+        double frameTimeAvg = 0.f;
+        double frameTimeLast = 0.f;
+
+        double frameTimeAvgTrue = 0.f;
+        double frameTimeLastTrue = 0.f;
+
+        size_t frameStartTime = 0;
 };
 }
 

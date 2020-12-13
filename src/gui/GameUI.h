@@ -1,6 +1,7 @@
 #ifndef GUI_GAMEUI_H
 #define GUI_GAMEUI_H
 
+#include "RunLoopStep.h"
 #include "GameWindow.h"
 
 #include <string>
@@ -13,7 +14,7 @@ struct SDL_Window;
 union SDL_Event;
 
 namespace gui {
-class GameUI {
+class GameUI: public RunLoopStep {
     public:
         GameUI(SDL_Window *win, void *ctx);
         ~GameUI();

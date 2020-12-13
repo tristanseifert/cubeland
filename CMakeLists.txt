@@ -42,6 +42,8 @@ add_executable(cubeland
     src/gui/MainWindow.cpp
     src/gui/GameUI.cpp
     src/gui/PreferencesWindow.cpp
+# input
+    src/input/InputManager.cpp
 # GL wrappers
     src/gfx/gl/texture/Texture.cpp
     src/gfx/gl/texture/Texture2D.cpp
@@ -62,6 +64,9 @@ add_executable(cubeland
     src/gfx/lights/SpotLight.cpp
     src/gfx/lights/PointLight.cpp
     src/gfx/lights/DirectionalLight.cpp
+# rendering pipeline
+    src/render/WorldRenderer.cpp
+    src/render/Camera.cpp
 # resources and other misc stuff
     ${version_file}
 )
@@ -90,8 +95,18 @@ cmrc_add_resource_library(cubeland-rsrc-ui
     rsrc/fonts/SpaceMono-Bold.ttf
 # define the namespace and alias we put this lib in
 ALIAS cubeland::rsrc_ui WHENCE rsrc NAMESPACE ui)
-
 target_link_libraries(cubeland PRIVATE cubeland::rsrc_ui)
+
+# shaders
+file(GLOB SHADER_FRAGMENT_FILES ${CMAKE_CURRENT_SOURCE_DIR}/rsrc/shaders/*/*.frag)
+file(GLOB SHADER_VERTEX_FILES ${CMAKE_CURRENT_SOURCE_DIR}/rsrc/shaders/*/*.vert)
+
+cmrc_add_resource_library(cubeland-rsrc-shaders
+    ${SHADER_FRAGMENT_FILES}
+    ${SHADER_VERTEX_FILES}
+ALIAS cubeland::rsrc_shaders WHENCE rsrc/shaders NAMESPACE shaders)
+target_link_libraries(cubeland PRIVATE cubeland::rsrc_shaders)
+
 
 ###################################################################################################
 #### libraries

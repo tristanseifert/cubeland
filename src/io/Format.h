@@ -23,5 +23,6 @@ inline auto f(Args&&... args) -> decltype(fmt::format(std::forward<Args>(args)..
 // formatting support for socket addresses
 #include "SocketTypes+fmt.h"
 #include "TimeTypes+fmt.h"
+#include "GlmTypes+fmt.h"
 
 #endif

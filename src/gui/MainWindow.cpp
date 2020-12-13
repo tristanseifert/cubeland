@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 #include "GameUI.h"
+#include "render/WorldRenderer.h"
 
 #include "io/PrefsManager.h"
 
@@ -7,8 +8,9 @@
 
 #include <glbinding/gl/gl.h>
 #include <glbinding/Binding.h>
-
 #include <SDL.h>
+
+#include <iterator>
 
 using namespace gl;
 using namespace gui;
@@ -18,11 +20,23 @@ using namespace gui;
  * Initializes the window.
  */
 MainWindow::MainWindow() {
+    int w = 0, h = 0;
+
     this->configGLContext();
     this->makeWindow();
 
     // create the renderers
-    this->ui = std::make_shared<GameUI>(this->win, this->winCtx);
+    auto world = std::make_shared<render::WorldRenderer>();
+    this->stages.push_back(world);
+
+    auto ui = std::make_shared<GameUI>(this->win, this->winCtx);
+    this->stages.push_back(ui);
+
+    // initialize renderers with current window size
+    SDL_GetWindowSize(this->win, &w, &h);
+    for(auto &render : this->stages) {
+        render->reshape(w, h);
+    }
 
     this->running = true;
 }
@@ -103,7 +117,7 @@ void MainWindow::makeWindow() {
  */
 MainWindow::~MainWindow() {
     // get rid of renderers
-    this->ui = nullptr;
+    this->stages.clear();
 
     // destroy window and context
     if(this->winCtx) {
@@ -139,43 +153,99 @@ int MainWindow::run() {
 
     // main run loop
     while(this->running) {
+        // start the FPS counting
+        this->startFrameFpsUpdate();
+
         // handle events
         while (SDL_PollEvent(&event)) {
-            // ignore event if handled by GUI layer
-            if(this->ui->handleEvent(event)) {
-                continue;
-            }
-
-            // otherwise, check the event out
-            switch(event.type) {
-                // quit
-                case SDL_QUIT:
-                    this->running = false;
-                    reason = 1;
-                    break;
-
-                // unhandled event type
-                default:
-                    break;
-            }
+            this->handleEvent(event, reason);
         }
-
         // prepare renderers
-        this->ui->willBeginFrame();
+        for(auto &render : this->stages) {
+            render->willBeginFrame();
+        }
 
         // clear the output buffer, then draw the scene and UI ontop
         glClear(GL_COLOR_BUFFER_BIT);
 
-        this->ui->draw();
+        for(auto &render : this->stages) {
+            render->draw();
+        }
 
         // swap buffers (this will synchronize to vblank if enabled)
+        for(auto &render : this->stages) {
+            render->willEndFrame();
+        }
+
+        this->endFrameFpsUpdate();
         SDL_GL_SwapWindow(this->win);
+
+        // invoke the final frame lifecycle callback and set up for the next one
+        for(auto &render : this->stages) {
+            render->didEndFrame();
+        }
     }
 
-    // clean-up
-    this->saveWindowSize();
-
     return reason;
+}
+
+/**
+ * Handles events provided by SDL.
+ */
+void MainWindow::handleEvent(const SDL_Event &event, int &reason) {
+    // always handle some events
+    switch(event.type) {
+        // window events
+        case SDL_WINDOWEVENT: {
+            // ignore events for other windows
+            auto ourId = SDL_GetWindowID(this->win);
+            if(event.window.windowID != ourId) {
+                break;
+            }
+
+            switch (event.window.event) {
+                // window resized; reshape renderers
+                case SDL_WINDOWEVENT_RESIZED: {
+                    unsigned int width = event.window.data1;
+                    unsigned int height = event.window.data2;
+
+                    this->saveWindowSize();
+
+                    for(auto &render : this->stages) {
+                        render->reshape(width, height);
+                    }
+                    break;
+                }
+
+                // we ignore all other window events
+                default:
+                    break;
+            }
+            break;
+        }
+
+        // quit
+        case SDL_QUIT:
+            this->running = false;
+            reason = 1;
+            break;
+    }
+
+    // provide events to the UI stages in reverse order
+    for(auto rit = this->stages.rbegin(); rit != this->stages.rend(); ++rit) {
+        auto &render = *rit;
+
+        if(render->handleEvent(event)) {
+            return;
+        }
+    }
+
+    // default handlers for some other types of events
+    switch(event.type) {
+        // unhandled event type
+        default:
+            break;
+    }
 }
 
 /**
@@ -200,4 +270,45 @@ void MainWindow::saveWindowSize() {
 
     io::PrefsManager::setUnsigned("window.width", w);
     io::PrefsManager::setUnsigned("window.height", h);
+}
+
+
+
+/**
+ * Start of frame handler for fps counting
+ */
+void MainWindow::startFrameFpsUpdate() {
+    this->frameStartTime = (unsigned long) SDL_GetPerformanceCounter();
+}
+
+/**
+ * Calculates the length of the frame, and if enough samples have been acquired, calculates the
+ * average time needed to render a frame.
+ */
+void MainWindow::endFrameFpsUpdate() {
+    // Calculate the difference in milliseconds
+    unsigned long now = (unsigned long) SDL_GetPerformanceCounter();
+    unsigned long difference = now - this->frameStartTime;
+
+    double frequency = (double) SDL_GetPerformanceFrequency();
+    this->frameTimeLast = (((double) difference) / frequency) * 1000.f;
+
+    // Push it into the averaging queue.
+    this->frameTimes.push(this->frameTimeLast);
+
+    // If we have enough entries, average.
+    if(this->frameTimes.size() == kNumFrameValues) {
+        // calculate an average
+        this->frameTimeAvg = 0.f;
+
+        for(size_t i = 0; i < kNumFrameValues; i++) {
+            this->frameTimeAvg += this->frameTimes.front();
+            this->frameTimes.pop();
+        }
+
+        this->frameTimeAvg /= (double) kNumFrameValues;
+    }
+
+    // increment frame counter
+    this->framesExecuted++;
 }

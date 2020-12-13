@@ -24,7 +24,7 @@ namespace gfx {
 class ShaderProgram {
     public:
         ShaderProgram();
-        ShaderProgram(const std::string &vertSource, const std::string &fragSource);
+        ShaderProgram(const std::string &vertPath, const std::string &fragPath);
         ~ShaderProgram();
 
         void addShaderSource(const std::string &source);
