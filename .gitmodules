@@ -28,3 +28,12 @@
 [submodule "libs/tinyobjloader"]
 	path = libs/tinyobjloader
 	url = git@github.com:tinyobjloader/tinyobjloader.git
+[submodule "libs/concurrentqueue"]
+	path = libs/concurrentqueue
+	url = git@github.com:cameron314/concurrentqueue.git
+[submodule "libs/stduuid"]
+	path = libs/stduuid
+	url = git@github.com:mariusbancila/stduuid.git
+[submodule "libs/lz4"]
+	path = libs/lz4
+	url = git@github.com:lz4/lz4.git
