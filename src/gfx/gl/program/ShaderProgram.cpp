@@ -136,14 +136,24 @@ void ShaderProgram::bind() {
  * Finds the location of a certain attribute.
  */
 GLint ShaderProgram::getAttribLocation(const std::string &name) {
-    return glGetAttribLocation(this->program, name.c_str());
+    auto loc = glGetAttribLocation(this->program, name.c_str());
+#ifndef NDEBUG
+    if(loc == -1) {
+        Logging::error("Failed to find attribute '{}' on {}", name, (void *) this);
+    }
+#endif
+    return loc;
 }
 
 /**
  * Finds the location of a certain uniform.
  */
 GLint ShaderProgram::getUniformLocation(const std::string &name) {
-    return glGetUniformLocation(this->program, name.c_str());
+    auto loc = glGetUniformLocation(this->program, name.c_str());
+    if(loc == -1) {
+        Logging::error("Failed to find uniform '{}' on {}", name, (void *) this);
+    }
+    return loc;
 }
 
 /**
@@ -197,7 +207,7 @@ void ShaderProgram::setUniformVec(const std::string &name, glm::vec4 vec) {
 /**
  * Sends a 3x3 matrix to the specified uniform.
  */
-void ShaderProgram::setUniformMatrix(const std::string &name, glm::mat3 matrix) {
+void ShaderProgram::setUniformMatrix(const std::string &name, const glm::mat3 &matrix) {
     GLint loc = this->getUniformLocation(name);
     glUniformMatrix3fv(loc, 1, GL_FALSE, glm::value_ptr(matrix));
 }
@@ -205,7 +215,7 @@ void ShaderProgram::setUniformMatrix(const std::string &name, glm::mat3 matrix) 
 /**
  * Sends a 4x4 matrix to the specified uniform.
  */
-void ShaderProgram::setUniformMatrix(const std::string &name, glm::mat4 matrix) {
+void ShaderProgram::setUniformMatrix(const std::string &name, const glm::mat4 &matrix) {
     GLint loc = this->getUniformLocation(name);
     glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(matrix));
 }

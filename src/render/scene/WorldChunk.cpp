@@ -4,6 +4,8 @@
 #include "gfx/gl/buffer/VertexArray.h"
 #include "gfx/model/RenderProgram.h"
 
+#include <Logging.h>
+
 #include <glbinding/gl/gl.h>
 
 using namespace render;
@@ -70,13 +72,14 @@ WorldChunk::WorldChunk() {
 
     // fill the vertex buffer with our vertex structs
     this->vbo->bind();
-    this->vbo->bufferData(sizeof(kCubeVertices), (void *) &kCubeVertices);;
+    this->vbo->bufferData(sizeof(kCubeVertices), (void *) &kCubeVertices);
 
-    // configure the vertex attributes (position, normal, UV coords)
+
+    // index of vertex position
     this->vao->registerVertexAttribPointer(0, 3, VertexArray::Float, 5 * sizeof(gl::GLfloat), 0);
-
-    this->vao->registerVertexAttribPointer(2, 2, VertexArray::Float, 5 * sizeof(gl::GLfloat),
-                                           3 * sizeof(gl::GLfloat));
+    // index of texture sampling position
+    this->vao->registerVertexAttribPointer(1, 2, VertexArray::Float, 5 * sizeof(gl::GLfloat),
+            3 * sizeof(gl::GLfloat));
 
     // unbind the VAO
     VertexArray::unbind();

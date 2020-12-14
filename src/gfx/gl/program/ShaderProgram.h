@@ -46,8 +46,8 @@ class ShaderProgram {
         void setUniformVec(const std::string &name, glm::vec3 vec);
         void setUniformVec(const std::string &name, glm::vec4 vec);
 
-        void setUniformMatrix(const std::string &name, glm::mat3 matrix);
-        void setUniformMatrix(const std::string &name, glm::mat4 matrix);
+        void setUniformMatrix(const std::string &name, const glm::mat3 &matrix);
+        void setUniformMatrix(const std::string &name, const glm::mat4 &matrix);
 
     private:
         gl::GLuint program;

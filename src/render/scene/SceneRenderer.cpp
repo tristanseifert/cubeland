@@ -22,7 +22,7 @@ gl::GLuint VBO, VAO;
 // World space positions of the objects
 static const glm::vec3 cubePositions[] = {
     glm::vec3( 1.3f, -2.0f, -2.5f),
-    glm::vec3( 0.0f,  0.0f,  0.0f),
+    glm::vec3( 1.0f,  1.0f,  1.0f),
     glm::vec3( 2.0f,  5.0f, -15.0f),
     glm::vec3(-1.5f, -2.2f, -2.5f),
     glm::vec3(-3.8f, -2.0f, -12.3f),
@@ -58,7 +58,7 @@ void SceneRenderer::preRender(WorldRenderer *) {
 
     // Enable depth testing
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
+    glDepthFunc(GL_LESS);
 
     // set up culling
     glEnable(GL_CULL_FACE);
