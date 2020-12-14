@@ -11,8 +11,13 @@
 #include <atomic>
 #include <functional>
 #include <stdexcept>
+#include <future>
+#include <cstdint>
+
+#include <uuid.h>
 
 struct sqlite3;
+struct sqlite3_stmt;
 
 namespace world {
 /**
@@ -24,6 +29,9 @@ class FileWorldReader: public WorldReader {
         FileWorldReader(const std::string &path, const bool create = false);
 
         ~FileWorldReader();
+
+        /// Returns the number of bytes used by the database
+        std::promise<size_t> getDbSize();
 
     private:
         class DbError: public std::runtime_error {
@@ -42,6 +50,32 @@ class FileWorldReader: public WorldReader {
         void initializeSchema();
 
         bool tableExists(const std::string &name);
+
+        bool getWorldInfo(const std::string &key, std::string &value);
+        void setWorldInfo(const std::string &key, const std::string &value);
+
+        size_t getDbBytesUsed();
+
+        void prepare(const std::string &, sqlite3_stmt **);
+
+        void bindColumn(sqlite3_stmt *, const size_t, const std::string &);
+        void bindColumn(sqlite3_stmt *, const size_t, const std::vector<unsigned char> &);
+        void bindColumn(sqlite3_stmt *, const size_t, const uuids::uuid &);
+        void bindColumn(sqlite3_stmt *, const size_t, const double);
+        void bindColumn(sqlite3_stmt *, const size_t, const int32_t);
+        void bindColumn(sqlite3_stmt *, const size_t, const int64_t);
+        void bindColumn(sqlite3_stmt *, const size_t, std::nullptr_t);
+        void bindColumn(sqlite3_stmt *stmt, const size_t i, const bool value) {
+            this->bindColumn(stmt, i, (int32_t) (value ? 1 : 0));
+        }
+
+        bool getColumn(sqlite3_stmt *, const size_t, std::string &);
+        bool getColumn(sqlite3_stmt *, const size_t, std::vector<unsigned char> &);
+        bool getColumn(sqlite3_stmt *, const size_t, uuids::uuid &);
+        bool getColumn(sqlite3_stmt *, const size_t, double &);
+        bool getColumn(sqlite3_stmt *, const size_t, int32_t &);
+        bool getColumn(sqlite3_stmt *, const size_t, int64_t &);
+        bool getColumn(sqlite3_stmt *, const size_t, bool &);
 
     private:
         void workerMain();

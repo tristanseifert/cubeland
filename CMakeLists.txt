@@ -275,8 +275,9 @@ target_link_libraries(cubeland PRIVATE lz4)
 target_include_directories(cubeland PRIVATE libs/lz4/lib)
 
 # stduuid (uuid support library)
-target_include_directories(cubeland PRIVATE libs/stduuid/include)
-target_include_directories(cubeland PRIVATE libs/stduuid/gsl)
+# this has to be treated as a system library to prevent conflicts against system uuid libs
+target_include_directories(cubeland SYSTEM BEFORE PRIVATE libs/stduuid/include)
+# target_include_directories(cubeland PRIVATE libs/stduuid/gsl)
 
 # concurrent queue
 target_include_directories(cubeland PRIVATE libs/concurrentqueue)

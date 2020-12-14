@@ -5,11 +5,11 @@
 --- World info table
 CREATE TABLE worldinfo_v1 (
     id INTEGER UNIQUE PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
+    name TEXT UNIQUE NOT NULL,
     value BLOB,
     modified DATETIME DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX worldinfo_name ON worldinfo_v1(name);
+CREATE UNIQUE INDEX worldinfo_name ON worldinfo_v1(name);
 
 
 
