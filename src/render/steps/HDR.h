@@ -78,7 +78,7 @@ class HDR: public RenderStep {
         // size of the blur kernel to use (5, 9, or 13)
         const int blurSize = 13;
         // Number to divide viewport size with when blurring
-        const int bloomTexDivisor = 1;
+        int bloomTexDivisor = 2;
 
         // when set, the bloom buffers are "dirty" and must be disabled after bloom is turned off
         bool bloomBufferDirty = true;

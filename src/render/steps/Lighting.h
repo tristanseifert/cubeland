@@ -116,7 +116,7 @@ class Lighting : public RenderStep {
         std::shared_ptr<SceneRenderer> shadowSceneRenderer = nullptr;
 
         // Shadow texture dimensions
-        unsigned int shadowW = 1024, shadowH = 1024;
+        unsigned int shadowW = 2048, shadowH = 2048;
 
         // Shadow model rendering program
         std::shared_ptr<gfx::RenderProgram> shadowRenderProgram = nullptr;

@@ -49,7 +49,7 @@ class Camera {
         glm::mat4 view;
 
         // when set, the camera debug window is visible
-        bool showDebugWindow = true;
+        bool showDebugWindow = false;
 };
 }
 

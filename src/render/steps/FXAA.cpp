@@ -9,9 +9,9 @@
 
 #include <Logging.h>
 
+#include <imgui.h>
 #include <glbinding/gl/gl.h>
 #include <glbinding/Binding.h>
-
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -57,7 +57,7 @@ FXAA::FXAA() {
 
     // input colour (RGBA) buffer
     this->inColor = std::make_shared<gfx::Texture2D>(2);
-    this->inColor->allocateBlank(1024, 768, gfx::Texture2D::RGBA8); // TODO: proper size
+    this->inColor->allocateBlank(1024, 768, gfx::Texture2D::RGBA16F); // TODO: proper size
     this->inColor->setDebugName("FXAAColorIn");
 
     this->inFBO->attachTexture2D(this->inColor, gfx::FrameBuffer::ColourAttachment0);
@@ -96,6 +96,9 @@ void FXAA::preRender(WorldRenderer *) {
  * currently - usually that's the screen.
  */
 void FXAA::render(WorldRenderer *renderer) {
+    // set viewport
+    glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
+
     // use our HDR shader and bind its textures
     this->program->bind();
     this->inColor->bind();
@@ -106,6 +109,8 @@ void FXAA::render(WorldRenderer *renderer) {
     // send some program information
     this->program->setUniform1i("inSceneColours", this->inColor->unit);
     this->program->setUniform1f("gamma", this->gamma);
+
+    this->program->setUniform1i("doFXAA", this->fxaaEnabled ? 1 : 0);
 
     // set the FXAA quality settings
     this->program->setUniform1f("fxaaSubpixelAliasing", this->fxaaSubpixelAliasing);
@@ -143,5 +148,36 @@ void FXAA::reshape(int w, int h) {
     this->program->setUniformVec("rcpFrameOpt2", rcpFrameOpt2);
 
     // Re-allocate the input texture
-    this->inColor->allocateBlank(width, height, gfx::Texture2D::RGBA8);
+    this->inColor->allocateBlank(width, height, gfx::Texture2D::RGBA16F);
+
+    /* this->inFBO->bindRW();
+    this->inFBO->attachTexture2D(this->inColor, gfx::FrameBuffer::ColourAttachment0);
+    XASSERT(gfx::FrameBuffer::isComplete(), "FXAA input FBO incomplete");
+    gfx::FrameBuffer::unbindRW(); */
+}
+
+
+/**
+ * Draws the FXAA renderer debug window
+ */
+void FXAA::drawDebugWindow() {
+    // short circuit drawing if not visible
+    if(!ImGui::Begin("FXAA Renderer", &this->showDebugWindow)) {
+        goto done;
+    }
+
+    ImGui::Checkbox("Enabled", &this->fxaaEnabled);
+
+    ImGui::PushItemWidth(74);
+
+    ImGui::DragFloat("Output Gamma", &this->gamma, 0.01, 0);
+
+    ImGui::DragFloat("Subpixel Aliasing", &this->fxaaSubpixelAliasing, 0.01, 0, 1);
+    ImGui::DragFloat("Edge Threshold", &this->fxaaEdgeThreshold, 0.01, 0, 1);
+    ImGui::DragFloat("Edge Threshold Min", &this->fxaaEdgeThresholdMin, 0.01, 0, 1);
+    ImGui::DragFloat("Edge Sharpness", &this->fxaaEdgeSharpness, 0.01, 0);
+
+    ImGui::PopItemWidth();
+done:;
+    ImGui::End();
 }

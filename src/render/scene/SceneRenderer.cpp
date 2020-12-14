@@ -62,7 +62,7 @@ void SceneRenderer::preRender(WorldRenderer *) {
 
     // set up culling
     glEnable(GL_CULL_FACE);
-    // glCullFace(GL_BACK);
+    glCullFace(GL_BACK);
     glFrontFace(GL_CW);
 }
 
@@ -70,6 +70,8 @@ void SceneRenderer::preRender(WorldRenderer *) {
  * Actually renders the scene.
  */
 void SceneRenderer::render(WorldRenderer *renderer) {
+    gl::glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
+
     glm::mat4 projView = this->projectionMatrix * this->viewMatrix;
     this->_doRender(projView, this->program);
 }

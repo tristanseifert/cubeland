@@ -28,8 +28,6 @@
 
 #include <cstdio>
 
-#define SHADOW_COLOR_ATTACHMENT 0
-
 using namespace render;
 
 // test data
@@ -170,15 +168,6 @@ void Lighting::setUpShadowing() {
     this->shadowFbo = std::make_shared<FrameBuffer>();
     this->shadowFbo->bindRW();
 
-	// Create debug color texture
-#if SHADOW_COLOR_ATTACHMENT
-    this->shadowColorTex = std::make_shared<Texture2D>(5);
-    this->shadowColorTex->allocateBlank(this->shadowW, this->shadowH, Texture2D::RGBA8);
-    this->shadowColorTex->setDebugName("shadowMapColor");
-
-    this->shadowFbo->attachTexture2D(this->shadowColorTex, FrameBuffer::ColourAttachment0);
-#endif
-
     // Create depth texture
     this->shadowTex = std::make_shared<Texture2D>(4);
     this->shadowTex->allocateBlank(this->shadowW, this->shadowH, Texture2D::DepthGeneric);
@@ -190,15 +179,7 @@ void Lighting::setUpShadowing() {
     this->shadowFbo->attachTexture2D(this->shadowTex, FrameBuffer::Depth);
 
     // finish framebuffer
-#if SHADOW_COLOR_ATTACHMENT
-    FrameBuffer::AttachmentType buffers[] = {
-        FrameBuffer::ColourAttachment0,
-        FrameBuffer::End
-    };
-    this->shadowFbo->setDrawBuffers(buffers);
-#else
     this->shadowFbo->drawBuffersWithoutColour();
-#endif
 
     XASSERT(FrameBuffer::isComplete(), "shadow mapping FBO incomplete");
     FrameBuffer::unbindRW();
@@ -436,6 +417,9 @@ void Lighting::preRender(WorldRenderer *renderer) {
  * Renders the lighting pass.
  */
 void Lighting::render(WorldRenderer *renderer) {
+    // set viewport
+    gl::glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
+
     // Change direction based off time
     float time = this->time / 7.5f;
     float sunAngle = cos(time);
@@ -729,7 +713,7 @@ void Lighting::drawLightsTable() {
 
     if(ImGui::BeginTable("lights", 6, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch)) {
         // headers
-        ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 28);
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 25);
         ImGui::TableSetupColumn("Diffuse");
         ImGui::TableSetupColumn("Specular");
         ImGui::TableSetupColumn("Position");
@@ -755,10 +739,14 @@ void Lighting::drawLightsTable() {
                         ImGui::SetTooltip("Ambient");
                     }
 
+                    ImGui::PushItemWidth(175);
+
                     ImGui::TableNextColumn();
-                    ImGui::ColorEdit3("##diff", &light->diffuseColor.x);
+                    ImGui::DragFloat3("##diff", &light->diffuseColor.x, 0.01, -10, 10);
                     ImGui::TableNextColumn();
-                    ImGui::ColorEdit3("##spec", &light->specularColor.x);
+                    ImGui::DragFloat3("##spec", &light->specularColor.x, 0.01, -10, 10);
+
+                    ImGui::PopItemWidth();
                     break;
 
                 case AbstractLight::Directional: {
@@ -770,16 +758,20 @@ void Lighting::drawLightsTable() {
                         ImGui::SetTooltip("Directional");
                     }
 
+                    ImGui::PushItemWidth(175);
+
                     ImGui::TableNextColumn();
-                    ImGui::ColorEdit3("##diff", &light->diffuseColor.x);
+                    ImGui::DragFloat3("##diff", &light->diffuseColor.x, 0.01, -10, 10);
                     ImGui::TableNextColumn();
-                    ImGui::ColorEdit3("##spec", &light->specularColor.x);
+                    ImGui::DragFloat3("##spec", &light->specularColor.x, 0.01, -10, 10);
 
                     ImGui::TableNextColumn();
                     ImGui::TextDisabled("-");
 
                     ImGui::TableNextColumn();
                     ImGui::DragFloat3("##dir", &dir->direction.x, 0.01);
+
+                    ImGui::PopItemWidth();
 
                     ImGui::TableNextColumn();
                     ImGui::TextDisabled("-");
@@ -795,13 +787,17 @@ void Lighting::drawLightsTable() {
                         ImGui::SetTooltip("Point");
                     }
 
+                    ImGui::PushItemWidth(175);
+
                     ImGui::TableNextColumn();
-                    ImGui::ColorEdit3("##diff", &light->diffuseColor.x);
+                    ImGui::DragFloat3("##diff", &light->diffuseColor.x, 0.01, -10, 10);
                     ImGui::TableNextColumn();
-                    ImGui::ColorEdit3("##spec", &light->specularColor.x);
+                    ImGui::DragFloat3("##spec", &light->specularColor.x, 0.01, -10, 10);
 
                     ImGui::TableNextColumn();
                     ImGui::DragFloat3("##pos", &pt->position.x);
+
+                    ImGui::PopItemWidth();
 
                     ImGui::TableNextColumn();
                     ImGui::TextDisabled("-");

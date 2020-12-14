@@ -224,6 +224,7 @@ void HDR::reshape(int width, int height) {
 
     this->inBloom1->allocateBlank(bloomW, bloomH, Texture2D::RGB16F);
     this->inBloom2->allocateBlank(bloomW, bloomH, Texture2D::RGB16F);
+    this->bloomBufferDirty = true;
 }
 
 
@@ -248,6 +249,10 @@ void HDR::preRender(WorldRenderer *) {
  * Performs rendering of the HDR.
  */
 void HDR::render(WorldRenderer *renderer) {
+    // set viewport
+    gl::glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
+
+    // extract the bright/blur parts of the buffers
     if(this->bloomEnabled) {
         // extract bright pixels
         this->renderExtractBright();
@@ -265,11 +270,11 @@ void HDR::render(WorldRenderer *renderer) {
             gl::glClear(gl::GL_COLOR_BUFFER_BIT);
 
             gfx::FrameBuffer::unbindRW();
-            this->bloomBufferDirty = false;
         }
     }
 
     // perform tonemapping
+    gl::glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
     this->renderPerformTonemapping();
 }
 
@@ -379,7 +384,6 @@ void HDR::renderPerformTonemapping(void) {
     // TODO: Dynamically calculate white point
     this->tonemapProgram->setUniformVec("whitePoint", this->whitePoint);
 
-
     // bind VAO for a full-screen quad and render
     this->quadVAO->bind();
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -392,7 +396,8 @@ void HDR::renderPerformTonemapping(void) {
  * Do nothing
  */
 void HDR::postRender(WorldRenderer *) {
-
+    // clear per-frame flags
+    this->bloomBufferDirty = false;
 }
 
 /**
@@ -529,6 +534,14 @@ void HDR::drawDebugWindow() {
     ImGui::Checkbox("Enabled", &this->bloomEnabled);
     ImGui::DragInt("Blur Passes", &this->numBlurPasses, 1, 3, 19);
     ImGui::DragFloat("Blend Factor", &this->bloomFactor, 0.01, 0, 2);
+
+    if(ImGui::DragInt("Size Factor", &this->bloomTexDivisor, 1, 1, 16)) {
+        unsigned int bloomW = this->viewportSize.x / this->bloomTexDivisor;
+        unsigned int bloomH = this->viewportSize.y / this->bloomTexDivisor;
+
+        this->inBloom1->allocateBlank(bloomW, bloomH, gfx::Texture2D::RGB16F);
+        this->inBloom2->allocateBlank(bloomW, bloomH, gfx::Texture2D::RGB16F);
+    }
 
     // exposure
     ImGui::Text("Tonemapping");

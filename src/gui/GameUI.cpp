@@ -80,19 +80,33 @@ GameUI::GameUI(SDL_Window *_window, void *context) : window(_window) {
 
     ImGuiIO& io = ImGui::GetIO();
 
-    io.MouseDrawCursor = true;
+    // io.MouseDrawCursor = true;
+
+    // get window physical size
+    int w, cw, h, ch;
+    SDL_GetWindowSize(_window, &w, &h);
+    SDL_GL_GetDrawableSize(_window, &cw, &ch);
+
+    double xScale = ((double) cw) / ((double) w);
+    double yScale = ((double) ch) / ((double) h);
+    double scale = std::max(xScale, yScale);
+
+    Logging::debug("Window size {}x{}, context size {}x{} -> scale {}", w, h, cw, ch, scale);
 
     // set up the styles based on the window's scale factor
-    // double scale = 2.0;
-    double scale = 1.0;
-    this->loadFonts(scale);
+    this->loadFonts(1 /*scale*/);
 
     ImGui::StyleColorsDark();
-    ImGui::GetStyle().ScaleAllSizes(1.0 / scale);
+    // ImGui::GetStyle().ScaleAllSizes(1.0 / scale);
+    // ImGui::GetStyle().ScaleAllSizes(1.0 / scale);
+
+    io.DisplayFramebufferScale.x = xScale;
+    io.DisplayFramebufferScale.y = yScale;
 
     // initialize the GL drawing layer
     ImGui_ImplSDL2_InitForOpenGL(this->window, context);
     ImGui_ImplOpenGL3_Init(nullptr);
+
 }
 
 /**
@@ -194,8 +208,6 @@ void GameUI::draw() {
     // then, actually draw it. be sure alpha blending is enabled
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    glViewport(0, 0, (int) io.DisplaySize.x, (int) io.DisplaySize.y);
 
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }

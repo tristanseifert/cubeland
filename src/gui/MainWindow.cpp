@@ -79,7 +79,7 @@ void MainWindow::makeWindow() {
     int err;
 
     // create window; allowing for HiDPI contexts
-    const auto flags = SDL_WINDOW_OPENGL | /*SDL_WINDOW_ALLOW_HIGHDPI |*/ SDL_WINDOW_HIDDEN | 
+    const auto flags = SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN | 
                        SDL_WINDOW_RESIZABLE;
     this->win = SDL_CreateWindow("Cubeland", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
             kDefaultWidth, kDefaultHeight, flags);
@@ -143,7 +143,7 @@ void MainWindow::show() {
 
     // capture mouse
     // SDL_SetRelativeMouseMode(SDL_TRUE);
-    SDL_ShowCursor(1);
+    // SDL_ShowCursor(1);
 
     /**
      * MacOS kludge: we need to give SDL an extra hint to make relative mouse
@@ -166,7 +166,7 @@ void MainWindow::setMouseCaptureState(bool captured) {
         SDL_ShowCursor(1);
     } else {
         SDL_SetRelativeMouseMode(SDL_FALSE);
-        SDL_ShowCursor(1);
+        SDL_ShowCursor(0);
     }
 }
 
@@ -176,6 +176,7 @@ void MainWindow::setMouseCaptureState(bool captured) {
  * @return Reason the window closed.
  */
 int MainWindow::run() {
+    int w, h;
     int reason = 0;
     SDL_Event event;
 
@@ -199,6 +200,9 @@ int MainWindow::run() {
         // clear the output buffer, then draw the scene and UI ontop
         glClearColor(0, 0, 0, 0);
         glClear(GL_COLOR_BUFFER_BIT);
+
+        SDL_GL_GetDrawableSize(this->win, &w, &h);
+        glViewport(0, 0, (GLsizei) w, (GLsizei) h);
 
         for(auto &render : this->stages) {
             render->draw();
@@ -240,11 +244,8 @@ void MainWindow::handleEvent(const SDL_Event &event, int &reason) {
             switch (event.window.event) {
                 // window resized; reshape renderers
                 case SDL_WINDOWEVENT_RESIZED: {
-                    unsigned int width = event.window.data1;
-                    unsigned int height = event.window.data2;
-
                     // update viewport
-                    SDL_GetWindowSize(this->win, &w, &h);
+                    SDL_GL_GetDrawableSize(this->win, &w, &h);
                     glViewport(0, 0, (GLsizei) w, (GLsizei) h);
 
                     this->saveWindowSize();

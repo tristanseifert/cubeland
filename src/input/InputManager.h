@@ -92,10 +92,10 @@ class InputManager {
         /**
          * Player movement sensitivity. It multiplies the basic movement delta.
          */
-        float movementSensitivity = 0.125;
+        float movementSensitivity = 0.15;
 
         // whether user input has any effect on the camera position
-        bool inputUpdatesCamera = true;
+        bool inputUpdatesCamera = false;
         // when set, the input debug view is visible
         bool showDebugWindow = true;
 

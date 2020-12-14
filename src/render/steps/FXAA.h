@@ -30,7 +30,11 @@ class FXAA : public RenderStep {
         FXAA();
         ~FXAA();
 
-        void startOfFrame(void) { }
+        void startOfFrame(void) {
+            if(this->showDebugWindow) {
+                this->drawDebugWindow();
+            }
+        }
 
         void preRender(WorldRenderer *);
         void render(WorldRenderer *);
@@ -47,6 +51,9 @@ class FXAA : public RenderStep {
         }
 
     private:
+        // when disabled, we just blit the buffers
+        bool fxaaEnabled = true;
+
         // gamma component
         float gamma = 2.2f;
 
@@ -66,6 +73,12 @@ class FXAA : public RenderStep {
     private:
         std::shared_ptr<gfx::VertexArray> quadVAO = nullptr;
         std::shared_ptr<gfx::Buffer> quadVBO = nullptr;
+
+    private:
+        void drawDebugWindow();
+
+        // when set, the render debug window is shown
+        bool showDebugWindow = true;
 };
 }
 
