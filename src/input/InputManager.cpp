@@ -5,6 +5,7 @@
 #include <Logging.h>
 #include "io/Format.h"
 
+#include <mutils/time/profiler.h>
 #include <imgui.h>
 #include <glm/vec3.hpp>
 #include <SDL.h>
@@ -27,6 +28,8 @@ InputManager::InputManager(gui::MainWindow *_w) : window(_w) {
  * At the start of the frame, zero out our angles based on the previous frame's input movement.
  */
 void InputManager::startFrame() {
+    PROFILE_SCOPE(InputMgr);
+
     // calculate angles and positions
     this->updateAngles();
     this->updatePosition();
@@ -38,6 +41,9 @@ void InputManager::startFrame() {
     // draw the UI
     if(this->showDebugWindow) {
         this->drawDebugWindow();
+    }
+    if(this->showProfiler) {
+        MUtils::Profiler::ShowProfile(&this->showProfiler);
     }
 }
 
@@ -103,6 +109,7 @@ void InputManager::updatePosition() {
  * Currently, we capture all keyboard and mouse movement events.
  */
 bool InputManager::handleEvent(const SDL_Event &event) {
+    PROFILE_SCOPE(InputMgr);
 
     switch(event.type) {
         // mouse moved
@@ -149,6 +156,13 @@ void InputManager::handleKey(int scancode, unsigned int modifiers, bool isDown) 
             if(this->showDebugWindow && !isDown) {
                 this->inputUpdatesCamera = !this->inputUpdatesCamera;
                 this->window->setMouseCaptureState(this->inputUpdatesCamera);
+            }
+            break;
+
+        // F7 toggles the profiler
+        case SDL_SCANCODE_F7:
+            if(isDown) {
+                this->showProfiler = !this->showProfiler;
             }
             break;
 

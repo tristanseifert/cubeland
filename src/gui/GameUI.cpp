@@ -11,6 +11,7 @@
 
 #include <cstring>
 
+#include <mutils/time/profiler.h>
 #include <glbinding/gl/gl.h>
 #include <glbinding/Binding.h>
 #include <SDL.h>
@@ -161,6 +162,8 @@ GameUI::~GameUI() {
  * @return Whether the event was consumed by the GUI layer.
  */
 bool GameUI::handleEvent(const SDL_Event &event) {
+    PROFILE_SCOPE(GuiEvents);
+
     const auto io = ImGui::GetIO();
     ImGui_ImplSDL2_ProcessEvent(&event);
 
@@ -183,6 +186,8 @@ bool GameUI::handleEvent(const SDL_Event &event) {
  * Prepares for the next frame of rendering.
  */
 void GameUI::willBeginFrame() {
+    PROFILE_SCOPE(GuiStartFrame);
+
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame(this->window);
     ImGui::NewFrame();
@@ -199,6 +204,8 @@ void GameUI::willBeginFrame() {
  * Draws the UI on the current context.
  */
 void GameUI::draw() {
+    PROFILE_SCOPE(GuiDraw);
+
     using namespace gl;
     const auto io = ImGui::GetIO();
 

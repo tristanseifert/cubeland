@@ -19,6 +19,7 @@
 #include <Logging.h>
 #include "io/Format.h"
 
+#include <mutils/time/profiler.h>
 #include <glbinding/gl/gl.h>
 #include <glbinding/Binding.h>
 #include <imgui.h>
@@ -340,6 +341,7 @@ void Lighting::startOfFrame() {
  */
 void Lighting::sendLightsToShader(void) {
     using namespace gfx::lights;
+    PROFILE_SCOPE(LightingSend);
 
     // set up counters
     int numDirectional, numPoint, numSpot;
@@ -417,6 +419,8 @@ void Lighting::preRender(WorldRenderer *renderer) {
  * Renders the lighting pass.
  */
 void Lighting::render(WorldRenderer *renderer) {
+    PROFILE_SCOPE(LightingRender);
+
     // set viewport
     gl::glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
 
@@ -437,7 +441,7 @@ void Lighting::render(WorldRenderer *renderer) {
     // Send ambient light
     this->program->setUniform1f("ambientLight.Intensity", 0.05f);
     this->program->setUniformVec("ambientLight.Colour", glm::vec3(1.0, 1.0, 1.0));
-    this->sun->setDirection(glm::vec3(sunAngle, 0.f, 0.f));
+    // this->sun->setDirection(glm::vec3(sunAngle, 0.f, 0.f));
 
     // send the different types of light
     /*this->spot->setDirection(this->viewDirection);
@@ -487,6 +491,7 @@ void Lighting::render(WorldRenderer *renderer) {
 void Lighting::renderSkybox(void) {
     using namespace gfx;
     using namespace gl;
+    PROFILE_SCOPE(LightingSkybox);
 
     // re-enable depth testing
     glEnable(GL_DEPTH_TEST);
@@ -587,6 +592,7 @@ int Lighting::removeLight(std::shared_ptr<gfx::lights::AbstractLight> light) {
 void Lighting::renderShadowMap(WorldRenderer *wr) {
     using namespace gl;
     using namespace gfx;
+    PROFILE_SCOPE(LightingShadow);
 
     // back up last viewport
     GLint last_viewport[4];

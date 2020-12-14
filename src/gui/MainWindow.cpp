@@ -6,6 +6,7 @@
 
 #include <Logging.h>
 
+#include <mutils/time/profiler.h>
 #include <glbinding/gl/gl.h>
 #include <glbinding/Binding.h>
 #include <SDL.h>
@@ -24,6 +25,10 @@ MainWindow::MainWindow() {
 
     this->configGLContext();
     this->makeWindow();
+
+    // set up profiling
+    MUtils::Profiler::Init();
+    PROFILE_NAME_THREAD("Main");
 
     // create the renderers
     auto world = std::make_shared<render::WorldRenderer>(this);
@@ -185,38 +190,56 @@ int MainWindow::run() {
     // main run loop
     while(this->running) {
         // start the FPS counting
+        MUtils::Profiler::NewFrame();
         this->startFrameFpsUpdate();
 
         // handle events
-        while (SDL_PollEvent(&event)) {
-            this->handleEvent(event, reason);
+        {
+            PROFILE_SCOPE(HandleEvents);
+            while (SDL_PollEvent(&event)) {
+                this->handleEvent(event, reason);
+            }
         }
+
         // prepare renderers
-        for(auto rit = this->stages.rbegin(); rit != this->stages.rend(); ++rit) {
-            auto &render = *rit;
-            render->willBeginFrame();
+        {
+            PROFILE_SCOPE(WillBeginFrame);
+            for(auto rit = this->stages.rbegin(); rit != this->stages.rend(); ++rit) {
+                auto &render = *rit;
+                render->willBeginFrame();
+            }
         }
 
         // clear the output buffer, then draw the scene and UI ontop
-        glClearColor(0, 0, 0, 0);
-        glClear(GL_COLOR_BUFFER_BIT);
+        {
+            PROFILE_SCOPE(Draw);
+            glClearColor(0, 0, 0, 0);
+            glClear(GL_COLOR_BUFFER_BIT);
 
-        SDL_GL_GetDrawableSize(this->win, &w, &h);
-        glViewport(0, 0, (GLsizei) w, (GLsizei) h);
+            SDL_GL_GetDrawableSize(this->win, &w, &h);
+            glViewport(0, 0, (GLsizei) w, (GLsizei) h);
 
-        for(auto &render : this->stages) {
-            render->draw();
+            for(auto &render : this->stages) {
+                render->draw();
+            }
         }
 
         // swap buffers (this will synchronize to vblank if enabled)
-        for(auto &render : this->stages) {
-            render->willEndFrame();
+        {
+            PROFILE_SCOPE(WillEndFrame);
+            for(auto &render : this->stages) {
+                render->willEndFrame();
+            }
         }
 
         this->endFrameFpsUpdate();
-        SDL_GL_SwapWindow(this->win);
+        {
+            PROFILE_SCOPE(SwapWindow);
+            SDL_GL_SwapWindow(this->win);
+        }
 
         // invoke the final frame lifecycle callback and set up for the next one
+        PROFILE_SCOPE(DidEndFrame);
         for(auto &render : this->stages) {
             render->didEndFrame();
         }
@@ -244,6 +267,8 @@ void MainWindow::handleEvent(const SDL_Event &event, int &reason) {
             switch (event.window.event) {
                 // window resized; reshape renderers
                 case SDL_WINDOWEVENT_RESIZED: {
+                    PROFILE_SCOPE(Reshape);
+
                     // update viewport
                     SDL_GL_GetDrawableSize(this->win, &w, &h);
                     glViewport(0, 0, (GLsizei) w, (GLsizei) h);
@@ -271,19 +296,13 @@ void MainWindow::handleEvent(const SDL_Event &event, int &reason) {
     }
 
     // provide events to the UI stages in reverse order
+    PROFILE_SCOPE(StageEvent);
     for(auto rit = this->stages.rbegin(); rit != this->stages.rend(); ++rit) {
         auto &render = *rit;
 
         if(render->handleEvent(event)) {
             return;
         }
-    }
-
-    // default handlers for some other types of events
-    switch(event.type) {
-        // unhandled event type
-        default:
-            break;
     }
 }
 

@@ -10,7 +10,7 @@
 #include <Logging.h>
 
 #include <glbinding/gl/gl.h>
-
+#include <mutils/time/profiler.h>
 #include <glm/vec3.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -81,6 +81,7 @@ void SceneRenderer::render(WorldRenderer *renderer) {
  */
 void SceneRenderer::_doRender(glm::mat4 projView, std::shared_ptr<gfx::RenderProgram> program, bool hasNormalMatrix) {
     using namespace gl;
+    PROFILE_SCOPE(SceneRender);
 
     program->bind();
     program->setUniformMatrix("projectionView", projView);

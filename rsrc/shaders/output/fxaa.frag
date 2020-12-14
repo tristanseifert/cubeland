@@ -54,7 +54,7 @@ vec4 FxaaPixelShader(
 
 void main() {
 	// run FXAA if enabled
-//	if(doFXAA == 1) {
+	if(doFXAA == 1) {
 		// apply FXAA
 		vec4 fsaaColour = FxaaPixelShader(TexCoords, TexCoordsPosPos,
 										  inSceneColours, inSceneColours,
@@ -77,16 +77,16 @@ void main() {
 		vec3 correctedColour = pow(fsaaColour.rgb, vec3(1.0 / gamma));
 //		vec3 correctedColour = pow(texture(inSceneColours, TexCoords).rgb, vec3(1.0 / gamma));
 		FragColour = correctedColour;
-/*	} else {
+	} else {
 		// sample input
 		vec4 inColour = texture(inSceneColours, TexCoords).rgba;
 
 		// gamma correction
 		vec3 correctedColour = pow(inColour.rgb, vec3(1.0 / gamma));
 		FragColour = correctedColour;
-	}*/
+	}
 
-        // FragColour = vec3(TexCoords.x, TexCoords.y, 0);
+        // FragColour = vec3(TexCoords, 0);
 }
 
 /*============================================================================

@@ -124,10 +124,14 @@ ALIAS cubeland::rsrc_models WHENCE rsrc/models NAMESPACE models)
 target_link_libraries(cubeland PRIVATE cubeland::rsrc_models)
 
 # textures
-file(GLOB TEXTURE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/rsrc/textures/*/*/*.png)
-
 cmrc_add_resource_library(cubeland-rsrc-textures
-    ${TEXTURE_FILES}
+    rsrc/textures/cube/potato/top.png
+    rsrc/textures/cube/potato/back.png
+    rsrc/textures/cube/potato/left.png
+    rsrc/textures/cube/potato/front.png
+    rsrc/textures/cube/potato/right.png
+    rsrc/textures/cube/potato/bottom.png
+    rsrc/textures/test/empty/whitegreen.png
 ALIAS cubeland::rsrc_textures WHENCE rsrc/textures NAMESPACE textures)
 target_link_libraries(cubeland PRIVATE cubeland::rsrc_textures)
 
@@ -230,10 +234,51 @@ target_include_directories(tinyobjloader PRIVATE libs/tinyobjloader)
 
 target_link_libraries(cubeland PRIVATE tinyobjloader)
 target_include_directories(cubeland PRIVATE libs/tinyobjloader)
+
+# MUtils (in source tree)
+add_library(mutils OBJECT
+    src/3rdparty/mutils/ui/dpi.cpp
+    src/3rdparty/mutils/ui/theme.cpp
+    src/3rdparty/mutils/string/murmur_hash.cpp
+    src/3rdparty/mutils/math/math_utils.cpp
+    src/3rdparty/mutils/time/timer.cpp
+    src/3rdparty/mutils/time/profiler.cpp
+)
+target_include_directories(mutils PRIVATE src/3rdparty)
+target_include_directories(mutils PRIVATE libs/glm)
+target_include_directories(mutils PRIVATE libs/imgui)
+target_include_directories(mutils PRIVATE src/gui/imgui)
+
+target_link_libraries(mutils PRIVATE fmt::fmt)
+
+target_link_libraries(cubeland PRIVATE mutils)
+target_include_directories(cubeland PRIVATE src/3rdparty)
 ###################################################################################################
 #### platform-specific libraries
 # macOS frameworks
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     target_link_libraries(cubeland PUBLIC "-framework Cocoa")
     target_link_libraries(cubeland PUBLIC "-framework ApplicationServices")
+endif()
+
+###################################################################################################
+#### Secrete a macOS bundle
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    set_target_properties(cubeland PROPERTIES
+         MACOSX_BUNDLE ON
+         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/rsrc/macos/Info.plist.in)
+
+     set(MACOSX_BUNDLE_BUNDLE_NAME "Cubeland")
+     set(MACOSX_BUNDLE_COPYRIGHT "Copyright 2020 Tristan Seifert")
+     set(MACOSX_BUNDLE_GUI_IDENTIFIER "me.tseifert.cubeland")
+     set(MACOSX_BUNDLE_ICON_FILE "")
+
+     set(MACOSX_BUNDLE_BUNDLE_VERSION "weed")
+     set(MACOSX_BUNDLE_SHORT_VERSION_STRING "420")
+
+     set(BUNDLE_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/README.md)
+    #list(APPEND BUNDLE_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/CHANGELOG.md)
+    #list(APPEND BUNDLE_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/CONTRIBUTORS.MD)
+     set_target_properties(cubeland PROPERTIES RESOURCE "${BUNDLE_RESOURCES}")
+     target_sources(cubeland PUBLIC ${BUNDLE_RESOURCES})
 endif()

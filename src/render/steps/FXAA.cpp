@@ -9,6 +9,7 @@
 
 #include <Logging.h>
 
+#include <mutils/time/profiler.h>
 #include <imgui.h>
 #include <glbinding/gl/gl.h>
 #include <glbinding/Binding.h>
@@ -96,6 +97,8 @@ void FXAA::preRender(WorldRenderer *) {
  * currently - usually that's the screen.
  */
 void FXAA::render(WorldRenderer *renderer) {
+    PROFILE_SCOPE(Fxaa);
+
     // set viewport
     glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
 

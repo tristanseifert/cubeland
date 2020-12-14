@@ -11,6 +11,7 @@
 
 #include <Logging.h>
 
+#include <mutils/time/profiler.h>
 #include <glm/ext.hpp>
 #include <SDL.h>
 

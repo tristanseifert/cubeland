@@ -8,6 +8,7 @@
 
 #include <Logging.h>
 
+#include <mutils/time/profiler.h>
 #include <imgui.h>
 #include <glbinding/gl/gl.h>
 #include <glbinding/Binding.h>
@@ -283,6 +284,7 @@ void HDR::render(WorldRenderer *renderer) {
  */
 void HDR::renderExtractBright(void) {
     using namespace gl;
+    PROFILE_SCOPE(HdrExtractBright);
 
     this->hdrLumaFBO->bindRW();
 
@@ -311,6 +313,7 @@ void HDR::renderExtractBright(void) {
  */
 void HDR::renderBlurBright(void) {
     using namespace gl;
+    PROFILE_SCOPE(HdrBlur);
 
     this->bloomBufferDirty = true;
 
@@ -329,6 +332,8 @@ void HDR::renderBlurBright(void) {
 
     // run as many times as requested
     for(int i = 0; i < (this->numBlurPasses * 2); i++) {
+        PROFILE_SCOPE(HdrBlurPass);
+
         // first iteration does horizontal blurring
         if((i & 1) == 0) {
             this->inBloom1->bind();
@@ -361,6 +366,7 @@ void HDR::renderBlurBright(void) {
  */
 void HDR::renderPerformTonemapping(void) {
     using namespace gl;
+    PROFILE_SCOPE(HdrTonemapping);
 
     // Bind the output framebuffer
     this->outFBO->bindRW();
