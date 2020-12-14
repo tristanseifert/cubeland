@@ -71,16 +71,24 @@ class HDR: public RenderStep {
         std::shared_ptr<gfx::FrameBuffer> inFBOBloom1 = nullptr, inFBOBloom2 = nullptr;
         std::shared_ptr<gfx::Texture2D> inBloom1 = nullptr, inBloom2 = nullptr;
 
+        // whether blooming is enabled or not
+        bool bloomEnabled = false;
         // number of passes to perform for blurring (must be a multiple of 2)
-        const int numBlurPasses = 3;
+        int numBlurPasses = 3;
         // size of the blur kernel to use (5, 9, or 13)
         const int blurSize = 13;
         // Number to divide viewport size with when blurring
         const int bloomTexDivisor = 1;
 
+        // when set, the bloom buffers are "dirty" and must be disabled after bloom is turned off
+        bool bloomBufferDirty = true;
+
+        // additive blending factor for blooming
+        float bloomFactor = 1;
+
     private:
         // exposure value
-        float exposure = 0.4f;
+        float exposure = 1;
         // current frame's avg luminance
         double frameAvgLuma = 0.f;
 
@@ -113,6 +121,8 @@ class HDR: public RenderStep {
     private:
         std::shared_ptr<gfx::ShaderProgram> tonemapProgram = nullptr;
 
+        /// white point
+        glm::vec3 whitePoint = glm::vec3(1, 1, 1);
 
     // VBO to render a full-screen quad
     private:

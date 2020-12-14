@@ -3,8 +3,8 @@
 
 // Material data
 struct MaterialStruct {
-	// how reflective the material is: lower value = more reflective
-	float shininess;
+    // how reflective the material is: lower value = more reflective
+    float shininess;
 };
 
 // The normal/shininess buffer is colour attachment 0
@@ -68,18 +68,14 @@ void main() {
 	diffuse += texture(texture_diffuse4, TexCoords).rgb * when_geq(NumTextures.x, 4);
 
 	// Specular intensity
-	float specular = texture(texture_specular1, TexCoords).a * when_ge(NumTextures.y, 1);
-	specular += texture(texture_specular2, TexCoords).a * when_ge(NumTextures.y, 2);
-	specular += texture(texture_specular3, TexCoords).a * when_ge(NumTextures.y, 3);
-	specular += texture(texture_specular4, TexCoords).a * when_ge(NumTextures.y, 4);
-
-	// vec3 diffuse = vec3(0.74, 0.74, 0.74);
-	// diffuse += vec3(0.31);
-	// float specular = 0.3;
+	float specular = texture(texture_specular1, TexCoords).a * when_geq(NumTextures.y, 1);
+	specular += texture(texture_specular2, TexCoords).a * when_geq(NumTextures.y, 2);
+	specular += texture(texture_specular3, TexCoords).a * when_geq(NumTextures.y, 3);
+	specular += texture(texture_specular4, TexCoords).a * when_geq(NumTextures.y, 4);
 
 	// store diffuse colour and specular component
 	gDiffuse.rgb = diffuse;
 
 	// Store material properties
-	gMatSpec = vec4(Material.shininess, specular, 0, 0);
+	gMatSpec = vec4(Material.shininess, specular, 1, 0);
 }

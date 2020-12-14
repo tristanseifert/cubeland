@@ -10,7 +10,7 @@
 
 namespace gfx {
 class RenderProgram;
-
+class Texture2D;
 class VertexArray;
 class Buffer;
 }
@@ -27,6 +27,8 @@ class WorldChunk: public Drawable {
         std::shared_ptr<gfx::VertexArray> vao = nullptr;
         std::shared_ptr<gfx::Buffer> vbo = nullptr;
 
+        // empty placeholder texture
+        std::shared_ptr<gfx::Texture2D> placeholderTex = nullptr;
 };
 }
 

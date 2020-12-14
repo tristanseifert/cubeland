@@ -248,17 +248,29 @@ void HDR::preRender(WorldRenderer *) {
  * Performs rendering of the HDR.
  */
 void HDR::render(WorldRenderer *renderer) {
-    // extract bright pixels
-    this->renderExtractBright();
+    if(this->bloomEnabled) {
+        // extract bright pixels
+        this->renderExtractBright();
+        // perform bloom
+        this->renderBlurBright();
+    } else {
+        // clear the bloom buffers if needed
+        if(bloomBufferDirty) {
+            gl::glClearColor(0, 0, 0, 0);
 
-    // perform bloom
-    this->renderBlurBright();
+            this->inFBOBloom1->bindRW();
+            gl::glClear(gl::GL_COLOR_BUFFER_BIT);
+
+            this->inFBOBloom2->bindRW();
+            gl::glClear(gl::GL_COLOR_BUFFER_BIT);
+
+            gfx::FrameBuffer::unbindRW();
+            this->bloomBufferDirty = false;
+        }
+    }
 
     // perform tonemapping
     this->renderPerformTonemapping();
-
-    // update exposure
-    // this->exposure = fabs(sin((renderer->getTime() / 2.f)) * 3.f);
 }
 
 /**
@@ -268,6 +280,10 @@ void HDR::renderExtractBright(void) {
     using namespace gl;
 
     this->hdrLumaFBO->bindRW();
+
+    // clear the output pls
+    glClearColor(0, 0, 0, 0);
+    glClear(GL_COLOR_BUFFER_BIT);
 
     // use the "HDR" shader to get the bright areas to a separate buffer
     this->inHdrProgram->bind();
@@ -290,6 +306,8 @@ void HDR::renderExtractBright(void) {
  */
 void HDR::renderBlurBright(void) {
     using namespace gl;
+
+    this->bloomBufferDirty = true;
 
     // get size of the viewport
     unsigned int width = this->viewportSize.x / this->bloomTexDivisor;
@@ -356,8 +374,10 @@ void HDR::renderPerformTonemapping(void) {
     this->tonemapProgram->setUniform1i("inBloomBlur", this->inBloom1->unit);
 
     this->tonemapProgram->setUniform1f("exposure", this->exposure);
+    this->tonemapProgram->setUniform1f("bloomFactor", this->bloomFactor);
+
     // TODO: Dynamically calculate white point
-    this->tonemapProgram->setUniformVec("whitePoint", glm::vec3(1.0, 1.0, 1.0));
+    this->tonemapProgram->setUniformVec("whitePoint", this->whitePoint);
 
 
     // bind VAO for a full-screen quad and render
@@ -498,16 +518,24 @@ void HDR::_exposureStep() {
  */
 void HDR::drawDebugWindow() {
   // short circuit drawing if not visible
-    if(!ImGui::Begin("HDR Renderer", &this->showDebugWindow, ImGuiWindowFlags_NoResize)) {
+    if(!ImGui::Begin("HDR Renderer", &this->showDebugWindow)) {
         goto done;
     }
 
+    // bloom
+    ImGui::Text("Bloom");
+    ImGui::Separator();
+
+    ImGui::Checkbox("Enabled", &this->bloomEnabled);
+    ImGui::DragInt("Blur Passes", &this->numBlurPasses, 1, 3, 19);
+    ImGui::DragFloat("Blend Factor", &this->bloomFactor, 0.01, 0, 2);
+
     // exposure
-    ImGui::PushItemWidth(74);
+    ImGui::Text("Tonemapping");
+    ImGui::Separator();
 
-    ImGui::DragFloat("Exposure", &this->exposure, 0.025, 0.1, 6);
-
-    ImGui::PopItemWidth();
+    ImGui::DragFloat("Exposure", &this->exposure, 0.01, 0.1, 6);
+    ImGui::DragFloat3("White Point", &this->whitePoint.x, 0.01, 0);
 
 done:;
     ImGui::End();

@@ -17,6 +17,8 @@ uniform sampler2D inBloomBlur;
 uniform vec3 whitePoint;
 // exposure value
 uniform float exposure;
+// bloom factor
+uniform float bloomFactor;
 
 vec3 TonemapColour(vec3 x);
 
@@ -24,7 +26,7 @@ void main() {
 	// additively blend the HDR and bloom textures
 	vec3 hdrColour = texture(inSceneColours, TexCoords).rgb;
 	vec3 bloomColour = texture(inBloomBlur, TexCoords).rgb;
-	hdrColour += bloomColour;
+	hdrColour += (bloomColour * bloomFactor);
 
 	// apply HDR and white point
 	hdrColour = TonemapColour(hdrColour * exposure);

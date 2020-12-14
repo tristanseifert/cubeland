@@ -62,8 +62,8 @@ void SceneRenderer::preRender(WorldRenderer *) {
 
     // set up culling
     glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glFrontFace(GL_CCW);
+    // glCullFace(GL_BACK);
+    glFrontFace(GL_CW);
 }
 
 /**
@@ -86,7 +86,7 @@ void SceneRenderer::_doRender(glm::mat4 projView, std::shared_ptr<gfx::RenderPro
     // render
     for (int i = 0; i < 10; i++)  {
         // Calculate the model matrix for each object and pass it to shader before drawing
-        glm::mat4 model;
+        glm::mat4 model(1);
         model = glm::translate(model, cubePositions[i]);
 
         GLfloat angle = 20.0f * i;
@@ -125,6 +125,7 @@ void SceneRenderer::postRender(WorldRenderer *) {
     using namespace gl;
 
     // disable culling again
+    glFrontFace(GL_CCW);
     glDisable(GL_CULL_FACE);
 
     // temp time advancing (for the animation)

@@ -117,6 +117,7 @@ class Lighting : public RenderStep {
 
         // Shadow texture dimensions
         unsigned int shadowW = 1024, shadowH = 1024;
+
         // Shadow model rendering program
         std::shared_ptr<gfx::RenderProgram> shadowRenderProgram = nullptr;
         // Framebuffer object with shadow depth texture

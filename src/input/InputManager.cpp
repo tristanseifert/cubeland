@@ -18,6 +18,9 @@ using namespace input;
  */
 InputManager::InputManager(gui::MainWindow *_w) : window(_w) {
     this->keys.reset();
+
+    this->pitch = 19;
+    this->yaw = 230;
 }
 
 /**

@@ -163,7 +163,7 @@ void Lighting::setUpShadowing() {
     using namespace gfx;
 
     // Set up new render program
-    this->shadowRenderProgram = std::make_shared<RenderProgram>("/model/model_shadow.vert", "/model/model_shadow.frag");
+    this->shadowRenderProgram = std::make_shared<RenderProgram>("/model/model_shadow.vert", "/model/model_shadow.frag", false);
     this->shadowRenderProgram->link();
 
     // Create FBO for shadow rendering
@@ -654,7 +654,16 @@ void Lighting::renderShadowMap(WorldRenderer *wr) {
  * Draws the lighting renderer debug window
  */
 void Lighting::drawDebugWindow() {
-  // short circuit drawing if not visible
+    bool reallocShadows = false;
+    int i;
+
+    // combo box constant valuies
+    constexpr static const size_t kNumShadowSizes = 5;
+    static const char *kShadowSizes[kNumShadowSizes] = {
+        "256", "512", "1024", "2048", "4096"
+    };
+
+    // short circuit drawing if not visible
     if(!ImGui::Begin("Lighting Renderer", &this->showDebugWindow)) {
         goto done;
     }
@@ -670,7 +679,7 @@ void Lighting::drawDebugWindow() {
     ImGui::Separator();
 
     ImGui::DragFloat("Density", &this->fogDensity, 0.02, 0);
-    ImGui::DragFloat("Offset", &this->fogOffset, 0.02, 0);
+    ImGui::DragFloat("Offset", &this->fogOffset, 0.1, 0);
 
     ImGui::ColorEdit3("Color", &this->fogColor.x);
 
@@ -679,6 +688,28 @@ void Lighting::drawDebugWindow() {
     ImGui::Separator();
 
     ImGui::DragFloat("Shadow Coefficient", &this->shadowDirectionCoefficient, 0.02, 0.1, 6);
+
+    i = std::max(std::min((int) ((log10(this->shadowW) / log10(2)) - 8), 4), 0);
+    if(ImGui::BeginCombo("Shadow Map Size", kShadowSizes[i])) {
+        for(size_t j = 0; j < kNumShadowSizes; j++) {
+            const bool isSelected = (i == j);
+
+            if (ImGui::Selectable(kShadowSizes[j], isSelected)) {
+                this->shadowW = pow(2, 8+j);
+                this->shadowH = pow(2, 8+j);
+                reallocShadows = true;
+            }
+            if(isSelected) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+    }
+    
+    if(reallocShadows) {
+        Logging::info("New shadow map size: {}x{}", this->shadowW, this->shadowH);
+        this->shadowTex->allocateBlank(this->shadowW, this->shadowH, gfx::Texture2D::DepthGeneric);
+    }
 
     // configured lights
     ImGui::Text("Lights");
@@ -748,7 +779,7 @@ void Lighting::drawLightsTable() {
                     ImGui::TextDisabled("-");
 
                     ImGui::TableNextColumn();
-                    ImGui::DragFloat3("##dir", &dir->direction.x);
+                    ImGui::DragFloat3("##dir", &dir->direction.x, 0.01);
 
                     ImGui::TableNextColumn();
                     ImGui::TextDisabled("-");
