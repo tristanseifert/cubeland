@@ -27,6 +27,8 @@ class LZ4;
 
 namespace world {
 class WorldDebugger;
+struct Chunk;
+struct ChunkSlice;
 
 /**
  * Supports reading world data from a file on disk. This file is in essence an sqlite3 database.
@@ -53,10 +55,14 @@ class FileWorldReader: public WorldReader {
         bool haveChunkAt(int, int);
         glm::vec4 getChunkBounds();
 
-        std::shared_ptr<Chunk> loadChunk(int, int);
-
-        void writeChunk(std::shared_ptr<Chunk>);
+    // shared chunk IO functions
+    private:
         void getSlicesForChunk(const int chunkId, std::unordered_map<int, int> &slices);
+
+    // chunk writing functions
+    private:
+        void writeChunk(std::shared_ptr<Chunk>);
+        void serializeChunkMeta(std::shared_ptr<Chunk> chunk, std::vector<char> &data);
 
         void removeSlice(const int sliceId);
         void insertSlice(std::shared_ptr<Chunk> chunk, const int chunkId, const int y);
@@ -66,6 +72,20 @@ class FileWorldReader: public WorldReader {
         void buildFileIdMap(std::unordered_map<uuids::uuid, uint16_t> &);
         void serializeSliceMeta(std::shared_ptr<Chunk> chunk, const int y, std::vector<char> &data);
 
+    // chunk reading functions
+    private:
+        std::shared_ptr<Chunk> loadChunk(int, int);
+
+        void deserializeChunkMeta(std::shared_ptr<Chunk> chunk, const std::vector<char> &bytes);
+
+        void loadSlice(const int sliceId, std::shared_ptr<Chunk> chunk, const int y);
+        void deserializeSliceBlocks(std::shared_ptr<Chunk> chunk, const int y, const std::vector<char> &data);
+        void deserializeSliceMeta(std::shared_ptr<Chunk> chunk, const int y, const std::vector<char> &data);
+
+        void processSliceRow(std::shared_ptr<Chunk> chunk, std::shared_ptr<ChunkSlice> slice, const size_t z);
+
+    // misc metadata functions
+    private:
         void loadBlockTypeMap();
         void writeBlockTypeMap();
 

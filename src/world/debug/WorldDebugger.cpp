@@ -251,80 +251,125 @@ void WorldDebugger::drawFileTypeMap(gui::GameUI *ui, std::shared_ptr<FileWorldRe
  * reading chunk data and displaying an extents map.
  */
 void WorldDebugger::drawChunkUi(gui::GameUI *ui) {
+    // begin tab ui
+    if(!ImGui::BeginTabBar("chunks")) {
+        return;
+    }
+
+    if(ImGui::BeginTabItem("Read")) {
+        this->drawChunkReadUi(ui);
+        ImGui::EndTabItem();
+    }
+    if(ImGui::BeginTabItem("Write")) {
+        this->drawChunkWriteUi(ui);
+        ImGui::EndTabItem();
+    }
+
+    // finish tab bar
+    ImGui::EndTabBar();
+}
+
+/**
+ * Renders the chunk reading tab contents.
+ */
+void WorldDebugger::drawChunkReadUi(gui::GameUI *ui) {
+    // default item width
+    ImGui::PushItemWidth(150);
+
+    // X/Z coord for the chunk to read
+    ImGui::DragInt2("Location", this->chunkState.readCoord);
+
+    // button
+    if(ImGui::Button("Read Chunk")) {
+        this->isBusy = true;
+        this->busyText = "Reading chunk";
+
+        // perform this work in the background
+        this->workQueue.enqueue([&]{
+            try {
+                PROFILE_SCOPE(GetChunk);
+                auto promise = this->world->getChunk(this->chunkState.readCoord[0], this->chunkState.readCoord[1]);
+                promise.get_future().get();
+            } catch(std::exception &e) {
+                this->worldError = std::make_unique<std::string>(f("getChunk() failed:\n{}", e.what()));
+            }
+
+            this->isBusy = false;
+        });    
+    }
+
+    // finish
+    ImGui::PopItemWidth();
+}
+
+
+/**
+ * Renders the chunk write tab contents
+ */
+void WorldDebugger::drawChunkWriteUi(gui::GameUI *ui) {
     // string constants
     const static size_t kNumFillTypes = 1;
     const static char *kFillTypes[kNumFillTypes] = {
         "Solid (y <= 32)",
     };
 
-    // begin tab ui
-    if(!ImGui::BeginTabBar("chunks")) {
-        return;
-    }
+    // default item width
+    ImGui::PushItemWidth(150);
 
-    // type map
-    if(ImGui::BeginTabItem("Write")) {
-        ImGui::PushItemWidth(150);
+    // X/Z coord for the chunk to write
+    ImGui::DragInt2("Location", this->chunkState.writeCoord);
 
-        // X/Z coord for the chunk to write
-        ImGui::DragInt2("Location", this->chunkState.writeCoord);
+    // fill type
+    if(ImGui::BeginCombo("Fill Type", kFillTypes[this->chunkState.fillType])) {
+        for(size_t j = 0; j < kNumFillTypes; j++) {
+            const bool isSelected = (this->chunkState.fillType == j);
 
-        // fill type
-        if(ImGui::BeginCombo("Fill Type", kFillTypes[this->chunkState.fillType])) {
-            for(size_t j = 0; j < kNumFillTypes; j++) {
-                const bool isSelected = (this->chunkState.fillType == j);
-
-                if (ImGui::Selectable(kFillTypes[j], isSelected)) {
-                    this->chunkState.fillType = j;
-                }
-                if(isSelected) {
-                    ImGui::SetItemDefaultFocus();
-                }
+            if (ImGui::Selectable(kFillTypes[j], isSelected)) {
+                this->chunkState.fillType = j;
             }
-            ImGui::EndCombo();
+            if(isSelected) {
+                ImGui::SetItemDefaultFocus();
+            }
         }
-
-        // fill level
-        ImGui::DragInt("Fill Y level", &this->chunkState.fillLevel, 1, 0, 255);
-
-        // write button
-        ImGui::BulletText("%s", "Note: Existing chunk data will be overwritten!");
-        if(ImGui::Button("Write Chunk")) {
-            this->isBusy = true;
-            this->busyText = "Writing chunk";
-
-            // perform this work in the background
-            this->workQueue.enqueue([&]{
-                // build the chunk and fill it
-                auto chunk = std::make_shared<Chunk>();
-                chunk->worldPos = glm::vec2(this->chunkState.writeCoord[0],
-                        this->chunkState.writeCoord[1]);
-
-                {
-                    PROFILE_SCOPE(FillChunk);
-                    this->fillChunkSolid(chunk, this->chunkState.fillLevel);
-                }
-
-                // then request to write it out
-                try {
-                    PROFILE_SCOPE(PutChunk);
-                    auto promise = this->world->putChunk(chunk);
-                    promise.get_future().get();
-                } catch(std::exception &e) {
-                    this->worldError = std::make_unique<std::string>(f("putChunk() failed:\n{}", e.what()));
-                }
-
-                this->isBusy = false;
-            });
-        }
-
-        // finish write section
-        ImGui::PopItemWidth();
-        ImGui::EndTabItem();
+        ImGui::EndCombo();
     }
 
-    // finish tab bar
-    ImGui::EndTabBar();
+    // fill level
+    ImGui::DragInt("Fill Y level", &this->chunkState.fillLevel, 1, 0, 255);
+
+    // write button
+    ImGui::BulletText("%s", "Note: Existing chunk data will be overwritten!");
+    if(ImGui::Button("Write Chunk")) {
+        this->isBusy = true;
+        this->busyText = "Writing chunk";
+
+        // perform this work in the background
+        this->workQueue.enqueue([&]{
+            // build the chunk and fill it
+            auto chunk = std::make_shared<Chunk>();
+            chunk->worldPos = glm::vec2(this->chunkState.writeCoord[0],
+                    this->chunkState.writeCoord[1]);
+
+            {
+                PROFILE_SCOPE(FillChunk);
+                this->fillChunkSolid(chunk, this->chunkState.fillLevel);
+            }
+
+            // then request to write it out
+            try {
+                PROFILE_SCOPE(PutChunk);
+                auto promise = this->world->putChunk(chunk);
+                promise.get_future().get();
+            } catch(std::exception &e) {
+                this->worldError = std::make_unique<std::string>(f("putChunk() failed:\n{}", e.what()));
+            }
+
+            this->isBusy = false;
+        });
+    }
+
+    // finish write section
+    ImGui::PopItemWidth();
 }
 
 
@@ -392,7 +437,7 @@ void WorldDebugger::fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax) {
 
             // this makes a diagonal stripe
             for(size_t x = 0; x < 256; x++) {
-                if(x == z) {
+                if(x == y) {
                     row->storage[x] = 1;
                 } else if(x == (z / 2)) {
                     row->storage[x] = 0;

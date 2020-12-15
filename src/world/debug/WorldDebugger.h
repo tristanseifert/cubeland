@@ -51,6 +51,8 @@ class WorldDebugger: public gui::GameWindow {
         void loadWorldInfo();
 
         void drawChunkUi(gui::GameUI *);
+        void drawChunkReadUi(gui::GameUI *);
+        void drawChunkWriteUi(gui::GameUI *);
 
         void drawFileWorldUi(gui::GameUI *, std::shared_ptr<FileWorldReader>);
         void drawFileTypeMap(gui::GameUI *, std::shared_ptr<FileWorldReader>);
@@ -82,12 +84,15 @@ class WorldDebugger: public gui::GameWindow {
 
         // chunk UI state
         struct {
-            /// X/Z coord for the block to edit
+            /// X/Z coord for the block to write
             int writeCoord[2] = {0, 0};
             /// current fill type
             int fillType = 0;
             /// fill level
             int fillLevel = 32;
+
+            /// X/Z coord for the block to read
+            int readCoord[2] = {0, 0};
         } chunkState;
 
     private:
