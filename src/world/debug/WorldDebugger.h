@@ -18,6 +18,7 @@ class GameUI;
 
 namespace world {
 class WorldReader;
+class FileWorldReader;
 
 class WorldDebugger: public gui::GameWindow {
     public:
@@ -38,6 +39,9 @@ class WorldDebugger: public gui::GameWindow {
 
     private:
         void loadWorldInfo();
+
+        void drawFileWorldUi(gui::GameUI *, std::shared_ptr<FileWorldReader>);
+        void drawFileTypeMap(gui::GameUI *, std::shared_ptr<FileWorldReader>);
 
     private:
         /// Whether the debug window is open

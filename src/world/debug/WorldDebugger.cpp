@@ -18,7 +18,8 @@ using namespace world;
 void WorldDebugger::draw(gui::GameUI *ui) {
     // short circuit drawing if not visible
     if(!ImGui::Begin("World Debugger", &this->isDebuggerOpen)) {
-        goto done;
+        ImGui::End();
+        return;
     }
 
     // toolbar section
@@ -47,6 +48,17 @@ void WorldDebugger::draw(gui::GameUI *ui) {
     ImGui::Text("%s", typeid(this->world.get()).name());
 
     // actions
+
+    // file type
+    auto file = dynamic_pointer_cast<FileWorldReader>(this->world);
+    if(file) {
+        ImGui::PushFont(ui->getFont(gui::GameUI::kBoldFontName));
+        ImGui::TextUnformatted("File World Reader");
+        ImGui::PopFont();
+        ImGui::Separator();
+
+        this->drawFileWorldUi(ui, file);
+    }
 
     // handle open panel
     igfd::ImGuiFileDialog::Instance()->SetExtentionInfos(".world", ImVec4(1,1,0, 0.9));
@@ -96,7 +108,6 @@ void WorldDebugger::draw(gui::GameUI *ui) {
         }
     }
 
-done:;
     ImGui::End();
 }
 
@@ -121,5 +132,56 @@ void WorldDebugger::loadWorldInfo() {
     } catch(std::exception &e) {
         Logging::error("Failed to get db size: {}", e.what());
     }
+}
 
+
+
+/**
+ * Draws the UI for the world file reader.
+ *
+ * This allows specifically to view the type id -> uuid map, and run raw queries.
+ */
+void WorldDebugger::drawFileWorldUi(gui::GameUI *ui, std::shared_ptr<FileWorldReader> file) {
+    // begin tab ui
+    if(!ImGui::BeginTabBar("file")) {
+        return;
+    }
+
+    // type map
+    if(ImGui::BeginTabItem("Type Map")) {
+        this->drawFileTypeMap(ui, file);
+        ImGui::EndTabItem();
+    }
+
+    // finish tab bar
+    ImGui::EndTabBar();
+}
+/**
+ * Draws the table to display the mapping between block id and block type uuid
+ */
+void WorldDebugger::drawFileTypeMap(gui::GameUI *ui, std::shared_ptr<FileWorldReader> file) {
+    if(!ImGui::BeginTable("typeMap", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch)) {
+        return;
+    }
+
+    // headers
+    ImGui::TableSetupColumn("Local ID", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 40);
+    ImGui::TableSetupColumn("UUID");
+    ImGui::TableHeadersRow();
+
+    // draw each row
+    for(const auto &[key, value] : file->blockIdMap) {
+        ImGui::TableNextRow();
+        ImGui::PushID(key);
+        
+        ImGui::TableNextColumn();
+        ImGui::Text("%04x", key);
+        
+        ImGui::TableNextColumn();
+        ImGui::Text("%s", uuids::to_string(value).c_str());
+
+        ImGui::PopID();
+    }
+
+    ImGui::EndTable();
 }

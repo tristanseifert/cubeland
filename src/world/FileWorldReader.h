@@ -12,6 +12,7 @@
 #include <functional>
 #include <stdexcept>
 #include <future>
+#include <unordered_map>
 #include <cstdint>
 
 #include <glm/vec4.hpp>
@@ -21,10 +22,14 @@ struct sqlite3;
 struct sqlite3_stmt;
 
 namespace world {
+class WorldDebugger;
+
 /**
  * Supports reading world data from a file on disk. This file is in essence an sqlite3 database.
  */
 class FileWorldReader: public WorldReader {
+    friend class WorldDebugger;
+
     public:
         FileWorldReader() = delete;
         FileWorldReader(const std::string &path, const bool create = false);
@@ -36,11 +41,18 @@ class FileWorldReader: public WorldReader {
 
         std::promise<bool> chunkExists(int x, int z);
         std::promise<glm::vec4> getWorldExtents();
+        std::promise<std::shared_ptr<Chunk>> getChunk(int x, int z);
 
     // these are the DB-context relative functions of the above
     private:
         bool haveChunkAt(int, int);
         glm::vec4 getChunkBounds();
+
+        std::shared_ptr<Chunk> loadChunk(int, int);
+        void writeChunk(std::shared_ptr<Chunk>);
+
+        void loadBlockTypeMap();
+        void writeBlockTypeMap();
 
     private:
         class DbError: public std::runtime_error {
@@ -53,6 +65,14 @@ class FileWorldReader: public WorldReader {
         struct WorkItem {
             std::function<void(void)> f;
         };
+    
+    private:
+        // ensure we can accept requests at the moment
+        void canAcceptRequests() {
+            if(!this->acceptRequests) {
+                throw std::runtime_error("Not accepting requests");
+            }
+        }
 
     // methods in this block must be called from the current db thread
     private:
@@ -116,6 +136,9 @@ class FileWorldReader: public WorldReader {
 
         /// accepts requests as long as this is set; checked at the start of each WorldReader call
         std::atomic_bool acceptRequests;
+
+        /// mapping of 16-bit block ID -> game block UUID
+        std::unordered_map<uint16_t, uuids::uuid> blockIdMap;
 
         /// world filename
         std::string filename;

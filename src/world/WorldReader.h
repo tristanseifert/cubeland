@@ -2,10 +2,13 @@
 #define WORLD_WORLDREADER_H
 
 #include <future>
+#include <memory>
 
 #include <glm/vec4.hpp>
 
 namespace world {
+struct Chunk;
+
 /**
  * Interface exported by all world reading implementations.
  *
@@ -32,6 +35,11 @@ class WorldReader {
          * rectangular region might be populated, however.
          */
         virtual std::promise<glm::vec4> getWorldExtents() = 0;
+
+        /**
+         * Loads data for the given chunk.
+         */
+        virtual std::promise<std::shared_ptr<Chunk>> getChunk(int x, int z) = 0;
 };
 }
 

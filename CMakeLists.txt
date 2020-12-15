@@ -38,6 +38,8 @@ add_executable(cubeland
     src/io/ConfigManager.cpp
     src/io/PrefsManager.cpp
     src/io/PathHelper.cpp
+# utilities
+    src/util/LZ4.cpp
 # UI
     src/gui/MainWindow.cpp
     src/gui/GameUI.cpp

@@ -1,5 +1,8 @@
 #include "FileWorldReader.h"
 
+#include "chunk/Chunk.h"
+#include "chunk/ChunkSlice.h"
+
 #include "io/Format.h"
 #include <version.h>
 #include <Logging.h>
@@ -56,6 +59,7 @@ FileWorldReader::FileWorldReader(const std::string &path, const bool create) : w
 
     // perform some mandatory initialization
     this->initializeSchema();
+    this->loadBlockTypeMap();
 
     // set up the worker thread
     this->workerRun = true;
@@ -173,10 +177,7 @@ void FileWorldReader::sendWorkerNop() {
  * Determines the size of the database.
  */
 std::promise<size_t> FileWorldReader::getDbSize() {
-    if(!this->acceptRequests) {
-        throw std::runtime_error("Not accepting requests");
-    }
-
+    this->canAcceptRequests();
     std::promise<size_t> prom;
 
     this->workQueue.enqueue({ .f = [&]{
@@ -194,9 +195,7 @@ std::promise<size_t> FileWorldReader::getDbSize() {
  * Determines whether we have a chunk at the given location.
  */
 std::promise<bool> FileWorldReader::chunkExists(int x, int z) {
-    if(!this->acceptRequests) {
-        throw std::runtime_error("Not accepting requests");
-    }
+    this->canAcceptRequests();
     std::promise<bool> prom;
 
     this->workQueue.enqueue({ .f = [&, x, z]{
@@ -214,9 +213,7 @@ std::promise<bool> FileWorldReader::chunkExists(int x, int z) {
  * Gets the min/max of the X/Z coords.
  */
 std::promise<glm::vec4> FileWorldReader::getWorldExtents() {
-    if(!this->acceptRequests) {
-        throw std::runtime_error("Not accepting requests");
-    }
+    this->canAcceptRequests();
     std::promise<glm::vec4> prom;
 
     this->workQueue.enqueue({ .f = [&]{
@@ -229,6 +226,28 @@ std::promise<glm::vec4> FileWorldReader::getWorldExtents() {
 
     return prom;
 }
+
+/**
+ * Reads a chunk from the world file.
+ *
+ * This reads the chunk, its metadata, and all slices that make up the blocks of the chunk. It's
+ * then read into the in-memory representation used by the rest of the game engine.
+ */
+std::promise<std::shared_ptr<Chunk>> FileWorldReader::getChunk(int x, int z) {
+    this->canAcceptRequests();
+    std::promise<std::shared_ptr<Chunk>> prom;
+
+    this->workQueue.enqueue({ .f = [&, x, z]{
+        try {
+            prom.set_value(this->loadChunk(x, z));
+        } catch (std::exception &e) {
+            prom.set_exception(std::current_exception());
+        }
+    }});
+
+    return prom;
+}
+
 
 
 
@@ -420,4 +439,58 @@ glm::vec4 FileWorldReader::getChunkBounds() {
     // done
     sqlite3_finalize(stmt);
     return out;
+}
+
+/**
+ * Loads a chunk that exists at the given (x,z) coordinate. 
+ */
+std::shared_ptr<Chunk> FileWorldReader::loadChunk(int x, int z) {
+    // TODO: implement
+    return nullptr;
+}
+
+/**
+ * Loads the block type map.
+ *
+ * The block type map serves as a sort of compression, to take the 16-byte UUIDs that represent
+ * blocks in the chunk, and convert them down to smaller 16-bit integers. This map is shared for
+ * all chunks in the world.
+ */
+void FileWorldReader::loadBlockTypeMap() {
+    PROFILE_SCOPE(LoadTypeMap);
+
+    int err;
+    sqlite3_stmt *stmt = nullptr;
+    std::unordered_map<uint16_t, uuids::uuid> map;
+
+    // prepare a query
+    this->prepare("SELECT blockId, blockUuid FROM type_map_v1 ORDER BY blockId ASC;", &stmt);
+
+    // sequentially read each row
+    while((err = sqlite3_step(stmt)) == SQLITE_ROW) {
+        int32_t key;
+        uuids::uuid value;
+
+        if(!this->getColumn(stmt, 0, key) || !this->getColumn(stmt, 1, value)) {
+            throw std::runtime_error("Failed to get type map entry");
+        }
+        if(key > std::numeric_limits<uint16_t>::max()) {
+            throw std::runtime_error(f("Invalid type map entry {} -> {}", key,
+                        uuids::to_string(value)));
+        }
+        map[key] = value;
+    }
+
+    // done; we've read all rows
+    sqlite3_finalize(stmt);
+    this->blockIdMap = map;
+}
+/**
+ * Writes the block type map back out to the world file.
+ *
+ * As it's currently implemented, this will NOT remove existing block IDs, even if they are no
+ * longer present in the type map. Only new types can be appended.
+ */
+void FileWorldReader::writeBlockTypeMap() {
+    // TODO: implement
 }
