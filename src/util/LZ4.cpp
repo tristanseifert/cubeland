@@ -43,17 +43,17 @@ LZ4::~LZ4() {
  * The output buffer will be resized after compression to be the precise size of the compressed
  * text. It's resized to at least LZ4_compressBound(in.size()) before starting if needed.
  */
-void LZ4::compress(const std::vector<char> &in, std::vector<char> &out) {
+void LZ4::compress(const void *in, const size_t inLen, std::vector<char> &out) {
     size_t err;
 
     // bail if input is zero bytes
-    if(in.empty()) {
+    if(!inLen) {
         out.clear();
         return;
     }
 
     // resize output buffer if needed
-    const auto minOutCapacity = LZ4F_compressFrameBound(in.size(), nullptr);
+    const auto minOutCapacity = LZ4F_compressFrameBound(inLen, nullptr);
     if(out.size() < minOutCapacity) {
         out.resize(minOutCapacity);
     }
@@ -62,10 +62,10 @@ void LZ4::compress(const std::vector<char> &in, std::vector<char> &out) {
     LZ4F_preferences_t prefs;
     memset(&prefs, 0, sizeof(prefs));
 
-    prefs.frameInfo.contentSize = in.size();
+    prefs.frameInfo.contentSize = inLen;
 
     // perform compression
-    err = LZ4F_compressFrame(out.data(), out.size(), in.data(), in.size(), &prefs);
+    err = LZ4F_compressFrame(out.data(), out.size(), in, inLen, &prefs);
     if(LZ4F_isError(err)) {
         throw std::runtime_error(f("LZ4F_compressFrame() failed: {} ({:x})", 
                     LZ4F_getErrorName(err), err));

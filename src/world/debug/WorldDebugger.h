@@ -86,6 +86,8 @@ class WorldDebugger: public gui::GameWindow {
             int writeCoord[2] = {0, 0};
             /// current fill type
             int fillType = 0;
+            /// fill level
+            int fillLevel = 32;
         } chunkState;
 
     private:

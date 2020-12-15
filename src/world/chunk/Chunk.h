@@ -5,8 +5,8 @@
  * per block metadata use integer keys, rather than string keys; a separate map establishes the
  * mapping of chunk local integers to the global string values.
  */
-#ifndef WORLD_CHUNK_CHUNKSLICE_H
-#define WORLD_CHUNK_CHUNKSLICE_H
+#ifndef WORLD_CHUNK_CHUNK_H
+#define WORLD_CHUNK_CHUNK_H
 
 #include <cstddef>
 #include <cstdint>

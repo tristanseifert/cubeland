@@ -9,6 +9,7 @@
 #include <Logging.h>
 #include "io/Format.h"
 
+#include <uuid.h>
 #include <mutils/time/profiler.h>
 #include <imgui.h>
 #include <ImGuiFileDialog/ImGuiFileDialog.h>
@@ -283,6 +284,9 @@ void WorldDebugger::drawChunkUi(gui::GameUI *ui) {
             ImGui::EndCombo();
         }
 
+        // fill level
+        ImGui::DragInt("Fill Y level", &this->chunkState.fillLevel, 1, 0, 255);
+
         // write button
         ImGui::BulletText("%s", "Note: Existing chunk data will be overwritten!");
         if(ImGui::Button("Write Chunk")) {
@@ -298,7 +302,7 @@ void WorldDebugger::drawChunkUi(gui::GameUI *ui) {
 
                 {
                     PROFILE_SCOPE(FillChunk);
-                    this->fillChunkSolid(chunk, 32);
+                    this->fillChunkSolid(chunk, this->chunkState.fillLevel);
                 }
 
                 // then request to write it out
@@ -354,6 +358,53 @@ void WorldDebugger::sendWorkerNop() {
  * Fills a solid pile of blocks into the chunk up to the given Y level.
  */
 void WorldDebugger::fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax) {
+    Logging::debug("Filling chunk {} with solid data to y {}", (void *) chunk.get(), yMax);
+
+    /// UUIDs of blocks
+    static const std::array<uuids::uuid::value_type, 16> kBlockIdsRaw[4] = {
+        {0x71, 0x4a, 0x92, 0xe3, 0x29, 0x84, 0x4f, 0x0e, 0x86, 0x9e, 0x14, 0x16, 0x2d, 0x46, 0x27, 0x60},
+        {0x2b, 0xe6, 0x86, 0x12, 0x13, 0x3b, 0x40, 0xc6, 0x84, 0x36, 0x18, 0x9d, 0x4b, 0xd8, 0x7a, 0x4e},
+        {0xf2, 0xca, 0x67, 0x5d, 0x92, 0x5f, 0x4b, 0x1e, 0x8d, 0x6a, 0xa6, 0x66, 0x45, 0x89, 0xff, 0xe5},
+        {0xfe, 0x35, 0x39, 0xd4, 0xd6, 0x96, 0x4b, 0x04, 0x8e, 0x34, 0xa6, 0x5f, 0xd0, 0xb4, 0x4e, 0x7d}
+    };
+    uuids::uuid kBlockIds[4];
+    for(size_t i = 0; i < 4; i++) {
+        kBlockIds[i] = uuids::uuid(kBlockIdsRaw[i].begin(), kBlockIdsRaw[i].end());
+    }
+
     chunk->meta["generator.name"] = "WorldDebugger";
+
+    // build the slice ID -> UUID map
+    ChunkRowBlockTypeMap idMap;
+    for(size_t i = 0; i < 4; i++) {
+        idMap.idMap[i] = kBlockIds[i];
+    }
+    chunk->sliceIdMaps.push_back(idMap);
+
+    // For each Y layer, create a slice
+    for(size_t y = 0; y < yMax; y++) {
+        auto slice = std::make_shared<ChunkSlice>();
+
+        // create a sparse row for each column
+        for(size_t z = 0; z < 256; z++) {
+            auto row = std::make_shared<ChunkSliceRowSparse>();
+            row->defaultBlockId = 2;
+
+            // this makes a diagonal stripe
+            for(size_t x = 0; x < 256; x++) {
+                if(x == z) {
+                    row->storage[x] = 1;
+                } else if(x == (z / 2)) {
+                    row->storage[x] = 0;
+                }
+            }
+
+            // assign row to the slice
+            slice->rows[z] = row;
+        }
+
+        // attach it to the chunk
+        chunk->slices[y] = slice;
+    }
 }
 

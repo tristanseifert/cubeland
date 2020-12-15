@@ -25,6 +25,11 @@ namespace world {
 struct ChunkSliceRow {
     /// Index of the ID -> UUID to use
     uint8_t typeMap = 0;
+
+    /// return the ID value at the given index
+    virtual uint8_t at(int i) {
+        return 0;
+    }
 };
 
 /**
@@ -43,6 +48,15 @@ struct ChunkSliceRowSparse: public ChunkSliceRow {
      * reasonably fast. We'll see how it fares with memory...
      */
     std::unordered_map<uint8_t, uint8_t> storage;
+
+    /// return the ID value at the given index from the sparse storage, or the default id
+    virtual uint8_t at(int i) {
+        if(this->storage.contains(i)) {
+            return this->storage[i];
+        } else {
+            return this->defaultBlockId;
+        }
+    }
 };
 
 /**
@@ -53,7 +67,12 @@ struct ChunkSliceRowSparse: public ChunkSliceRow {
 struct ChunkSliceRowDense: public ChunkSliceRow {
     /// Array of block IDs for all 256 X positions
     std::array<uint8_t, 256> storage;
-}
+
+    /// return the ID value at the given index directly from storage
+    virtual uint8_t at(int i) {
+        return this->storage[i];
+    }
+};
 
 /**
  * A single vertical (Y) layer of chunk data. This layer is divided into 256 rows, indexed by the Z
@@ -67,7 +86,7 @@ struct ChunkSlice {
      * Row data; points to either a chunk slice row, or null, if no data.
      */
     std::array<std::shared_ptr<ChunkSliceRow>, 256> rows;
-}
+};
 
 }
 

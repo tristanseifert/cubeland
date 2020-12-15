@@ -36,7 +36,7 @@ void FileWorldReader::bindColumn(sqlite3_stmt *stmt, const size_t index, const s
 /**
  * Binds a BLOB value to the statement,
  */
-void FileWorldReader::bindColumn(sqlite3_stmt *stmt, const size_t index, const std::vector<unsigned char> &value) {
+void FileWorldReader::bindColumn(sqlite3_stmt *stmt, const size_t index, const std::vector<char> &value) {
     int err = sqlite3_bind_blob64(stmt, index, value.data(), value.size(), nullptr);
     if(err != SQLITE_OK) {
         sqlite3_finalize(stmt);
@@ -121,7 +121,7 @@ bool FileWorldReader::getColumn(sqlite3_stmt *stmt, const size_t col, std::strin
  * @return Whether the column was non-NULL. A zero-length BLOB will return true, but the output
  * vector is trimmed to be zero bytes.
  */
-bool FileWorldReader::getColumn(sqlite3_stmt *stmt, const size_t col, std::vector<unsigned char> &out) {
+bool FileWorldReader::getColumn(sqlite3_stmt *stmt, const size_t col, std::vector<char> &out) {
     int err;
 
     // is the column NULL?
@@ -132,7 +132,7 @@ bool FileWorldReader::getColumn(sqlite3_stmt *stmt, const size_t col, std::vecto
     }
 
     // no, get the blob value
-    auto valuePtr = reinterpret_cast<const unsigned char *>(sqlite3_column_blob(stmt, col));
+    auto valuePtr = reinterpret_cast<const char *>(sqlite3_column_blob(stmt, col));
     if(valuePtr == nullptr) {
         // zero length blob
         out.clear();
@@ -161,14 +161,14 @@ bool FileWorldReader::getColumn(sqlite3_stmt *stmt, const size_t col, uuids::uui
     }
 
     // get blob data, then create the uuid
-    std::vector<unsigned char> bytes;
+    std::vector<char> bytes;
     bytes.reserve(16);
 
     if(!this->getColumn(stmt, col, bytes)) {
         return false;
     }
 
-    outUuid = uuids::uuid(bytes);
+    outUuid = uuids::uuid(bytes.begin(), bytes.end());
     return true;
 }
 /**

@@ -9,6 +9,7 @@
 #include <atomic>
 #include <functional>
 #include <stdexcept>
+#include <array>
 #include <future>
 #include <unordered_map>
 #include <cstdint>
@@ -58,8 +59,12 @@ class FileWorldReader: public WorldReader {
         void getSlicesForChunk(const int chunkId, std::unordered_map<int, int> &slices);
 
         void removeSlice(const int sliceId);
-        void insertSlice(std::shared_ptr<Chunk> chunk, const int y);
+        void insertSlice(std::shared_ptr<Chunk> chunk, const int chunkId, const int y);
         void updateSlice(const int sliceId, std::shared_ptr<Chunk> chunk, const int y);
+
+        void serializeSliceBlocks(std::shared_ptr<Chunk> chunk, const int y, std::vector<char> &data);
+        void buildFileIdMap(std::unordered_map<uuids::uuid, uint16_t> &);
+        void serializeSliceMeta(std::shared_ptr<Chunk> chunk, const int y, std::vector<char> &data);
 
         void loadBlockTypeMap();
         void writeBlockTypeMap();
@@ -98,7 +103,7 @@ class FileWorldReader: public WorldReader {
         void prepare(const std::string &, sqlite3_stmt **);
 
         void bindColumn(sqlite3_stmt *, const size_t, const std::string &);
-        void bindColumn(sqlite3_stmt *, const size_t, const std::vector<unsigned char> &);
+        void bindColumn(sqlite3_stmt *, const size_t, const std::vector<char> &);
         void bindColumn(sqlite3_stmt *, const size_t, const uuids::uuid &);
         void bindColumn(sqlite3_stmt *, const size_t, const double);
         void bindColumn(sqlite3_stmt *, const size_t, const int32_t);
@@ -112,7 +117,7 @@ class FileWorldReader: public WorldReader {
         }
 
         bool getColumn(sqlite3_stmt *, const size_t, std::string &);
-        bool getColumn(sqlite3_stmt *, const size_t, std::vector<unsigned char> &);
+        bool getColumn(sqlite3_stmt *, const size_t, std::vector<char> &);
         bool getColumn(sqlite3_stmt *, const size_t, uuids::uuid &);
         bool getColumn(sqlite3_stmt *, const size_t, double &);
         bool getColumn(sqlite3_stmt *, const size_t, int32_t &);
@@ -158,6 +163,9 @@ class FileWorldReader: public WorldReader {
         std::string filename;
         /// path from which the world file is loaded
         std::string worldPath;
+
+        /// work buffer used for serializing block layout. may only be accessed from worker
+        std::array<uint16_t, (256*256)> sliceTempGrid;
 
         /// used for decompressing/compressing block data
         std::unique_ptr<util::LZ4> compressor;

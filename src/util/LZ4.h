@@ -24,7 +24,11 @@ class LZ4 {
         LZ4();
         virtual ~LZ4();
 
-        void compress(const std::vector<char> &in, std::vector<char> &out);
+        void compress(const std::vector<char> &in, std::vector<char> &out) {
+            this->compress(in.data(), in.size(), out);
+        }
+        void compress(const void *in, const size_t inLen, std::vector<char> &out);
+
         bool decompress(const std::vector<char> &in, std::vector<char> &out);
 
     private:

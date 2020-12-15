@@ -44,6 +44,7 @@ add_executable(cubeland
     src/gui/MainWindow.cpp
     src/gui/GameUI.cpp
     src/gui/PreferencesWindow.cpp
+    src/gui/Loaders.cpp
 # input
     src/input/InputManager.cpp
 # GL wrappers
