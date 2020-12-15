@@ -14,6 +14,7 @@
 #include <future>
 #include <cstdint>
 
+#include <glm/vec4.hpp>
 #include <uuid.h>
 
 struct sqlite3;
@@ -30,8 +31,16 @@ class FileWorldReader: public WorldReader {
 
         ~FileWorldReader();
 
-        /// Returns the number of bytes used by the database
+    public:
         std::promise<size_t> getDbSize();
+
+        std::promise<bool> chunkExists(int x, int z);
+        std::promise<glm::vec4> getWorldExtents();
+
+    // these are the DB-context relative functions of the above
+    private:
+        bool haveChunkAt(int, int);
+        glm::vec4 getChunkBounds();
 
     private:
         class DbError: public std::runtime_error {
@@ -68,6 +77,9 @@ class FileWorldReader: public WorldReader {
         void bindColumn(sqlite3_stmt *stmt, const size_t i, const bool value) {
             this->bindColumn(stmt, i, (int32_t) (value ? 1 : 0));
         }
+        void bindColumn(sqlite3_stmt *stmt, const size_t i, const float value) {
+            this->bindColumn(stmt, i, (double) value);
+        }
 
         bool getColumn(sqlite3_stmt *, const size_t, std::string &);
         bool getColumn(sqlite3_stmt *, const size_t, std::vector<unsigned char> &);
@@ -76,6 +88,16 @@ class FileWorldReader: public WorldReader {
         bool getColumn(sqlite3_stmt *, const size_t, int32_t &);
         bool getColumn(sqlite3_stmt *, const size_t, int64_t &);
         bool getColumn(sqlite3_stmt *, const size_t, bool &);
+
+        /// Gets a double (REAL) column as a float.
+        bool getColumn(sqlite3_stmt *stmt, const size_t col, float &value) {
+            double temp;
+            if(this->getColumn(stmt, col, temp)) {
+                value = (float) temp;
+                return true;
+            }
+            return false;
+        }
 
     private:
         void workerMain();

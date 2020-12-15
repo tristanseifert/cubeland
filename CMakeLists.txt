@@ -77,6 +77,8 @@ add_executable(cubeland
     src/render/steps/FXAA.cpp
 # world handling (IO/basic behaviors)
     src/world/FileWorldReader.cpp
+    src/world/FileWorldReader+SQLite.cpp
+    src/world/debug/WorldDebugger.cpp
 # resources and other misc stuff
     ${version_file}
 )
@@ -215,6 +217,8 @@ target_include_directories(dearimgui_ext PRIVATE libs/imgui)
 
 target_link_libraries(dearimgui_ext PUBLIC glbinding::glbinding)
 target_link_libraries(cubeland PRIVATE dearimgui_ext)
+
+target_include_directories(cubeland PRIVATE libs/ImGuiFileDialog)
 
 # GLM
 #find_package(glm REQUIRED)
