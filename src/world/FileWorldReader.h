@@ -74,15 +74,22 @@ class FileWorldReader: public WorldReader {
 
     // chunk reading functions
     private:
+        struct SliceState {
+            // generated 8 -> 16 maps
+            std::vector<std::array<uint16_t, 256>> maps;
+            // same as above, but instead map 16 -> 8
+            std::vector<std::unordered_map<uint16_t, uint8_t>> reverseMaps;
+        };
+
         std::shared_ptr<Chunk> loadChunk(int, int);
 
         void deserializeChunkMeta(std::shared_ptr<Chunk> chunk, const std::vector<char> &bytes);
 
-        void loadSlice(const int sliceId, std::shared_ptr<Chunk> chunk, const int y);
+        void loadSlice(SliceState &state, const int sliceId, std::shared_ptr<Chunk> chunk, const int y);
         void deserializeSliceBlocks(std::shared_ptr<Chunk> chunk, const int y, const std::vector<char> &data);
         void deserializeSliceMeta(std::shared_ptr<Chunk> chunk, const int y, const std::vector<char> &data);
 
-        void processSliceRow(std::shared_ptr<Chunk> chunk, std::shared_ptr<ChunkSlice> slice, const size_t z);
+        void processSliceRow(SliceState &state, std::shared_ptr<Chunk> chunk, std::shared_ptr<ChunkSlice> slice, const size_t z);
 
     // misc metadata functions
     private:

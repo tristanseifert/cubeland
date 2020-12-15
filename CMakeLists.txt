@@ -81,6 +81,8 @@ add_executable(cubeland
 # world handling (IO/basic behaviors)
     src/world/FileWorldReader.cpp
     src/world/FileWorldReader+SQLite.cpp
+    src/world/FileWorldReader+Writing.cpp
+    src/world/FileWorldReader+Reading.cpp
     src/world/debug/WorldDebugger.cpp
 # resources and other misc stuff
     ${version_file}

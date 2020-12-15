@@ -9,6 +9,8 @@
 #include <mutils/time/profiler.h>
 #include <sqlite3.h>
 
+#include <set>
+
 using namespace world;
 
 /**
@@ -54,15 +56,41 @@ std::shared_ptr<Chunk> FileWorldReader::loadChunk(int x, int z) {
     this->deserializeChunkMeta(chunk, metaBytes);
 
     // next, process each slice
+    SliceState state;
+
     for(const auto [y, sliceId] : sliceIds) {
-        this->loadSlice(sliceId, chunk, y);
+        this->loadSlice(state, sliceId, chunk, y);
+    }
+
+    // convert the 8 -> 16 maps we've built to 8 -> UUID
+    {
+        PROFILE_SCOPE(ConvertMap);
+
+        chunk->sliceIdMaps.clear();
+        for(size_t i = 0; i < state.maps.size(); i++) {
+            const auto &inMap = state.maps[i];
+
+            ChunkRowBlockTypeMap m;
+            XASSERT(inMap.size() == m.idMap.size(), "mismatched id map sizes");
+
+            for(size_t j = 0; j < inMap.size(); j++) {
+                const uint16_t blockId = inMap[i];
+
+                // we should always have an UUID for each block
+                if(!this->blockIdMap.contains(blockId)) {
+                    throw std::runtime_error(f("Invalid block id 0x{:4x}", blockId));
+                }
+
+                m.idMap[j] = this->blockIdMap[blockId];
+            }
+
+            chunk->sliceIdMaps.push_back(m);
+        }
     }
 
     // we're done
     return chunk;
 }
-
-
 
 /**
  * Deserializes the compressed chunk metadata.
@@ -95,7 +123,7 @@ void FileWorldReader::deserializeChunkMeta(std::shared_ptr<Chunk> chunk, const s
  * - Load row data
  *
  */
-void FileWorldReader::loadSlice(const int sliceId, std::shared_ptr<Chunk> chunk, const int y) {
+void FileWorldReader::loadSlice(SliceState &state, const int sliceId, std::shared_ptr<Chunk> chunk, const int y) {
     PROFILE_SCOPE(LoadSlice)
 
     std::vector<char> gridBytes;
@@ -118,7 +146,7 @@ void FileWorldReader::loadSlice(const int sliceId, std::shared_ptr<Chunk> chunk,
             throw std::runtime_error(f("Failed to get chunk slice: {}", err));
         }
         if(!this->getColumn(stmt, 2, blockMetaBytes)) {
-            // Logging::warn("Failed to load block metadata for slice id {}", sliceId);
+            // this could indicate that there just isn't any metadata. safe to ignore
         }
 
         sqlite3_finalize(stmt);
@@ -132,7 +160,7 @@ void FileWorldReader::loadSlice(const int sliceId, std::shared_ptr<Chunk> chunk,
     auto slice = std::make_shared<ChunkSlice>();
 
     for(size_t z = 0; z < 256; z++) {
-        this->processSliceRow(chunk, slice, z);
+        this->processSliceRow(state, chunk, slice, z);
     }
 
     // we're done, assign the slice to the chunk
@@ -154,9 +182,6 @@ void FileWorldReader::deserializeSliceBlocks(std::shared_ptr<Chunk> chunk, const
 
     PROFILE_SCOPE(LZ4Decompress);
     this->compressor->decompress(compressed, bytes, numBytes);
-
-    Logging::trace("Decompressed: {} {} {} {}", this->sliceTempGrid[0], this->sliceTempGrid[1],
-            this->sliceTempGrid[2], this->sliceTempGrid[3]);
 }
 
 /**
@@ -178,6 +203,7 @@ void FileWorldReader::deserializeSliceMeta(std::shared_ptr<Chunk> chunk, const i
 }
 
 
+
 /**
  * This encapsulates the block data loading steps. It's done in two passes over the row's data:
  *
@@ -189,7 +215,118 @@ void FileWorldReader::deserializeSliceMeta(std::shared_ptr<Chunk> chunk, const i
  * - Using the previosuly selected map, again go over each block and fill it into the chunk slice's
  *   row data.
  */
-void FileWorldReader::processSliceRow(std::shared_ptr<Chunk> chunk, std::shared_ptr<ChunkSlice> slice, const size_t z) {
+void FileWorldReader::processSliceRow(SliceState &state, std::shared_ptr<Chunk> chunk, std::shared_ptr<ChunkSlice> slice, const size_t z) {
     PROFILE_SCOPE(ProcessRow);
 
+    std::shared_ptr<ChunkSliceRow> row = nullptr;
+    uint16_t mostFrequentBlock = 0;
+
+    // get pointer to this row's data
+    const auto ptr = this->sliceTempGrid.data() + (z * 256);
+
+    // step 1. count unique block IDs and determine whether to use sparse/dense
+    std::set<uint16_t> blockIds;
+    std::multiset<uint16_t> blockIdFrequency;
+
+    {
+        PROFILE_SCOPE(AnalyzeIds);
+
+        // get the unique block IDs, _and_ in effect build a histogram
+        for(size_t x = 0; x < 256; x++) {
+            blockIds.insert(ptr[x]);
+            blockIdFrequency.insert(ptr[x]);
+        }
+
+        /*
+         * Select a sparse representation only if there is one single block that accounts for > 75%
+         * of the blocks in this row. The most frequently occurring block will be selected as the
+         * sparse base.
+         */
+        bool useSparse = false;
+
+        for(auto block : blockIds) {
+            if(blockIdFrequency.count(block) > (256 * .75)) {
+                // there can only ever be one block > 75%
+                mostFrequentBlock = block;
+                useSparse = true;
+                break;
+            }
+        }
+
+        if(useSparse) {
+            row = std::make_shared<ChunkSliceRowSparse>();
+        } else {
+            row = std::make_shared<ChunkSliceRowDense>();
+        }
+    }
+
+    // step 2. find 8 bit block ID -> UUID map, or create one
+    int mapId = -1;
+
+    {
+        PROFILE_SCOPE(FindIdMap);
+
+        /*
+         * Now that we have a set of all of the 16-bit block IDs used by this row, we can use this
+         * to see if we've generated a map containing these 16-bit IDs in our slice struct. This
+         * avoids the need to muck about with UUIDs which is relatively slow.
+         */
+        for(size_t i = 0; i < state.reverseMaps.size(); i++) {
+            const auto &map = state.reverseMaps[i];
+
+            for(const auto id : blockIds) {
+                if(!map.contains(id)) goto beach;
+            }
+
+            // this map contains all block IDs, yay
+            mapId = i;
+            // we jump down here if the map does _not_ contain one of the IDs in this row
+beach:;
+        }
+
+        /*
+         * Create a new mapp if there is none that fit it.
+         */
+        if(mapId == -1) {
+            std::array<uint16_t, 256> map;
+            std::unordered_map<uint16_t, uint8_t> reverse;
+
+            size_t i = 0;
+            for(const auto &blockId : blockIds) {
+                map[i] = blockId;
+                reverse[blockId] = i;
+                ++i;
+            }
+
+            mapId = state.maps.size();
+            state.maps.push_back(map);
+            state.reverseMaps.push_back(reverse);
+        }
+
+        /**
+         * We've (hopefully) selected a map by now. Store it, and if the row is dense, convert its
+         * base block id value.
+         */
+        XASSERT(mapId >= 0, "Failed to select map id");
+
+        row->typeMap = mapId;
+
+        auto sparse = dynamic_pointer_cast<ChunkSliceRowSparse>(row);
+        if(sparse) {
+            sparse->defaultBlockId = state.reverseMaps[mapId].at(mostFrequentBlock);
+        }
+    }
+
+    // step 3: fill data into the row
+    {
+        PROFILE_SCOPE(Fill);
+        const auto &map = state.reverseMaps[mapId];
+
+        for(size_t x = 0; x < 256; x++) {
+            row->set(x, map.at(ptr[x]));
+        }
+    }
+
+    // last, store the row in the slice
+    slice->rows[z] = row;
 }

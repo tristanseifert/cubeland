@@ -27,9 +27,8 @@ struct ChunkSliceRow {
     uint8_t typeMap = 0;
 
     /// return the ID value at the given index
-    virtual uint8_t at(int i) {
-        return 0;
-    }
+    virtual uint8_t at(int i) = 0;
+    virtual void set(int i, uint8_t value) = 0;
 };
 
 /**
@@ -57,6 +56,10 @@ struct ChunkSliceRowSparse: public ChunkSliceRow {
             return this->defaultBlockId;
         }
     }
+    virtual void set(int i, uint8_t value) {
+        if(value == this->defaultBlockId) return;
+        this->storage[i & 0xFF] = value;
+    }
 };
 
 /**
@@ -71,6 +74,9 @@ struct ChunkSliceRowDense: public ChunkSliceRow {
     /// return the ID value at the given index directly from storage
     virtual uint8_t at(int i) {
         return this->storage[i];
+    }
+    virtual void set(int i, uint8_t value) {
+        this->storage[i] = value;
     }
 };
 
