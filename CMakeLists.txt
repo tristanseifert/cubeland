@@ -291,6 +291,9 @@ target_include_directories(cubeland SYSTEM BEFORE PRIVATE libs/stduuid/include)
 # concurrent queue
 target_include_directories(cubeland PRIVATE libs/concurrentqueue)
 
+# Cereal (serialization)
+target_include_directories(cubeland PRIVATE libs/cereal/include)
+
 ###################################################################################################
 #### platform-specific libraries
 # macOS frameworks

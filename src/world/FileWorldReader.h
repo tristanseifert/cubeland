@@ -32,6 +32,9 @@ struct ChunkSlice;
 
 /**
  * Supports reading world data from a file on disk. This file is in essence an sqlite3 database.
+ *
+ * All BLOB fields are compressed with LZ4 framed format, unless otherwise specified. Complex data
+ * is archived using the portable binary archivers from the cereal library.
  */
 class FileWorldReader: public WorldReader {
     friend class WorldDebugger;

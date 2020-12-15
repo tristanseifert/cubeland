@@ -9,6 +9,12 @@
 #include <mutils/time/profiler.h>
 #include <sqlite3.h>
 
+#include <cereal/types/variant.hpp>
+#include <cereal/types/string.hpp>
+#include <cereal/types/unordered_map.hpp>
+#include <cereal/archives/portable_binary.hpp>
+
+#include <sstream>
 #include <set>
 
 using namespace world;
@@ -105,14 +111,24 @@ void FileWorldReader::deserializeChunkMeta(std::shared_ptr<Chunk> chunk, const s
 
     // first, decompress it; bail if we got 0 bytes compressed text
     std::vector<char> bytes;
-    this->compressor->decompress(compressed, bytes);
+    {
+        PROFILE_SCOPE(LZ4Decompress);
+        this->compressor->decompress(compressed, bytes);
 
-    if(bytes.empty()) {
-        chunk->meta.clear();
-        return;
+        if(bytes.empty()) {
+            chunk->meta.clear();
+            return;
+        }
     }
 
-    // TODO: deserialize
+    // unarchive the metadata keys
+    {
+        PROFILE_SCOPE(Unarchive);
+        std::stringstream stream(std::string(bytes.begin(), bytes.end()));
+
+        cereal::PortableBinaryInputArchive arc(stream);
+        arc(chunk->meta);
+    }
 }
 
 

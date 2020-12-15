@@ -40,3 +40,6 @@
 [submodule "libs/glbinding"]
 	path = libs/glbinding
 	url = git@github.com:cginternals/glbinding.git
+[submodule "libs/cereal"]
+	path = libs/cereal
+	url = git@github.com:USCiLab/cereal.git

@@ -12,6 +12,13 @@
 #include <mutils/time/profiler.h>
 #include <sqlite3.h>
 
+#include <cereal/types/variant.hpp>
+#include <cereal/types/string.hpp>
+#include <cereal/types/unordered_map.hpp>
+#include <cereal/archives/portable_binary.hpp>
+
+#include <sstream>
+
 using namespace world;
 
 /**
@@ -150,7 +157,24 @@ void FileWorldReader::getSlicesForChunk(const int chunkId, std::unordered_map<in
 void FileWorldReader::serializeChunkMeta(std::shared_ptr<Chunk> chunk, std::vector<char> &data) {
     PROFILE_SCOPE(SerializeMeta);
 
-    // TODO: implement
+    // serialize the meatadata into a ceral stream
+    std::stringstream stream;
+    
+    {
+        PROFILE_SCOPE(Archive);
+        cereal::PortableBinaryOutputArchive arc(stream);
+        arc(chunk->meta);
+    }
+
+    // then compress
+    {
+        PROFILE_SCOPE(LZ4Compress);
+        const auto str = stream.str();
+        const void *ptr = str.data();
+        const size_t ptrLen = str.size();
+
+        this->compressor->compress(ptr, ptrLen, data);
+    }
 }
 
 
