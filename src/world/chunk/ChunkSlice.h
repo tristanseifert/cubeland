@@ -20,20 +20,6 @@
 namespace world {
 
 /**
- * Maps an 8-bit block type (as stored in the chunk slice rows) to the corresponding block UUIDs.
- * These are shared among all rows in the chunk.
- */
-struct ChunkSliceTypeMap {
-    /**
-     * 8 bit ID -> block UUID array
-     *
-     * Note that all occurrences of the nil UUID represent free spaces in the map; these can be
-     * assigned to a new UUID.
-     */
-    std::array<uuids::uuid, 256> idMap;
-};
-
-/**
  * Base class for chunk slice rows
  */
 struct ChunkSliceRow {

@@ -40,6 +40,14 @@ class WorldReader {
          * Loads data for the given chunk.
          */
         virtual std::promise<std::shared_ptr<Chunk>> getChunk(int x, int z) = 0;
+
+        /**
+         * Writes the given chunk to the world file. Existing chunks will be updated; if there is
+         * not a chunk at this chunk's location, a new one is allocated.
+         *
+         * @return A promise that indicates whether the chunk was written or not.
+         */
+        virtual std::promise<bool> putChunk(std::shared_ptr<Chunk> chunk) = 0;
 };
 }
 

@@ -1,7 +1,10 @@
 #include "WorldDebugger.h"
 #include "gui/GameUI.h"
-#include "../WorldReader.h"
-#include "../FileWorldReader.h"
+#include "gui/Loaders.h"
+#include "world/WorldReader.h"
+#include "world/FileWorldReader.h"
+#include "world/chunk/Chunk.h"
+#include "world/chunk/ChunkSlice.h"
 
 #include <Logging.h>
 #include "io/Format.h"
@@ -11,6 +14,24 @@
 #include <ImGuiFileDialog/ImGuiFileDialog.h>
 
 using namespace world;
+
+/**
+ * Starts the worker thread on initialization.
+ */
+WorldDebugger::WorldDebugger() {
+    this->workerRun = true;
+    this->worker = std::make_unique<std::thread>(&WorldDebugger::workerMain, this);
+}
+
+/**
+ * Makes sure the work thread gets shut down.
+ */
+WorldDebugger::~WorldDebugger() {
+    this->workerRun = false;
+    this->sendWorkerNop();
+
+    this->worker->join();
+}
 
 /**
  * Main rendering function for the world debugger
@@ -47,7 +68,19 @@ void WorldDebugger::draw(gui::GameUI *ui) {
     ImGui::SameLine();
     ImGui::Text("%s", typeid(this->world.get()).name());
 
-    // actions
+    // chunk actions
+    ImGui::PushFont(ui->getFont(gui::GameUI::kBoldFontName));
+    ImGui::TextUnformatted("Chunks");
+    ImGui::PopFont();
+    ImGui::Separator();
+
+    if(this->world) {
+        this->drawChunkUi(ui);
+    } else {
+        ImGui::PushFont(ui->getFont(gui::GameUI::kItalicFontName));
+        ImGui::TextUnformatted("Load a world to access the chunk editor");
+        ImGui::PopFont();
+    }
 
     // file type
     auto file = dynamic_pointer_cast<FileWorldReader>(this->world);
@@ -81,6 +114,29 @@ void WorldDebugger::draw(gui::GameUI *ui) {
         igfd::ImGuiFileDialog::Instance()->CloseDialog("WorldDbgOpen");
     }
 
+    // busy indicator
+    if(!this->worldError && this->isBusy) {
+        ImGui::OpenPopup("Working");
+
+        // center the modal
+        ImVec2 center(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f);
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+        if(ImGui::BeginPopupModal("Working", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::PushFont(ui->getFont(gui::GameUI::kBoldFontName));
+            ImGui::Text("Please wait... this should only take a moment");
+            ImGui::PopFont();
+
+            const ImU32 col = ImGui::GetColorU32(ImGuiCol_ButtonHovered);
+            ImGui::Spinner("##spin", 9, 3, col);
+            ImGui::SameLine();
+
+            ImGui::TextWrapped("Current step: %s", this->busyText.c_str());
+
+            ImGui::EndPopup();
+        }
+    }
+
     // world loading errors
     if(this->worldError) {
         ImGui::OpenPopup("Loading Error");
@@ -91,7 +147,7 @@ void WorldDebugger::draw(gui::GameUI *ui) {
 
         if(ImGui::BeginPopupModal("Loading Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::PushFont(ui->getFont(gui::GameUI::kBoldFontName));
-            ImGui::Text("Something went wrong while loading the world file.");
+            ImGui::Text("Ooops! Something got a bit fucked.");
             ImGui::PopFont();
 
             ImGui::TextWrapped("%s", this->worldError->c_str());
@@ -185,3 +241,119 @@ void WorldDebugger::drawFileTypeMap(gui::GameUI *ui, std::shared_ptr<FileWorldRe
 
     ImGui::EndTable();
 }
+
+
+/**
+ * Draws the UI controls to do with modifying with chunks.
+ *
+ * Primarily, this allows generating chunks and writing them to arbitrary chunks; as well as
+ * reading chunk data and displaying an extents map.
+ */
+void WorldDebugger::drawChunkUi(gui::GameUI *ui) {
+    // string constants
+    const static size_t kNumFillTypes = 1;
+    const static char *kFillTypes[kNumFillTypes] = {
+        "Solid (y <= 32)",
+    };
+
+    // begin tab ui
+    if(!ImGui::BeginTabBar("chunks")) {
+        return;
+    }
+
+    // type map
+    if(ImGui::BeginTabItem("Write")) {
+        ImGui::PushItemWidth(150);
+
+        // X/Z coord for the chunk to write
+        ImGui::DragInt2("Location", this->chunkState.writeCoord);
+
+        // fill type
+        if(ImGui::BeginCombo("Fill Type", kFillTypes[this->chunkState.fillType])) {
+            for(size_t j = 0; j < kNumFillTypes; j++) {
+                const bool isSelected = (this->chunkState.fillType == j);
+
+                if (ImGui::Selectable(kFillTypes[j], isSelected)) {
+                    this->chunkState.fillType = j;
+                }
+                if(isSelected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+
+        // write button
+        ImGui::BulletText("%s", "Note: Existing chunk data will be overwritten!");
+        if(ImGui::Button("Write Chunk")) {
+            this->isBusy = true;
+            this->busyText = "Writing chunk";
+
+            // perform this work in the background
+            this->workQueue.enqueue([&]{
+                // build the chunk and fill it
+                auto chunk = std::make_shared<Chunk>();
+                chunk->worldPos = glm::vec2(this->chunkState.writeCoord[0],
+                        this->chunkState.writeCoord[1]);
+
+                {
+                    PROFILE_SCOPE(FillChunk);
+                    this->fillChunkSolid(chunk, 32);
+                }
+
+                // then request to write it out
+                try {
+                    PROFILE_SCOPE(PutChunk);
+                    auto promise = this->world->putChunk(chunk);
+                    promise.get_future().get();
+                } catch(std::exception &e) {
+                    this->worldError = std::make_unique<std::string>(f("putChunk() failed:\n{}", e.what()));
+                }
+
+                this->isBusy = false;
+            });
+        }
+
+        // finish write section
+        ImGui::PopItemWidth();
+        ImGui::EndTabItem();
+    }
+
+    // finish tab bar
+    ImGui::EndTabBar();
+}
+
+
+
+/**
+ * Worker thread main loop
+ */
+void WorldDebugger::workerMain() {
+    int err;
+
+    MUtils::Profiler::NameThread("World Debugger");
+
+    // wait for work to come in
+    std::function<void(void)> item;
+    while(this->workerRun) {
+        this->workQueue.wait_dequeue(item);
+
+        PROFILE_SCOPE(Callout);
+        item();
+    }
+}
+
+/**
+ * Sends a no-op to the worker thread to wake it up.
+ */
+void WorldDebugger::sendWorkerNop() {
+    this->workQueue.enqueue([&]{ /* nothing */ });
+}
+
+/**
+ * Fills a solid pile of blocks into the chunk up to the given Y level.
+ */
+void WorldDebugger::fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax) {
+    chunk->meta["generator.name"] = "WorldDebugger";
+}
+

@@ -11,6 +11,11 @@
 
 #include <string>
 #include <memory>
+#include <thread>
+#include <atomic>
+#include <functional>
+
+#include <blockingconcurrentqueue.h>
 
 namespace gui {
 class GameUI;
@@ -20,8 +25,13 @@ namespace world {
 class WorldReader;
 class FileWorldReader;
 
+struct Chunk;
+
 class WorldDebugger: public gui::GameWindow {
     public:
+        WorldDebugger();
+        ~WorldDebugger();
+
         void draw(gui::GameUI *) override;
 
         /// Returns the visibility state of the debugger.
@@ -40,8 +50,16 @@ class WorldDebugger: public gui::GameWindow {
     private:
         void loadWorldInfo();
 
+        void drawChunkUi(gui::GameUI *);
+
         void drawFileWorldUi(gui::GameUI *, std::shared_ptr<FileWorldReader>);
         void drawFileTypeMap(gui::GameUI *, std::shared_ptr<FileWorldReader>);
+
+    private:
+        void workerMain();
+        void sendWorkerNop();
+
+        void fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax);
 
     private:
         /// Whether the debug window is open
@@ -51,6 +69,32 @@ class WorldDebugger: public gui::GameWindow {
         std::shared_ptr<WorldReader> world = nullptr;
         /// Error from opening the world, if any
         std::unique_ptr<std::string> worldError = nullptr;
+
+        /// if set, we show the busy indicator
+        bool isBusy = false;
+        /// what exactly we're busy with
+        std::string busyText = "nothing";
+
+        /// GUI state
+        struct {
+
+        } state;
+
+        // chunk UI state
+        struct {
+            /// X/Z coord for the block to edit
+            int writeCoord[2] = {0, 0};
+            /// current fill type
+            int fillType = 0;
+        } chunkState;
+
+    private:
+        /// worker thread processes requests as long as this is set
+        std::atomic_bool workerRun;
+        /// worker thread 
+        std::unique_ptr<std::thread> worker = nullptr;
+        /// work requests sent to the thread
+        moodycamel::BlockingConcurrentQueue<std::function<void(void)>> workQueue;
 };
 }
 

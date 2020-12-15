@@ -1,7 +1,8 @@
 #include "FileWorldReader.h"
 
-#include <Logging.h>
 #include "io/Format.h"
+#include <Logging.h>
+#include <mutils/time/profiler.h>
 
 #include <sqlite3.h>
 
@@ -207,3 +208,41 @@ bool FileWorldReader::getColumn(sqlite3_stmt *stmt, const size_t col, bool &out)
     return false;
 }
 
+
+
+/**
+ * Begins a new transaction.
+ */
+void FileWorldReader::beginTransaction() {
+    PROFILE_SCOPE(TxnBegin);
+    int err;
+
+    err = sqlite3_exec(this->db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
+    if(err != SQLITE_OK) {
+        throw DbError(f("failed to start transaction ({}): {}", err, sqlite3_errmsg(this->db)));
+    }
+}
+/**
+ * Commits the current transaction.
+ */
+void FileWorldReader::commitTransaction() {
+    PROFILE_SCOPE(TxnCommit);
+    int err;
+
+    err = sqlite3_exec(this->db, "COMMIT TRANSACTION;", nullptr, nullptr, nullptr);
+    if(err != SQLITE_OK) {
+        throw DbError(f("failed to commit transaction ({}): {}", err, sqlite3_errmsg(this->db)));
+    }
+}
+/**
+ * Rolls the current transaction back.
+ */
+void FileWorldReader::rollbackTransaction() {
+    PROFILE_SCOPE(TxnRollback);
+    int err;
+
+    err = sqlite3_exec(this->db, "ROLLBACK TRANSACTION;", nullptr, nullptr, nullptr);
+    if(err != SQLITE_OK) {
+        throw DbError(f("failed to roll back transaction ({}): {}", err, sqlite3_errmsg(this->db)));
+    }
+}

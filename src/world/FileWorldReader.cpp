@@ -3,6 +3,7 @@
 #include "chunk/Chunk.h"
 #include "chunk/ChunkSlice.h"
 
+#include "util/LZ4.h"
 #include "io/Format.h"
 #include <version.h>
 #include <Logging.h>
@@ -57,6 +58,9 @@ FileWorldReader::FileWorldReader(const std::string &path, const bool create) : w
                                    sqlite3_errstr(err), err));
     }
 
+    // allocate some additional stuff
+    this->compressor = std::make_unique<util::LZ4>();
+
     // perform some mandatory initialization
     this->initializeSchema();
     this->loadBlockTypeMap();
@@ -101,7 +105,7 @@ void FileWorldReader::initializeSchema() {
         this->getWorldInfo("creator.name", creator);
         this->getWorldInfo("creator.version", version);
         this->getWorldInfo("creator.timestamp", timestamp);
-        
+
         Logging::debug("World created by '{}' ({}) on {}", creator, version, timestamp);
 
         return;
@@ -143,8 +147,6 @@ void FileWorldReader::workerMain() {
     // wait for work to come in
     WorkItem item;
     while(this->workerRun) {
-        PROFILE_SCOPE(WorkLoop);
-
         this->workQueue.wait_dequeue(item);
 
         PROFILE_SCOPE(Callout);
@@ -247,7 +249,32 @@ std::promise<std::shared_ptr<Chunk>> FileWorldReader::getChunk(int x, int z) {
 
     return prom;
 }
+/**
+ * Writes a chunk to the world file.
+ *
+ * Existing chunks have their metadata and slice data replaced (deleting any slices that became
+ * totally empty) if needed.
+ */
+std::promise<bool> FileWorldReader::putChunk(std::shared_ptr<Chunk> chunk) {
+    this->canAcceptRequests();
+    std::promise<bool> prom;
 
+    this->workQueue.enqueue({ .f = [&, chunk]{
+        // wrap the write in a transaction here. much cleaner
+        try {
+            this->beginTransaction();
+            this->writeChunk(chunk);
+            this->commitTransaction();
+
+            prom.set_value(true);
+        } catch (std::exception &e) {
+            this->rollbackTransaction();
+            prom.set_exception(std::current_exception());
+        }
+    }});
+
+    return prom;
+}
 
 
 
@@ -448,6 +475,146 @@ std::shared_ptr<Chunk> FileWorldReader::loadChunk(int x, int z) {
     // TODO: implement
     return nullptr;
 }
+
+/**
+ * Writes the given chunk to the file.
+ */
+void FileWorldReader::writeChunk(std::shared_ptr<Chunk> chunk) {
+    PROFILE_SCOPE(WriteChunk);
+
+    int chunkId = -1;
+    int err;
+    sqlite3_stmt *stmt = nullptr;
+
+    // chunk Y position -> chunk slice ID
+    std::unordered_map<int, int> chunkSliceIds;
+
+    // if we already have such a chunk, get its id
+    if(this->haveChunkAt(chunk->worldPos.x, chunk->worldPos.y)) {
+        PROFILE_SCOPE(GetChunkId);
+        this->prepare("SELECT id FROM chunk_v1 WHERE worldX = ? AND worldZ = ?;", &stmt);
+        this->bindColumn(stmt, 1, (int64_t) chunk->worldPos.x);
+        this->bindColumn(stmt, 2, (int64_t) chunk->worldPos.y);
+
+        err = sqlite3_step(stmt);
+        if(err != SQLITE_ROW || !this->getColumn(stmt, 0, chunkId)) {
+            sqlite3_finalize(stmt);
+            throw std::runtime_error(f("Failed to identify chunk: {}", err));
+        }
+
+        sqlite3_finalize(stmt);
+    }
+    // otherwise, create a new chunk
+    else {
+        PROFILE_SCOPE(CreateChunk);
+
+        this->prepare("INSERT INTO chunk_v1 (worldX, worldZ) VALUES (?, ?);", &stmt);
+        this->bindColumn(stmt, 1, (int64_t) chunk->worldPos.x);
+        this->bindColumn(stmt, 2, (int64_t) chunk->worldPos.y);
+
+        err = sqlite3_step(stmt);
+        if(err != SQLITE_DONE) {
+            sqlite3_finalize(stmt);
+            throw std::runtime_error(f("Failed to insert chunk: {}", err));
+        }
+
+        // get its inserted ID
+        chunkId = sqlite3_last_insert_rowid(this->db);
+        sqlite3_finalize(stmt);
+    }
+
+    Logging::trace("File chunk id for {}: {}", (void *) chunk.get(), chunkId);
+
+    // TODO: update block type map, if needed
+
+    // get all slices; figure out which ones to update, remove, or create new
+    this->getSlicesForChunk(chunkId, chunkSliceIds);
+    Logging::trace("Have {} existing slices", chunkSliceIds.size());
+
+    for(int y = 0; y < chunk->slices.size(); y++) {
+        // delete existing chunk if the slice is null
+        if(chunk->slices[y] == nullptr) {
+            if(chunkSliceIds.contains(y)) {
+                this->removeSlice(chunkSliceIds[y]);
+            }
+            // no data in either the world or this chunk for that Y level. nothing to do :)
+        } 
+        // we have chunk data...
+        else {
+            // ...and should update an existing slice
+            if(chunkSliceIds.contains(y)) {
+                this->updateSlice(chunkSliceIds[y], chunk, y);
+            }
+            // ...and don't have a slice for this Y level yet, so create it
+            else {
+                this->insertSlice(chunk, y);
+            }
+        }
+    }
+}
+/**
+ * Gets all slices for the given chunk. A map of Y -> slice ID is filled.
+ */
+void FileWorldReader::getSlicesForChunk(const int chunkId, std::unordered_map<int, int> &slices) {
+    PROFILE_SCOPE(GetChunkSliceIds);
+
+    int err;
+    sqlite3_stmt *stmt = nullptr;
+
+    this->prepare("SELECT id, chunkId, chunkY FROM chunk_slice_v1 WHERE chunkId = ?;", &stmt);
+    this->bindColumn(stmt, 1, (int64_t) chunkId);
+
+    while((err = sqlite3_step(stmt)) == SQLITE_ROW) {
+        int64_t id, sliceY;
+
+        if(!this->getColumn(stmt, 0, id) || !this->getColumn(stmt, 2, sliceY)) {
+            sqlite3_finalize(stmt);
+            throw std::runtime_error("Failed to get chunk slice");
+        }
+        if(sliceY >= Chunk::kMaxY) {
+            sqlite3_finalize(stmt);
+            throw std::runtime_error(f("Invalid Y ({}) for chunk slice {} on chunk {}", sliceY,
+                    id, chunkId));
+        }
+        slices[sliceY] = id;
+    }
+
+    // clean up
+    sqlite3_finalize(stmt);
+}
+/**
+ * Removes slice with the given ID.
+ */
+void FileWorldReader::removeSlice(const int sliceId) {
+    PROFILE_SCOPE(RemoveSlice);
+
+    int err;
+    sqlite3_stmt *stmt = nullptr;
+
+    this->prepare("DELETE FROM chunk_slice_v1 WHERE id = ?;", &stmt);
+    this->bindColumn(stmt, 1, (int64_t) sliceId);
+
+    err = sqlite3_step(stmt);
+    if(err != SQLITE_ROW && err != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        throw std::runtime_error(f("Failed to delete slice ({}): {}", err, sqlite3_errmsg(this->db)));
+    }
+    sqlite3_finalize(stmt);
+}
+/**
+ * Inserts a new slice into the file.
+ */
+void FileWorldReader::insertSlice(std::shared_ptr<Chunk> chunk, const int y) {
+
+}
+/*
+ * Updates an existing slice.
+ */
+void FileWorldReader::updateSlice(const int sliceId, std::shared_ptr<Chunk> chunk, const int y) {
+    // TODO: implement
+    throw std::runtime_error("Unimplemented");
+}
+
 
 /**
  * Loads the block type map.

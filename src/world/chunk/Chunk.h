@@ -41,6 +41,20 @@ struct BlockMeta {
 };
 
 /**
+ * Maps an 8-bit block type (as stored in the chunk slice rows) to the corresponding block UUIDs.
+ * These are shared among all rows in the chunk.
+ */
+struct ChunkRowBlockTypeMap {
+    /**
+     * 8 bit ID -> block UUID array
+     *
+     * Note that all occurrences of the nil UUID represent free spaces in the map; these can be
+     * assigned to a new UUID.
+     */
+    std::array<uuids::uuid, 256> idMap;
+};
+
+/**
  * Describes a single chunk, including all blocks and their metadata.
  */
 struct Chunk {
@@ -81,7 +95,7 @@ struct Chunk {
      *
      * Each row indicates which one of these maps (by index) it uses.
      */
-    std::vector<ChunkSliceTypeMap> sliceIdMaps;
+    std::vector<ChunkRowBlockTypeMap> sliceIdMaps;
 
     /**
      * Chunk specific metadata

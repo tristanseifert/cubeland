@@ -3,8 +3,6 @@
 
 #include "WorldReader.h"
 
-#include <blockingconcurrentqueue.h>
-
 #include <string>
 #include <thread>
 #include <memory>
@@ -15,11 +13,16 @@
 #include <unordered_map>
 #include <cstdint>
 
+#include <blockingconcurrentqueue.h>
 #include <glm/vec4.hpp>
 #include <uuid.h>
 
 struct sqlite3;
 struct sqlite3_stmt;
+
+namespace util {
+class LZ4;
+}
 
 namespace world {
 class WorldDebugger;
@@ -42,6 +45,7 @@ class FileWorldReader: public WorldReader {
         std::promise<bool> chunkExists(int x, int z);
         std::promise<glm::vec4> getWorldExtents();
         std::promise<std::shared_ptr<Chunk>> getChunk(int x, int z);
+        std::promise<bool> putChunk(std::shared_ptr<Chunk> chunk);
 
     // these are the DB-context relative functions of the above
     private:
@@ -49,7 +53,13 @@ class FileWorldReader: public WorldReader {
         glm::vec4 getChunkBounds();
 
         std::shared_ptr<Chunk> loadChunk(int, int);
+
         void writeChunk(std::shared_ptr<Chunk>);
+        void getSlicesForChunk(const int chunkId, std::unordered_map<int, int> &slices);
+
+        void removeSlice(const int sliceId);
+        void insertSlice(std::shared_ptr<Chunk> chunk, const int y);
+        void updateSlice(const int sliceId, std::shared_ptr<Chunk> chunk, const int y);
 
         void loadBlockTypeMap();
         void writeBlockTypeMap();
@@ -109,6 +119,10 @@ class FileWorldReader: public WorldReader {
         bool getColumn(sqlite3_stmt *, const size_t, int64_t &);
         bool getColumn(sqlite3_stmt *, const size_t, bool &);
 
+        void beginTransaction();
+        void rollbackTransaction();
+        void commitTransaction();
+
         /// Gets a double (REAL) column as a float.
         bool getColumn(sqlite3_stmt *stmt, const size_t col, float &value) {
             double temp;
@@ -144,6 +158,9 @@ class FileWorldReader: public WorldReader {
         std::string filename;
         /// path from which the world file is loaded
         std::string worldPath;
+
+        /// used for decompressing/compressing block data
+        std::unique_ptr<util::LZ4> compressor;
 };
 }
 
