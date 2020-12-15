@@ -74,14 +74,19 @@ std::shared_ptr<Chunk> FileWorldReader::loadChunk(int x, int z) {
             XASSERT(inMap.size() == m.idMap.size(), "mismatched id map sizes");
 
             for(size_t j = 0; j < inMap.size(); j++) {
-                const uint16_t blockId = inMap[i];
+                const uint16_t blockId = inMap[j];
 
-                // we should always have an UUID for each block
-                if(!this->blockIdMap.contains(blockId)) {
-                    throw std::runtime_error(f("Invalid block id 0x{:4x}", blockId));
+                // copy ID directly
+                if(this->blockIdMap.contains(blockId)) {
+                    m.idMap[j] = this->blockIdMap[blockId];
+                } else {
+                    // 0xFFFF = unused entry
+                    if(blockId == 0xFFFF) {
+                        m.idMap[j] = uuids::uuid();
+                    } else {
+                        throw std::runtime_error(f("Invalid block id 0x{:4x}", blockId));
+                    }
                 }
-
-                m.idMap[j] = this->blockIdMap[blockId];
             }
 
             chunk->sliceIdMaps.push_back(m);
@@ -289,6 +294,8 @@ beach:;
          */
         if(mapId == -1) {
             std::array<uint16_t, 256> map;
+            std::fill(map.begin(), map.end(), 0xFFFF);
+
             std::unordered_map<uint16_t, uint8_t> reverse;
 
             size_t i = 0;

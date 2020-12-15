@@ -26,7 +26,7 @@ struct ChunkSlice;
 struct ChunkSliceTypeMap;
 
 /// Types that may be held as chunk metadata values
-using MetaValue = std::variant<std::monostate, std::string, double, int64_t>;
+using MetaValue = std::variant<std::monostate, bool, std::string, double, int64_t>;
 
 /**
  * Metadata for a single block.

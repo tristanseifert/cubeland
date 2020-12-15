@@ -86,12 +86,9 @@ void WorldDebugger::draw(gui::GameUI *ui) {
     // file type
     auto file = dynamic_pointer_cast<FileWorldReader>(this->world);
     if(file) {
-        ImGui::PushFont(ui->getFont(gui::GameUI::kBoldFontName));
-        ImGui::TextUnformatted("File World Reader");
-        ImGui::PopFont();
-        ImGui::Separator();
-
-        this->drawFileWorldUi(ui, file);
+        if(ImGui::CollapsingHeader("File Reader")) {
+            this->drawFileWorldUi(ui, file);
+        }
     }
 
     // handle open panel
@@ -166,6 +163,11 @@ void WorldDebugger::draw(gui::GameUI *ui) {
     }
 
     ImGui::End();
+
+    // handle drawing chunk viewer
+    if(this->isChunkViewerOpen) {
+        this->drawChunkViewer(ui);
+    }
 }
 
 /**
@@ -217,7 +219,8 @@ void WorldDebugger::drawFileWorldUi(gui::GameUI *ui, std::shared_ptr<FileWorldRe
  * Draws the table to display the mapping between block id and block type uuid
  */
 void WorldDebugger::drawFileTypeMap(gui::GameUI *ui, std::shared_ptr<FileWorldReader> file) {
-    if(!ImGui::BeginTable("typeMap", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch)) {
+    ImVec2 outerSize(0, ImGui::GetTextLineHeightWithSpacing() * 8);
+    if(!ImGui::BeginTable("typeMap", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
         return;
     }
 
@@ -232,7 +235,7 @@ void WorldDebugger::drawFileTypeMap(gui::GameUI *ui, std::shared_ptr<FileWorldRe
         ImGui::PushID(key);
         
         ImGui::TableNextColumn();
-        ImGui::Text("%04x", key);
+        ImGui::Text("0x%04x", key);
         
         ImGui::TableNextColumn();
         ImGui::Text("%s", uuids::to_string(value).c_str());
@@ -289,7 +292,11 @@ void WorldDebugger::drawChunkReadUi(gui::GameUI *ui) {
             try {
                 PROFILE_SCOPE(GetChunk);
                 auto promise = this->world->getChunk(this->chunkState.readCoord[0], this->chunkState.readCoord[1]);
-                promise.get_future().get();
+
+                this->chunk = promise.get_future().get();
+
+                this->resetChunkViewer();
+                this->isChunkViewerOpen = true;
             } catch(std::exception &e) {
                 this->worldError = std::make_unique<std::string>(f("getChunk() failed:\n{}", e.what()));
             }
@@ -355,6 +362,10 @@ void WorldDebugger::drawChunkWriteUi(gui::GameUI *ui) {
                 this->fillChunkSolid(chunk, this->chunkState.fillLevel);
             }
 
+            this->chunk = chunk;
+            this->resetChunkViewer();
+            this->isChunkViewerOpen = true;
+
             // then request to write it out
             try {
                 PROFILE_SCOPE(PutChunk);
@@ -372,6 +383,289 @@ void WorldDebugger::drawChunkWriteUi(gui::GameUI *ui) {
     ImGui::PopItemWidth();
 }
 
+
+
+/**
+ * Draws the chunk viewer.
+ */
+void WorldDebugger::drawChunkViewer(gui::GameUI *ui) {
+    // short circuit drawing if not visible
+    if(!ImGui::Begin("Chunk Viewer", &this->isChunkViewerOpen)) {
+        ImGui::End();
+        return;
+    }
+
+    // error message if no chunk loaded
+    if(!this->chunk) {
+        ImGui::PushFont(ui->getFont(gui::GameUI::kItalicFontName));
+        ImGui::TextUnformatted("Select a chunk to view in the world debugger.");
+        ImGui::PopFont();
+
+        ImGui::End();
+        return;
+    }
+
+    // main details of chunk
+    ImGui::TextUnformatted("Instance: ");
+    ImGui::SameLine();
+    ImGui::Text("%p", this->chunk.get());
+
+    ImGui::TextUnformatted("Metadata: ");
+    ImGui::SameLine();
+    ImGui::Text("%zu chunk / %zu block", this->chunk->meta.size(), this->chunk->blockMeta.size());
+
+    ImGui::TextUnformatted("Slices: ");
+    ImGui::SameLine();
+    ImGui::Text("%zu", this->chunk->slices.size());
+
+    // chunk metadata
+    if(ImGui::CollapsingHeader("Chunk Metadata")) {
+        if(!this->chunk->meta.empty()) {
+            this->drawChunkMeta(ui);
+        } else {
+            ImGui::PushFont(ui->getFont(gui::GameUI::kItalicFontName));
+            ImGui::TextUnformatted("No data available");
+            ImGui::PopFont();
+        }
+    }
+
+    // slice ID maps
+    if(ImGui::CollapsingHeader("Slice ID Maps")) {
+        if(!this->chunk->sliceIdMaps.empty()) {
+            ImGui::PushItemWidth(74);
+
+            if(ImGui::BeginCombo("Map Index", f("{:d}", this->viewerState.currentIdMap).c_str())) {
+                for(size_t j = 0; j < this->chunk->sliceIdMaps.size(); j++) {
+                    const bool isSelected = (this->viewerState.currentIdMap == j);
+
+                    if (ImGui::Selectable(f("{:d}", j).c_str(), isSelected)) {
+                        this->viewerState.currentIdMap = j;
+                    }
+                    if(isSelected) {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+
+            ImGui::PopItemWidth();
+
+            this->drawChunkIdMap(ui);
+        } else {
+            ImGui::PushFont(ui->getFont(gui::GameUI::kItalicFontName));
+            ImGui::TextUnformatted("No data available");
+            ImGui::PopFont();
+        }
+    }
+
+    // rows
+    if(ImGui::CollapsingHeader("Slice Data")) {
+        this->drawChunkRows(ui);
+    }
+
+    // finish window
+    ImGui::End();
+}
+
+/**
+ * Draws the chunk metadata table.
+ */
+void WorldDebugger::drawChunkMeta(gui::GameUI *ui) {
+    // max 5 rows before we scroll
+    ImVec2 outerSize(0, ImGui::GetTextLineHeightWithSpacing() * 5);
+    if(!ImGui::BeginTable("meta", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
+        return;
+    }
+
+    // headers
+    ImGui::TableSetupColumn("Key");
+    ImGui::TableSetupColumn("Value");
+    ImGui::TableHeadersRow();
+
+    // draw each row
+    for(const auto &[key, value] : this->chunk->meta) {
+        ImGui::TableNextRow();
+        ImGui::PushID(key.c_str());
+
+        ImGui::TableNextColumn();
+        ImGui::TextUnformatted(key.c_str());
+
+        ImGui::TableNextColumn();
+        this->printMetaValue(value);
+
+        ImGui::PopID();
+    }
+
+    ImGui::EndTable();
+}
+
+/**
+ * Draws the currently selected chunk block id map.
+ */
+void WorldDebugger::drawChunkIdMap(gui::GameUI *ui) {
+    // max 5 rows before we scroll
+    ImVec2 outerSize(0, ImGui::GetTextLineHeightWithSpacing() * 5);
+    if(!ImGui::BeginTable("idMap", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
+        return;
+    }
+
+    // headers
+    ImGui::TableSetupColumn("Idx", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 18);
+    ImGui::TableSetupColumn("UUID");
+    ImGui::TableHeadersRow();
+
+    // draw each row
+    const auto &map = this->chunk->sliceIdMaps[this->viewerState.currentIdMap];
+
+    for(size_t i = 0; i < map.idMap.size(); i++) {
+        // skip nil UUIDs
+        const auto &uuid = map.idMap[i];
+        if(uuid.is_nil()) continue;
+
+        // otherwise, print it
+        ImGui::TableNextRow();
+        ImGui::PushID(i);
+
+        ImGui::TableNextColumn();
+        ImGui::Text("%02zx", i);
+
+        ImGui::TableNextColumn();
+        ImGui::Text("%s", uuids::to_string(uuid).c_str());
+
+        ImGui::PopID();
+    }
+
+    ImGui::EndTable();
+}
+
+/**
+ * UI for viewing chunk rows
+ */
+void WorldDebugger::drawChunkRows(gui::GameUI *ui) {
+    // draw the slice selector
+    ImGui::PushItemWidth(74);
+    ImGui::DragInt("Slice (Y)", &this->viewerState.currentSlice, 1, 0, 255);
+    ImGui::PopItemWidth();
+
+    ImGui::SameLine();
+    ImGui::TextUnformatted("Instance: ");
+    ImGui::SameLine();
+
+    auto slice = this->chunk->slices[this->viewerState.currentSlice];
+    ImGui::Text("%p", slice.get());
+
+    // bail if there is no slice
+    if(!slice) {
+        ImGui::PushFont(ui->getFont(gui::GameUI::kItalicFontName));
+        ImGui::TextUnformatted("No data available");
+        ImGui::PopFont();
+        return;
+    }
+
+    // draw the row selector
+    ImGui::PushItemWidth(74);
+    ImGui::DragInt("Row (Z)", &this->viewerState.currentRow, 1, 0, 255);
+
+    ImGui::SameLine();
+    ImGui::TextUnformatted("Instance: ");
+    ImGui::SameLine();
+
+    auto row = slice->rows[this->viewerState.currentRow];
+    ImGui::Text("%p", row.get());
+
+    ImGui::TextUnformatted("ID Map: ");
+    ImGui::SameLine();
+    ImGui::Text("0x%02x", row->typeMap);
+
+    // draw the type of the row and detail about it
+    auto sparse = dynamic_pointer_cast<ChunkSliceRowSparse>(row);
+    auto dense = dynamic_pointer_cast<ChunkSliceRowDense>(row);
+
+    ImGui::TextUnformatted("Type: ");
+    ImGui::SameLine();
+
+    // sparse
+    if(sparse) {
+        ImGui::TextUnformatted("Sparse");
+        this->drawRowInfo(ui, sparse);
+    }
+    // dense
+    else if(dense) {
+        ImGui::TextUnformatted("Dense");
+        this->drawRowInfo(ui, dense);
+    }
+    // none
+    else {
+        ImGui::TextUnformatted("??? Unknown (this should not happen)");
+    }
+    ImGui::PopItemWidth();
+}
+
+/**
+ * Draws info for a sparse chunk row.
+ */
+void WorldDebugger::drawRowInfo(gui::GameUI *ui, std::shared_ptr<ChunkSliceRowSparse> sparse) {
+    // base ID
+    ImGui::TextUnformatted("Default Block ID: ");
+    ImGui::SameLine();
+    ImGui::Text("0x%02x", sparse->defaultBlockId);
+
+    // sparse value overrides
+    ImVec2 outerSize(0, ImGui::GetTextLineHeightWithSpacing() * 5);
+    if(ImGui::BeginTable("sparseVals", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
+
+        // headers
+        ImGui::TableSetupColumn("X", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 18);
+        ImGui::TableSetupColumn("Value");
+        ImGui::TableHeadersRow();
+
+        // draw each row
+        for(const auto [x, value] : sparse->storage) {
+            ImGui::TableNextRow();
+            ImGui::PushID(x);
+
+            ImGui::TableNextColumn();
+            ImGui::Text("%d", x);
+
+            ImGui::TableNextColumn();
+            ImGui::Text("0x%02x", value);
+
+            ImGui::PopID();
+        }
+
+        ImGui::EndTable();
+    }
+}
+
+/**
+ * UI for showing a dense row's storage.
+ */
+void WorldDebugger::drawRowInfo(gui::GameUI *ui, std::shared_ptr<ChunkSliceRowDense>) {
+    // TODO: view array
+}
+
+/**
+ * Prints a metadata value.
+ */
+void WorldDebugger::printMetaValue(const std::variant<std::monostate, bool, std::string, double, int64_t> &val) {
+    if(std::holds_alternative<std::string>(val)) {
+        ImGui::TextUnformatted(std::get<std::string>(val).c_str());
+    } else if(std::holds_alternative<bool>(val)) {
+        ImGui::TextUnformatted(std::get<bool>(val) ? "true" : "false");
+    } else if(std::holds_alternative<double>(val)) {
+        ImGui::Text("%g", std::get<double>(val));
+    } else if(std::holds_alternative<int64_t>(val)) {
+        ImGui::Text("%lld", std::get<int64_t>(val));
+    }
+}
+
+
+/**
+ * Reset the chunk viewer state.
+ */
+void WorldDebugger::resetChunkViewer() {
+    this->viewerState = ChunkViewerState();
+}
 
 
 /**
@@ -433,7 +727,7 @@ void WorldDebugger::fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax) {
         // create a sparse row for each column
         for(size_t z = 0; z < 256; z++) {
             auto row = std::make_shared<ChunkSliceRowSparse>();
-            row->defaultBlockId = 2;
+            row->defaultBlockId = 3;
 
             // this makes a diagonal stripe
             for(size_t x = 0; x < 256; x++) {

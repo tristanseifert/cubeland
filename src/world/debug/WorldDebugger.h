@@ -14,6 +14,7 @@
 #include <thread>
 #include <atomic>
 #include <functional>
+#include <variant>
 
 #include <blockingconcurrentqueue.h>
 
@@ -26,6 +27,8 @@ class WorldReader;
 class FileWorldReader;
 
 struct Chunk;
+struct ChunkSliceRowSparse;
+struct ChunkSliceRowDense;
 
 class WorldDebugger: public gui::GameWindow {
     public:
@@ -57,6 +60,16 @@ class WorldDebugger: public gui::GameWindow {
         void drawFileWorldUi(gui::GameUI *, std::shared_ptr<FileWorldReader>);
         void drawFileTypeMap(gui::GameUI *, std::shared_ptr<FileWorldReader>);
 
+        void drawChunkViewer(gui::GameUI *);
+        void drawChunkMeta(gui::GameUI *);
+        void drawChunkIdMap(gui::GameUI *);
+        void drawChunkRows(gui::GameUI *);
+        void drawRowInfo(gui::GameUI *, std::shared_ptr<ChunkSliceRowSparse>);
+        void drawRowInfo(gui::GameUI *, std::shared_ptr<ChunkSliceRowDense>);
+        void resetChunkViewer();
+
+        void printMetaValue(const std::variant<std::monostate, bool, std::string, double, int64_t> &val);
+
     private:
         void workerMain();
         void sendWorkerNop();
@@ -66,23 +79,23 @@ class WorldDebugger: public gui::GameWindow {
     private:
         /// Whether the debug window is open
         bool isDebuggerOpen = true;
+        /// Whether the chunk viewer window is open
+        bool isChunkViewerOpen = false;
 
         /// World reader currently in use
         std::shared_ptr<WorldReader> world = nullptr;
         /// Error from opening the world, if any
         std::unique_ptr<std::string> worldError = nullptr;
 
+        /// Chunk to show in the viewer, if any
+        std::shared_ptr<Chunk> chunk = nullptr;
+
         /// if set, we show the busy indicator
         bool isBusy = false;
         /// what exactly we're busy with
         std::string busyText = "nothing";
 
-        /// GUI state
-        struct {
-
-        } state;
-
-        // chunk UI state
+        /// chunk UI state
         struct {
             /// X/Z coord for the block to write
             int writeCoord[2] = {0, 0};
@@ -94,6 +107,17 @@ class WorldDebugger: public gui::GameWindow {
             /// X/Z coord for the block to read
             int readCoord[2] = {0, 0};
         } chunkState;
+
+        /// chunk viewer state
+        struct ChunkViewerState {
+            // currently selected slice ID map
+            int currentIdMap;
+            // currently selected slice
+            int currentSlice;
+            // currently selected row
+            int currentRow;
+        };
+        ChunkViewerState viewerState;
 
     private:
         /// worker thread processes requests as long as this is set
