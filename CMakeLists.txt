@@ -156,8 +156,12 @@ target_link_libraries(cubeland PRIVATE cubeland::rsrc_sql)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
 # glbinding (loading OpenGL functions)
-find_package(glbinding REQUIRED)
-target_link_libraries(cubeland PUBLIC glbinding::glbinding)
+target_link_directories(cubeland PRIVATE libs/glbinding/build)
+target_link_libraries(cubeland PRIVATE glbinding)
+target_include_directories(cubeland PRIVATE libs/glbinding/source/glbinding/include)
+target_include_directories(cubeland PRIVATE libs/glbinding/build/source/glbinding/include)
+target_include_directories(cubeland PRIVATE libs/glbinding/build/source/include)
+target_include_directories(cubeland PRIVATE libs/glbinding/3rdparty/KHR/include)
 
 # SDL2
 find_package(SDL2 REQUIRED)
@@ -205,7 +209,10 @@ target_include_directories(dearimgui PRIVATE ${SDL2_INCLUDE_DIRS})
 target_include_directories(dearimgui PRIVATE src/gui/imgui)
 target_include_directories(dearimgui PRIVATE libs/imgui)
 
-target_link_libraries(dearimgui PUBLIC glbinding::glbinding)
+target_include_directories(dearimgui PRIVATE libs/glbinding/source/glbinding/include)
+target_include_directories(dearimgui PRIVATE libs/glbinding/build/source/glbinding/include)
+target_include_directories(dearimgui PRIVATE libs/glbinding/build/source/include)
+target_include_directories(dearimgui PRIVATE libs/glbinding/3rdparty/KHR/include)
 
 target_include_directories(cubeland PRIVATE src/gui/imgui)
 target_include_directories(cubeland PRIVATE libs/imgui)
@@ -220,7 +227,6 @@ add_library(dearimgui_ext OBJECT
 target_include_directories(dearimgui_ext PRIVATE src/gui/imgui)
 target_include_directories(dearimgui_ext PRIVATE libs/imgui)
 
-target_link_libraries(dearimgui_ext PUBLIC glbinding::glbinding)
 target_link_libraries(cubeland PRIVATE dearimgui_ext)
 
 target_include_directories(cubeland PRIVATE libs/ImGuiFileDialog)
@@ -300,6 +306,7 @@ target_include_directories(cubeland PRIVATE libs/cereal/include)
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     target_link_libraries(cubeland PUBLIC "-framework Cocoa")
     target_link_libraries(cubeland PUBLIC "-framework ApplicationServices")
+    target_link_libraries(cubeland PUBLIC "-framework OpenGL")
 endif()
 
 ###################################################################################################

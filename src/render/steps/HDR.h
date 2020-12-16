@@ -65,6 +65,9 @@ class HDR: public RenderStep {
         std::shared_ptr<gfx::FrameBuffer> hdrLumaFBO = nullptr;
         std::shared_ptr<gfx::Texture2D> sceneLuma = nullptr;
 
+        /// bloom luma threshold
+        float extractLumaThresh = 1.0;
+
     // stuff to render bloom
     private:
         std::shared_ptr<gfx::ShaderProgram> bloomBlurProgram = nullptr;
@@ -133,7 +136,7 @@ class HDR: public RenderStep {
         void drawDebugWindow();
 
         // when set, the render debug window is shown
-        bool showDebugWindow = true;
+        bool showDebugWindow = false;
 };
 }
 

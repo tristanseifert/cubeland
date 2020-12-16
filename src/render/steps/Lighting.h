@@ -138,7 +138,7 @@ class Lighting : public RenderStep {
         void drawLightsTable();
 
         // when set, the render debug window is shown
-        bool showDebugWindow = true;
+        bool showDebugWindow = false;
 };
 }
 

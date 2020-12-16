@@ -236,7 +236,7 @@ void HDR::reshape(int width, int height) {
 void HDR::preRender(WorldRenderer *) {
     using namespace gl;
 
-    // bind to the window framebuffer
+    // do not depth test fragments since we're drawing a full screen quad only
     glDisable(GL_DEPTH_TEST);
 
     // clear the output buffer
@@ -250,18 +250,21 @@ void HDR::preRender(WorldRenderer *) {
  * Performs rendering of the HDR.
  */
 void HDR::render(WorldRenderer *renderer) {
-    // set viewport
-    gl::glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
+    if(this->bloomEnabled || this->bloomBufferDirty) {
+        // scale viewport for the blur texture size
+        unsigned int width = this->viewportSize.x / this->bloomTexDivisor;
+        unsigned int height = this->viewportSize.y / this->bloomTexDivisor;
+
+        gl::glViewport(0, 0, width, height);
+    }
 
     // extract the bright/blur parts of the buffers
     if(this->bloomEnabled) {
-        // extract bright pixels
         this->renderExtractBright();
-        // perform bloom
         this->renderBlurBright();
     } else {
         // clear the bloom buffers if needed
-        if(bloomBufferDirty) {
+        if(this->bloomBufferDirty) {
             gl::glClearColor(0, 0, 0, 0);
 
             this->inFBOBloom1->bindRW();
@@ -273,9 +276,13 @@ void HDR::render(WorldRenderer *renderer) {
             gfx::FrameBuffer::unbindRW();
         }
     }
+    
+    // reset viewport
+    if(this->bloomEnabled || this->bloomBufferDirty) {
+        gl::glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
+    }
 
     // perform tonemapping
-    gl::glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
     this->renderPerformTonemapping();
 }
 
@@ -298,6 +305,7 @@ void HDR::renderExtractBright(void) {
 
     // set up the program's input buffers
     this->inHdrProgram->setUniform1i("texInColour", this->inColour->unit);
+    this->inHdrProgram->setUniform1f("lumaThreshold", this->extractLumaThresh);
 
     // render a full-screen quad
     this->quadVAO->bind();
@@ -385,7 +393,7 @@ void HDR::renderPerformTonemapping(void) {
     this->tonemapProgram->setUniform1i("inBloomBlur", this->inBloom1->unit);
 
     this->tonemapProgram->setUniform1f("exposure", this->exposure);
-    this->tonemapProgram->setUniform1f("bloomFactor", this->bloomFactor);
+    this->tonemapProgram->setUniform1f("bloomFactor", this->bloomEnabled ? this->bloomFactor : 0);
 
     // TODO: Dynamically calculate white point
     this->tonemapProgram->setUniformVec("whitePoint", this->whitePoint);
@@ -538,8 +546,11 @@ void HDR::drawDebugWindow() {
     ImGui::Separator();
 
     ImGui::Checkbox("Enabled", &this->bloomEnabled);
+
+    ImGui::PushItemWidth(74);
     ImGui::DragInt("Blur Passes", &this->numBlurPasses, 1, 3, 19);
     ImGui::DragFloat("Blend Factor", &this->bloomFactor, 0.01, 0, 2);
+    ImGui::DragFloat("Luma Threshold", &this->extractLumaThresh, 0.01, 0, 2);
 
     if(ImGui::DragInt("Size Factor", &this->bloomTexDivisor, 1, 1, 16)) {
         unsigned int bloomW = this->viewportSize.x / this->bloomTexDivisor;
@@ -554,7 +565,11 @@ void HDR::drawDebugWindow() {
     ImGui::Separator();
 
     ImGui::DragFloat("Exposure", &this->exposure, 0.01, 0.1, 6);
+    ImGui::PopItemWidth();
+    
+    ImGui::PushItemWidth(150);
     ImGui::DragFloat3("White Point", &this->whitePoint.x, 0.01, 0);
+    ImGui::PopItemWidth();
 
 done:;
     ImGui::End();

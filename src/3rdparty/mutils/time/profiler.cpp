@@ -1010,7 +1010,7 @@ void ShowProfile(bool* opened)
 
                 if (ImGui::IsMouseHoveringRect(rectMin, rectMax))
                 {
-                    auto tip = fmt::format("{}: {:.4f}ms ({:.2f}us)\nRange: {:.4f}ms - {:.4f}ms\n\n{} (Ln {})",
+                    auto tip = fmt::format("{}: {:.4f}ms ({:.2f}µs)\nRange: {:.4f}ms - {:.4f}ms\n\n{}:{:d}",
                         entry.szSection,
                         timer_to_ms(std::min(entry.endTime, threadData.maxTime) - entry.startTime),
                         (std::min(entry.endTime, threadData.maxTime) - entry.startTime) / 1000.0f,

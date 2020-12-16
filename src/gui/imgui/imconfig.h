@@ -80,7 +80,7 @@
 // Your renderer backend will need to support it (most example renderer backends support both 16/32-bit indices).
 // Another way to allow large meshes while keeping 16-bit indices is to handle ImDrawCmd::VtxOffset in your renderer.
 // Read about ImGuiBackendFlags_RendererHasVtxOffset for details.
-//#define ImDrawIdx unsigned int
+#define ImDrawIdx unsigned int
 
 //---- Override ImDrawCallback signature (will need to modify renderer backends accordingly)
 //struct ImDrawList;
@@ -102,6 +102,6 @@
 //#define IMGUI_DEBUG_PARANOID
 
 // we are using the glbinding v2 to load OpenGL functions
-#define IMGUI_IMPL_OPENGL_LOADER_GLBINDING2 1
+#define IMGUI_IMPL_OPENGL_LOADER_GLBINDING3 1
 
 #endif // IMCONFIG_H

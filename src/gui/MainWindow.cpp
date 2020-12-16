@@ -8,7 +8,7 @@
 
 #include <mutils/time/profiler.h>
 #include <glbinding/gl/gl.h>
-#include <glbinding/Binding.h>
+#include <glbinding/glbinding.h>
 #include <SDL.h>
 
 #include <iterator>
@@ -28,6 +28,7 @@ MainWindow::MainWindow() {
 
     // set up profiling
     MUtils::Profiler::Init();
+    MUtils::Profiler::NameThread("Main");
 
     // create the renderers
     auto world = std::make_shared<render::WorldRenderer>(this);
@@ -52,8 +53,13 @@ MainWindow::MainWindow() {
  *
  * This is performed immediately after the first GL context is created.
  */
+typedef void(* GlProc) (void);
+static GlProc getProcAddr(const char *proc) {
+    return (GlProc) SDL_GL_GetProcAddress(proc);
+}
+
 void MainWindow::initGLLibs() {
-    glbinding::Binding::initialize();
+    glbinding::initialize(getProcAddr);
 }
 
 /**
@@ -184,7 +190,6 @@ int MainWindow::run() {
     int reason = 0;
     SDL_Event event;
 
-    MUtils::Profiler::NameThread("Main");
     Logging::trace("Entering main loop");
 
     // main run loop
