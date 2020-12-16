@@ -28,7 +28,6 @@ MainWindow::MainWindow() {
 
     // set up profiling
     MUtils::Profiler::Init();
-    PROFILE_NAME_THREAD("Main");
 
     // create the renderers
     auto world = std::make_shared<render::WorldRenderer>(this);
@@ -185,6 +184,7 @@ int MainWindow::run() {
     int reason = 0;
     SDL_Event event;
 
+    MUtils::Profiler::NameThread("Main");
     Logging::trace("Entering main loop");
 
     // main run loop

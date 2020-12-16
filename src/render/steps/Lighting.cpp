@@ -269,12 +269,12 @@ void Lighting::setUpSkybox() {
 
     // load cubemap texture
     std::vector<std::string> faces;
-    faces.push_back("/cube/potato/right.png");
-    faces.push_back("/cube/potato/left.png");
-    faces.push_back("/cube/potato/top.png");
-    faces.push_back("/cube/potato/bottom.png");
-    faces.push_back("/cube/potato/back.png");
-    faces.push_back("/cube/potato/front.png");
+    faces.push_back("/cube/potato/right.jpg");
+    faces.push_back("/cube/potato/left.jpg");
+    faces.push_back("/cube/potato/top.jpg");
+    faces.push_back("/cube/potato/bottom.jpg");
+    faces.push_back("/cube/potato/back.jpg");
+    faces.push_back("/cube/potato/front.jpg");
 
     this->skyboxTexture = std::make_shared<TextureCube>(0);
     this->skyboxTexture->setDebugName("SkyCube");

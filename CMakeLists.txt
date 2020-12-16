@@ -38,10 +38,13 @@ add_executable(cubeland
     src/io/ConfigManager.cpp
     src/io/PrefsManager.cpp
     src/io/PathHelper.cpp
+# utilities
+    src/util/LZ4.cpp
 # UI
     src/gui/MainWindow.cpp
     src/gui/GameUI.cpp
     src/gui/PreferencesWindow.cpp
+    src/gui/Loaders.cpp
 # input
     src/input/InputManager.cpp
 # GL wrappers
@@ -75,6 +78,12 @@ add_executable(cubeland
     src/render/steps/Lighting.cpp
     src/render/steps/HDR.cpp
     src/render/steps/FXAA.cpp
+# world handling (IO/basic behaviors)
+    src/world/FileWorldReader.cpp
+    src/world/FileWorldReader+SQLite.cpp
+    src/world/FileWorldReader+Writing.cpp
+    src/world/FileWorldReader+Reading.cpp
+    src/world/debug/WorldDebugger.cpp
 # resources and other misc stuff
     ${version_file}
 )
@@ -125,15 +134,21 @@ target_link_libraries(cubeland PRIVATE cubeland::rsrc_models)
 
 # textures
 cmrc_add_resource_library(cubeland-rsrc-textures
-    rsrc/textures/cube/potato/top.png
-    rsrc/textures/cube/potato/back.png
-    rsrc/textures/cube/potato/left.png
-    rsrc/textures/cube/potato/front.png
-    rsrc/textures/cube/potato/right.png
-    rsrc/textures/cube/potato/bottom.png
+    rsrc/textures/cube/potato/top.jpg
+    rsrc/textures/cube/potato/back.jpg
+    rsrc/textures/cube/potato/left.jpg
+    rsrc/textures/cube/potato/front.jpg
+    rsrc/textures/cube/potato/right.jpg
+    rsrc/textures/cube/potato/bottom.jpg
     rsrc/textures/test/empty/whitegreen.png
 ALIAS cubeland::rsrc_textures WHENCE rsrc/textures NAMESPACE textures)
 target_link_libraries(cubeland PRIVATE cubeland::rsrc_textures)
+
+# SQL statements
+cmrc_add_resource_library(cubeland-rsrc-sql
+    rsrc/sql/world_v1.sql
+ALIAS cubeland::rsrc_sql WHENCE rsrc/sql NAMESPACE sql)
+target_link_libraries(cubeland PRIVATE cubeland::rsrc_sql)
 
 ###################################################################################################
 #### libraries
@@ -208,6 +223,8 @@ target_include_directories(dearimgui_ext PRIVATE libs/imgui)
 target_link_libraries(dearimgui_ext PUBLIC glbinding::glbinding)
 target_link_libraries(cubeland PRIVATE dearimgui_ext)
 
+target_include_directories(cubeland PRIVATE libs/ImGuiFileDialog)
+
 # GLM
 #find_package(glm REQUIRED)
 #target_link_libraries(cubeland PRIVATE glm::glm)
@@ -253,6 +270,30 @@ target_link_libraries(mutils PRIVATE fmt::fmt)
 
 target_link_libraries(cubeland PRIVATE mutils)
 target_include_directories(cubeland PRIVATE src/3rdparty)
+
+# lz4 (compression; used primarily for block data)
+add_library(lz4 OBJECT
+    libs/lz4/lib/lz4.c
+    libs/lz4/lib/lz4hc.c
+    libs/lz4/lib/lz4frame.c
+    libs/lz4/lib/xxhash.c
+)
+target_include_directories(lz4 PRIVATE libs/lz4/lib)
+
+target_link_libraries(cubeland PRIVATE lz4)
+target_include_directories(cubeland PRIVATE libs/lz4/lib)
+
+# stduuid (uuid support library)
+# this has to be treated as a system library to prevent conflicts against system uuid libs
+target_include_directories(cubeland SYSTEM BEFORE PRIVATE libs/stduuid/include)
+# target_include_directories(cubeland PRIVATE libs/stduuid/gsl)
+
+# concurrent queue
+target_include_directories(cubeland PRIVATE libs/concurrentqueue)
+
+# Cereal (serialization)
+target_include_directories(cubeland PRIVATE libs/cereal/include)
+
 ###################################################################################################
 #### platform-specific libraries
 # macOS frameworks
