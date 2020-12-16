@@ -372,7 +372,6 @@ void FileWorldReader::serializeSliceMeta(std::shared_ptr<Chunk> chunk, const int
         const size_t ptrLen = str.size();
 
         this->compressor->compress(ptr, ptrLen, data);
-        Logging::trace("Slice {} compressed {} to {}", y, ptrLen, data.size());
     }
 }
 

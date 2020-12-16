@@ -1,7 +1,8 @@
 #include "SceneRenderer.h"
 #include "Drawable.h"
-#include "WorldChunk.h"
 
+#include "render/chunk/WorldChunk.h"
+#include "render/chunk/ChunkWorker.h"
 #include "gfx/gl/buffer/Buffer.h"
 #include "gfx/gl/buffer/VertexArray.h"
 #include "gfx/model/RenderProgram.h"
@@ -17,6 +18,7 @@
 
 using namespace render;
 
+// for debuggers
 gl::GLuint VBO, VAO;
 
 // World space positions of the objects
@@ -44,6 +46,23 @@ SceneRenderer::SceneRenderer() {
     // load the model
     // this->model = std::make_shared<gfx::Model>("/teapot/teapot.obj");
     this->model = std::make_shared<WorldChunk>();
+
+    // force initialization of some stuff
+    chunk::ChunkWorker::init();
+}
+
+/**
+ * Release a bunch of global state
+ */
+SceneRenderer::~SceneRenderer() {
+    chunk::ChunkWorker::shutdown();
+}
+
+/**
+ * Invoke the start-of-frame handler on all drawables.
+ */
+void SceneRenderer::startOfFrame() {
+    this->model->frameBegin();
 }
 
 /**
@@ -86,37 +105,21 @@ void SceneRenderer::_doRender(glm::mat4 projView, std::shared_ptr<gfx::RenderPro
     program->bind();
     program->setUniformMatrix("projectionView", projView);
 
-    // render
-    for (int i = 0; i < 10; i++)  {
-        // Calculate the model matrix for each object and pass it to shader before drawing
-        glm::mat4 model(1);
-        model = glm::translate(model, cubePositions[i]);
-
-        GLfloat angle = 20.0f * i;
-
-        float fasterTime = this->time / 5.f;
-        //fasterTime *= (std::sqrt(this->time * 60.f) / 10.f) + 1;
-
-        if(i % 3 == 0) {
-            angle = fasterTime * -25.0f;
-        } else if(i % 3 == 1) {
-            angle = fasterTime * -15.0f;
-        } else if(i % 3 == 2) {
-            angle = fasterTime * -05.0f;
-        }
+    // Calculate the model matrix for each object and pass it to shader before drawing
+    glm::mat4 model(1);
+    model = glm::translate(model, cubePositions[0]);
 
 //		model = glm::rotate(model, angle, glm::vec3(1.0f, 0.3f, 0.5f));
 //        model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));
-        program->setUniformMatrix("model", model);
+    program->setUniformMatrix("model", model);
 
-        if(hasNormalMatrix == true) {
-            glm::mat3 normalMatrix;
-            normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
-            program->setUniformMatrix("normalMatrix", normalMatrix);
-        }
-
-        this->model->draw(program);
+    if(hasNormalMatrix == true) {
+        glm::mat3 normalMatrix;
+        normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
+        program->setUniformMatrix("normalMatrix", normalMatrix);
     }
+
+    this->model->draw(program);
 
     gfx::VertexArray::unbind();
 }
@@ -130,7 +133,4 @@ void SceneRenderer::postRender(WorldRenderer *) {
     // disable culling again
     glFrontFace(GL_CCW);
     glDisable(GL_CULL_FACE);
-
-    // temp time advancing (for the animation)
-    this->time += (1.0 / 60.0);
 }

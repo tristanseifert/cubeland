@@ -17,6 +17,8 @@
 
 using namespace render;
 
+std::shared_ptr<SceneRenderer> gSceneRenderer = nullptr;
+
 /**
  * Creates the renderer resources.
  */
@@ -26,6 +28,8 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win) {
 
     // then, the render steps
     auto scnRnd = std::make_shared<SceneRenderer>();
+    gSceneRenderer = scnRnd;
+
     this->steps.push_back(scnRnd);
 
     this->lighting = std::make_shared<Lighting>();
@@ -47,6 +51,7 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win) {
  * Releases all of our render resources.
  */
 WorldRenderer::~WorldRenderer() {
+    gSceneRenderer = nullptr;
     this->steps.clear();
 }
 

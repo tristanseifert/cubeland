@@ -20,6 +20,7 @@
 #include <vector>
 
 #include <glm/vec2.hpp>
+#include <uuid.h>
 
 namespace world {
 

@@ -37,7 +37,8 @@ namespace gfx {
 			void registerVertexAttribPointer(gl::GLuint index, gl::GLint size,
 											 VertexAttribType type,
 											 gl::GLsizei stride,
-											 std::size_t offset);
+											 std::size_t offset,
+                                                                                         gl::GLuint divisor = 0);
 		private:
 			static gl::GLenum attribTypeGL(VertexAttribType size);
 

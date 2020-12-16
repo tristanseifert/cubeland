@@ -104,6 +104,8 @@ class WorldDebugger: public gui::GameWindow {
             int fillType = 0;
             /// fill level
             int fillLevel = 32;
+            /// whether block properties are written
+            bool writeBlockProps = true;
 
             /// X/Z coord for the block to read
             int readCoord[2] = {0, 0};

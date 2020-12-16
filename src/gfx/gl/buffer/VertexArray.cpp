@@ -88,18 +88,20 @@ void VertexArray::unbind(void) {
  * @param stride Number of bytes between consecutive entries.
  * @param offset Offset into the data array.
  */
-void VertexArray::registerVertexAttribPointer(GLuint index, GLint size,
-											  VertexAttribType type,
-											  GLsizei stride, size_t offset) {
-	// bind the VAO
-	this->bind();
+void VertexArray::registerVertexAttribPointer(GLuint index, GLint size, VertexAttribType type,
+        GLsizei stride, size_t offset, GLuint divisor) {
+    // bind the VAO
+    this->bind();
 
-	// enable the array
-	glEnableVertexAttribArray(index);
+    // enable the array
+    glEnableVertexAttribArray(index);
 
-	// register the pointer
-	glVertexAttribPointer(index, size, attribTypeGL(type), GL_FALSE, stride,
-						  (void *) offset);
+    // register the pointer and set divisor if nonzero (which is the default)
+    glVertexAttribPointer(index, size, attribTypeGL(type), GL_FALSE, stride, (void *) offset);
+
+    if(divisor) {
+        glVertexAttribDivisor(index, divisor);
+    }
 }
 
 } /* namespace gfx */

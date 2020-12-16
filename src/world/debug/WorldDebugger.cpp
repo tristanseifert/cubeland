@@ -5,6 +5,8 @@
 #include "world/FileWorldReader.h"
 #include "world/chunk/Chunk.h"
 #include "world/chunk/ChunkSlice.h"
+#include "render/scene/SceneRenderer.h"
+#include "render/chunk/WorldChunk.h"
 
 #include <Logging.h>
 #include "io/Format.h"
@@ -13,6 +15,8 @@
 #include <mutils/time/profiler.h>
 #include <imgui.h>
 #include <ImGuiFileDialog/ImGuiFileDialog.h>
+
+extern std::shared_ptr<render::SceneRenderer> gSceneRenderer;
 
 using namespace world;
 
@@ -344,6 +348,9 @@ void WorldDebugger::drawChunkWriteUi(gui::GameUI *ui) {
     // fill level
     ImGui::DragInt("Fill Y level", &this->chunkState.fillLevel, 1, 0, 255);
 
+    // whether we write block properties
+    ImGui::Checkbox("Write Block Properties", &this->chunkState.writeBlockProps);
+
     // write button
     ImGui::BulletText("%s", "Note: Existing chunk data will be overwritten!");
     if(ImGui::Button("Write Chunk")) {
@@ -404,6 +411,17 @@ void WorldDebugger::drawChunkViewer(gui::GameUI *ui) {
         ImGui::End();
         return;
     }
+
+    // actions
+    if(ImGui::Button("Render")) {
+        auto world = dynamic_pointer_cast<render::WorldChunk>(gSceneRenderer->model);
+        if(!world) {
+            this->worldError = std::make_unique<std::string>("Failed to get world chunk (for drawing)");
+        } else {
+            world->setChunk(this->chunk);
+        }
+    }
+    ImGui::Separator();
 
     // main details of chunk
     ImGui::TextUnformatted("Instance: ");
@@ -668,6 +686,15 @@ void WorldDebugger::printMetaValue(const std::variant<std::monostate, bool, std:
  * Draws the block metadata.
  */
 void WorldDebugger::drawBlockInfo(gui::GameUI *ui) {
+    // bail if shit is empty
+    if(this->chunk->blockMeta.empty()) {
+        ImGui::PushFont(ui->getFont(gui::GameUI::kItalicFontName));
+        ImGui::TextUnformatted("No data available");
+        ImGui::PopFont();
+
+        return;
+    }
+
     ImGui::PushItemWidth(74);
 
     // start the table boi
@@ -807,7 +834,7 @@ void WorldDebugger::fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax) {
                     BlockMeta fucker;
                     fucker.meta[1] = 420.69;
 
-                    if(y & 0x01 && (z % 32) == 0) {
+                    if(y & 0x01 && (z % 32) == 0 && this->chunkState.writeBlockProps) {
                         chunk->blockMeta[((y & 0xFF) << 16) | ((z & 0xFF) << 8) | (x & 0xFF)] = fucker;
                     }
                 } else if(x == (z / 2)) {
@@ -815,7 +842,7 @@ void WorldDebugger::fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax) {
                     
                     BlockMeta fucker;
                     fucker.meta[2] = "Sativa";
-                    if(y & 0x01 && (z % 32) == 0) {
+                    if(y & 0x01 && (z % 32) == 0 && this->chunkState.writeBlockProps) {
                         chunk->blockMeta[((y & 0xFF) << 16) | ((z & 0xFF) << 8) | (x & 0xFF)] = fucker;
                     }
                 } else if ((x + (z & 0xF)) % 16 == 2) {
@@ -826,7 +853,7 @@ void WorldDebugger::fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax) {
                         fucker.meta[2] = "indica";
                     }
 
-                    if(y & 0x01 && (z % 32) == 0) {
+                    if(y & 0x01 && (z % 32) == 0 && this->chunkState.writeBlockProps) {
                         chunk->blockMeta[((y & 0xFF) << 16) | ((z & 0xFF) << 8) | (x & 0xFF)] = fucker;
                     }
                 }

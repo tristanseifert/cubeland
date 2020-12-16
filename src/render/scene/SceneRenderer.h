@@ -11,14 +11,21 @@ namespace gfx {
 class RenderProgram;
 }
 
+namespace world {
+class WorldDebugger;
+}
+
 namespace render {
 class Drawable;
 class SceneRenderer: public RenderStep {
     friend class Lighting;
+    friend class world::WorldDebugger;
 
     public:
         SceneRenderer();
-        virtual ~SceneRenderer() {};
+        virtual ~SceneRenderer();
+
+        void startOfFrame();
 
         void preRender(WorldRenderer *);
         void render(WorldRenderer *renderer);
@@ -36,8 +43,6 @@ class SceneRenderer: public RenderStep {
     private:
         std::shared_ptr<gfx::RenderProgram> program;
         std::shared_ptr<Drawable> model;
-
-        double time = 0;
 };
 }
 

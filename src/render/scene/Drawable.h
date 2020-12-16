@@ -14,6 +14,8 @@ namespace render {
 class Drawable {
     public:
         virtual void draw(std::shared_ptr<gfx::RenderProgram> program) = 0;
+
+        virtual void frameBegin() {};
 };
 }
 
