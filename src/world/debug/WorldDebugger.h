@@ -66,6 +66,7 @@ class WorldDebugger: public gui::GameWindow {
         void drawChunkRows(gui::GameUI *);
         void drawRowInfo(gui::GameUI *, std::shared_ptr<ChunkSliceRowSparse>);
         void drawRowInfo(gui::GameUI *, std::shared_ptr<ChunkSliceRowDense>);
+        void drawBlockInfo(gui::GameUI *);
         void resetChunkViewer();
 
         void printMetaValue(const std::variant<std::monostate, bool, std::string, double, int64_t> &val);

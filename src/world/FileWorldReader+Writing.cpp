@@ -2,6 +2,7 @@
  * Implements the components of the file world reader to write world data to the file.
  */
 #include "FileWorldReader.h"
+#include "FileWorldSerialization.h"
 
 #include "chunk/Chunk.h"
 #include "chunk/ChunkSlice.h"
@@ -97,6 +98,10 @@ void FileWorldReader::writeChunk(std::shared_ptr<Chunk> chunk) {
         this->writeBlockTypeMap();
     }
 
+    // extract block metadata on a per slice basis
+    std::array<ChunkSliceFileBlockMeta, 256> blockMetas;
+    this->extractBlockMeta(chunk, blockMetas);
+
     // get all slices; figure out which ones to update, remove, or create new
     this->getSlicesForChunk(chunkId, chunkSliceIds);
 
@@ -112,11 +117,11 @@ void FileWorldReader::writeChunk(std::shared_ptr<Chunk> chunk) {
         else {
             // ...and should update an existing slice
             if(chunkSliceIds.contains(y)) {
-                this->updateSlice(chunkSliceIds[y], chunk, y);
+                this->updateSlice(chunkSliceIds[y], chunk, blockMetas[y], y);
             }
             // ...and don't have a slice for this Y level yet, so create it
             else {
-                this->insertSlice(chunk, chunkId, y);
+                this->insertSlice(chunk, chunkId, blockMetas[y], y);
             }
         }
     }
@@ -202,7 +207,7 @@ void FileWorldReader::removeSlice(const int sliceId) {
 /**
  * Inserts a new slice into the file.
  */
-void FileWorldReader::insertSlice(std::shared_ptr<Chunk> chunk, const int chunkId, const int y) {
+void FileWorldReader::insertSlice(std::shared_ptr<Chunk> chunk, const int chunkId, const ChunkSliceFileBlockMeta &meta, const int y) {
     PROFILE_SCOPE(InsertSlice);
 
     int err;
@@ -211,7 +216,7 @@ void FileWorldReader::insertSlice(std::shared_ptr<Chunk> chunk, const int chunkI
 
     // get the slice metadata and grid data
     this->serializeSliceBlocks(chunk, y, blocks);
-    this->serializeSliceMeta(chunk, y, blockMeta);
+    this->serializeSliceMeta(chunk, y, meta, blockMeta);
 
     // prepare the insertion
     PROFILE_SCOPE(Query);
@@ -233,7 +238,7 @@ void FileWorldReader::insertSlice(std::shared_ptr<Chunk> chunk, const int chunkI
 /*
  * Updates an existing slice.
  */
-void FileWorldReader::updateSlice(const int sliceId, std::shared_ptr<Chunk> chunk, const int y) {
+void FileWorldReader::updateSlice(const int sliceId, std::shared_ptr<Chunk> chunk, const ChunkSliceFileBlockMeta &meta, const int y) {
     PROFILE_SCOPE(UpdateSlice);
 
     int err;
@@ -242,7 +247,7 @@ void FileWorldReader::updateSlice(const int sliceId, std::shared_ptr<Chunk> chun
 
     // get the slice metadata and grid data
     this->serializeSliceBlocks(chunk, y, blocks);
-    this->serializeSliceMeta(chunk, y, blockMeta);
+    this->serializeSliceMeta(chunk, y, meta, blockMeta);
 
     // prepare the query
     PROFILE_SCOPE(Query);
@@ -348,9 +353,58 @@ void FileWorldReader::buildFileIdMap(std::unordered_map<uuids::uuid, uint16_t> &
  * Since metadata is stored at the chunk granularity, this entails sifting through all block meta
  * entries and checking which match the Y level we're after.
  */
-void FileWorldReader::serializeSliceMeta(std::shared_ptr<Chunk> chunk, const int y, std::vector<char> &data) {
+void FileWorldReader::serializeSliceMeta(std::shared_ptr<Chunk> chunk, const int y, const ChunkSliceFileBlockMeta &meta, std::vector<char> &data) {
     PROFILE_SCOPE(SerializeSliceMeta);
 
-    // TODO: implement
+    // yeet it into a buffer
+    std::stringstream stream;
+    {
+        PROFILE_SCOPE(Archive);
+        cereal::PortableBinaryOutputArchive arc(stream);
+        arc(meta);
+    }
+
+    // compress it pls
+    {
+        PROFILE_SCOPE(LZ4Compress);
+        const auto str = stream.str();
+        const void *ptr = str.data();
+        const size_t ptrLen = str.size();
+
+        this->compressor->compress(ptr, ptrLen, data);
+        Logging::trace("Slice {} compressed {} to {}", y, ptrLen, data.size());
+    }
+}
+
+
+
+/**
+ * Extracts each piece of block metadata on the given chunk by Y level. It's also converted from
+ * integer to string form for saving.
+ */
+void FileWorldReader::extractBlockMeta(std::shared_ptr<Chunk> chunk, std::array<ChunkSliceFileBlockMeta, 256> &meta) {
+    PROFILE_SCOPE(ExtractBlockMeta);
+
+    // iterate over each of them
+    for(const auto &[pos, blockMeta] : chunk->blockMeta) {
+        PROFILE_SCOPE(Block);
+
+        // get the Y pos and the corresponding slice struct
+        const uint32_t y = (pos & Chunk::kBlockYMask) >> Chunk::kBlockYPos;
+        auto &slice = meta[y];
+
+        // iterate over each of the metadata keys and squelch it into this temporary struct
+        std::unordered_map<std::string, ChunkSliceFileBlockMeta::ValueType> temp;
+        temp.reserve(blockMeta.meta.size());
+
+        for(const auto &[key, value] : blockMeta.meta) {
+            const auto stringKey = chunk->blockMetaIdMap.at(key);
+            temp[stringKey] = value;
+        }
+
+        // insert it into the appropriate slice struct
+        const uint16_t coord = static_cast<uint16_t>((pos & 0x00FFFF)); // ok; block coord is YYZZXX
+        slice.properties[coord] = temp;
+    }
 }
 

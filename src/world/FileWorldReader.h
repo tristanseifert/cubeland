@@ -29,6 +29,7 @@ namespace world {
 class WorldDebugger;
 struct Chunk;
 struct ChunkSlice;
+struct ChunkSliceFileBlockMeta;
 
 /**
  * Supports reading world data from a file on disk. This file is in essence an sqlite3 database.
@@ -68,12 +69,14 @@ class FileWorldReader: public WorldReader {
         void serializeChunkMeta(std::shared_ptr<Chunk> chunk, std::vector<char> &data);
 
         void removeSlice(const int sliceId);
-        void insertSlice(std::shared_ptr<Chunk> chunk, const int chunkId, const int y);
-        void updateSlice(const int sliceId, std::shared_ptr<Chunk> chunk, const int y);
+        void insertSlice(std::shared_ptr<Chunk> chunk, const int chunkId, const ChunkSliceFileBlockMeta &, const int y);
+        void updateSlice(const int sliceId, std::shared_ptr<Chunk> chunk, const ChunkSliceFileBlockMeta &, const int y);
 
         void serializeSliceBlocks(std::shared_ptr<Chunk> chunk, const int y, std::vector<char> &data);
         void buildFileIdMap(std::unordered_map<uuids::uuid, uint16_t> &);
-        void serializeSliceMeta(std::shared_ptr<Chunk> chunk, const int y, std::vector<char> &data);
+        void serializeSliceMeta(std::shared_ptr<Chunk> chunk, const int y, const ChunkSliceFileBlockMeta &, std::vector<char> &data);
+
+        void extractBlockMeta(std::shared_ptr<Chunk> chunk, std::array<ChunkSliceFileBlockMeta, 256> &meta);
 
     // chunk reading functions
     private:
@@ -196,6 +199,8 @@ class FileWorldReader: public WorldReader {
 
         /// work buffer used for serializing block layout. may only be accessed from worker
         std::array<uint16_t, (256*256)> sliceTempGrid;
+        /// decompression scratch buffer
+        std::vector<char> scratch;
 
         /// used for decompressing/compressing block data
         std::unique_ptr<util::LZ4> compressor;

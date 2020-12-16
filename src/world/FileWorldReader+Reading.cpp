@@ -1,4 +1,5 @@
 #include "FileWorldReader.h"
+#include "FileWorldSerialization.h"
 
 #include "chunk/Chunk.h"
 #include "chunk/ChunkSlice.h"
@@ -213,14 +214,55 @@ void FileWorldReader::deserializeSliceMeta(std::shared_ptr<Chunk> chunk, const i
     PROFILE_SCOPE(DeserializeSliceMeta);
 
     // perform decompression and bail if no data results
-    std::vector<char> bytes;
-    this->compressor->decompress(compressed, bytes);
+    {
+        PROFILE_SCOPE(LZ4Decompress);
+        this->compressor->decompress(compressed, this->scratch);
 
-    if(bytes.empty()) {
-        return;
+        if(this->scratch.empty()) {
+            return;
+        }
     }
 
-    // TODO: implement
+    // unarchive
+    ChunkSliceFileBlockMeta meta;
+    {
+        PROFILE_SCOPE(Unarchive);
+        std::stringstream stream(std::string(this->scratch.begin(), this->scratch.end()));
+
+        cereal::PortableBinaryInputArchive arc(stream);
+        arc(meta);
+    }
+
+    // for each block of property data...
+    for(const auto &[pos, props] : meta.properties) {
+        PROFILE_SCOPE(CopyProps);
+
+        /// go over its properties by key/value and copy them
+        BlockMeta meta;
+        for(const auto &[keyStr, value] : props) {
+            // get the key id from the chunk's mapping
+            int key = -1;
+            for(const auto &[id, str] : chunk->blockMetaIdMap) {
+                if(str == keyStr) {
+                    key = id;
+                    goto found;
+                }
+            }
+
+            // if we get here, the key was not found
+            key = chunk->blockMetaIdMap.size();
+            chunk->blockMetaIdMap[key] = keyStr;
+
+found:;
+            // finally, insert it
+            meta.meta[key] = value;
+        }
+
+        if(!meta.meta.empty()) {
+            uint32_t blockPos = ((y & 0xFF) << Chunk::kBlockYPos) | (pos & 0xFFFF);
+            chunk->blockMeta[blockPos] = std::move(meta);
+        }
+    }
 }
 
 
@@ -254,8 +296,10 @@ void FileWorldReader::processSliceRow(SliceState &state, std::shared_ptr<Chunk> 
 
         // get the unique block IDs, _and_ in effect build a histogram
         for(size_t x = 0; x < 256; x++) {
-            blockIds.insert(ptr[x]);
-            blockIdFrequency.insert(ptr[x]);
+            uint8_t temp = ptr[x];
+
+            blockIds.insert(temp);
+            blockIdFrequency.insert(temp);
         }
 
         /*
@@ -351,5 +395,5 @@ beach:;
     }
 
     // last, store the row in the slice
-    slice->rows[z] = row;
+    slice->rows[z] = std::move(row);
 }

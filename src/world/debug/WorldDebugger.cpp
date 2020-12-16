@@ -463,6 +463,11 @@ void WorldDebugger::drawChunkViewer(gui::GameUI *ui) {
         this->drawChunkRows(ui);
     }
 
+    // metadata
+    if(ImGui::CollapsingHeader("Block Metadata")) {
+        this->drawBlockInfo(ui);
+    }
+
     // finish window
     ImGui::End();
 }
@@ -659,6 +664,65 @@ void WorldDebugger::printMetaValue(const std::variant<std::monostate, bool, std:
     }
 }
 
+/**
+ * Draws the block metadata.
+ */
+void WorldDebugger::drawBlockInfo(gui::GameUI *ui) {
+    ImGui::PushItemWidth(74);
+
+    // start the table boi
+    ImVec2 outerSize(0, ImGui::GetTextLineHeightWithSpacing() * 15);
+    if(!ImGui::BeginTable("blockMeta", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
+        return;
+    }
+
+    // headers
+    ImGui::TableSetupColumn("Position(YZX)/Name", ImGuiTableColumnFlags_WidthStretch);
+    ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_NoHide);
+    ImGui::TableHeadersRow();
+
+    // for each block metadata entry...
+    for(const auto &[pos, blockMeta] : this->chunk->blockMeta) {
+        ImGui::TableNextRow();
+        ImGui::TableNextColumn();
+
+        // start a tree node to contain its children
+        const auto &data = blockMeta.meta;
+        if(!data.empty()) {
+            const auto posStr = f("({:d}, {:d}, {:d})", ((pos & 0xFF0000) >> 16), 
+                    (pos & 0xFF00) >> 8, (pos & 0xFF));
+            bool open = ImGui::TreeNodeEx(posStr.c_str(), ImGuiTreeNodeFlags_SpanFullWidth);
+
+            ImGui::TableNextColumn();
+            ImGui::TextDisabled("%lu key(s)", data.size());
+
+            // if open, draw all the key/value pairs
+            if(open) {
+                for(const auto &[key, value] : data) {
+                    const auto &keyStr = chunk->blockMetaIdMap[key];
+
+                    ImGui::TableNextRow();
+
+                    ImGui::TableNextColumn();
+
+                    ImGui::PushItemWidth(-1);
+                    ImGui::TreeNodeEx(keyStr.c_str(), ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanFullWidth);
+                    ImGui::PopItemWidth();
+
+                    ImGui::TableNextColumn();
+                    this->printMetaValue(value);
+                }
+                ImGui::TreePop();
+            }
+        }
+    }
+
+    // end table boi
+    ImGui::EndTable();
+
+    ImGui::PopItemWidth();
+}
+
 
 /**
  * Reset the chunk viewer state.
@@ -720,6 +784,11 @@ void WorldDebugger::fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax) {
     }
     chunk->sliceIdMaps.push_back(idMap);
 
+    // metadata keys
+    chunk->blockMetaIdMap[1] = "me.tseifert.cubeland.test";
+    chunk->blockMetaIdMap[2] = "me.tseifert.cubeland.strain";
+    chunk->blockMetaIdMap[3] = "me.tseifert.cubeland.isFucked";
+
     // For each Y layer, create a slice
     for(size_t y = 0; y < yMax; y++) {
         auto slice = std::make_shared<ChunkSlice>();
@@ -733,8 +802,33 @@ void WorldDebugger::fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax) {
             for(size_t x = 0; x < 256; x++) {
                 if(x == y) {
                     row->storage[x] = 1;
+                    
+                    // literally fuck me in the god damn ass
+                    BlockMeta fucker;
+                    fucker.meta[1] = 420.69;
+
+                    if(y & 0x01 && (z % 32) == 0) {
+                        chunk->blockMeta[((y & 0xFF) << 16) | ((z & 0xFF) << 8) | (x & 0xFF)] = fucker;
+                    }
                 } else if(x == (z / 2)) {
                     row->storage[x] = 0;
+                    
+                    BlockMeta fucker;
+                    fucker.meta[2] = "Sativa";
+                    if(y & 0x01 && (z % 32) == 0) {
+                        chunk->blockMeta[((y & 0xFF) << 16) | ((z & 0xFF) << 8) | (x & 0xFF)] = fucker;
+                    }
+                } else if ((x + (z & 0xF)) % 16 == 2) {
+                    BlockMeta fucker;
+                    fucker.meta[3] = false;
+
+                    if(y % 4 == 3) {
+                        fucker.meta[2] = "indica";
+                    }
+
+                    if(y & 0x01 && (z % 32) == 0) {
+                        chunk->blockMeta[((y & 0xFF) << 16) | ((z & 0xFF) << 8) | (x & 0xFF)] = fucker;
+                    }
                 }
             }
 

@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <memory>
 #include <array>
+#include <map>
 #include <unordered_map>
 #include <string>
 #include <variant>
@@ -59,7 +60,14 @@ struct ChunkRowBlockTypeMap {
  */
 struct Chunk {
     /// Block coordinate (chunk relative); these are 8 bit to save space
-    using BlockCoord = std::tuple<uint8_t, uint8_t, uint8_t>;
+    // using BlockCoord = std::tuple<uint8_t, uint8_t, uint8_t>;
+    /// Packed block coordinate is in the format 0x00YYZZXX.
+    using BlockCoord = uint32_t;
+
+    /// Position of the Y position in the block coordinate integer
+    constexpr static const uint32_t kBlockYPos = 16;
+    /// Mask for the Y component of the block coordinate
+    constexpr static const uint32_t kBlockYMask = 0x00FF0000;
 
     /// Maximum Y height of a chunk [0..kMaxY) layers are available
     constexpr static const size_t kMaxY = 256;
@@ -87,7 +95,7 @@ struct Chunk {
      *
      * Note that the metadata keys can be converted to strings with `blockMetaIdMap`.
      */
-    std::unordered_map<unsigned int, BlockMeta> blockMeta;
+    std::map<BlockCoord, BlockMeta> blockMeta;
 
     /**
      * List of chunk slice block ID maps. These are used to map the slice row's 8-bit block IDs to
