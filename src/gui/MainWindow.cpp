@@ -59,7 +59,21 @@ static GlProc getProcAddr(const char *proc) {
 }
 
 void MainWindow::initGLLibs() {
-    glbinding::initialize(getProcAddr);
+    using namespace glbinding;
+
+    // set the address resolution callback
+    initialize(getProcAddr);
+
+    // call glGetError() after every call
+    setCallbackMaskExcept(CallbackMask::After, { "glGetError" });
+    setAfterCallback([](const FunctionCall &) {
+        const auto error = glGetError();
+        if(error != GL_NO_ERROR) {
+            Logging::error("GL error: {:x}", error);
+        }
+        XASSERT(error == GL_NO_ERROR, "GL error: {:x}", error);
+    });
+
 }
 
 /**

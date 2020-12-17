@@ -105,14 +105,22 @@ WorldChunk::WorldChunk() {
 
     // create buffers and prepare to bind the vertex attrib object
     this->vao = std::make_shared<VertexArray>();
+
     this->vbo = std::make_shared<Buffer>(Buffer::Array, Buffer::StaticDraw);
-    this->instanceBuf = std::make_shared<Buffer>(Buffer::Array, Buffer::StreamDraw);
-
-    this->vao->bind();
-
-    // define the attribute layout for the fixed per-vertex buffer
     this->vbo->bind();
     this->vbo->bufferData(sizeof(kCubeVertices), (void *) &kCubeVertices);
+    this->vbo->unbind();
+
+    BlockInstanceData data;
+    this->instanceBuf = std::make_shared<Buffer>(Buffer::Array, Buffer::DynamicDraw);
+    this->instanceBuf->bind();
+    this->instanceBuf->bufferData(sizeof(BlockInstanceData), (void *) &data);
+    this->instanceBuf->unbind();
+
+
+    // define the attribute layout for the fixed per-vertex buffer
+    this->vao->bind();
+    this->vbo->bind();
 
     this->vao->registerVertexAttribPointer(0, 3, VertexArray::Float, 8 * sizeof(gl::GLfloat), 
             0); // vertex position
@@ -122,20 +130,16 @@ WorldChunk::WorldChunk() {
             6 * sizeof(gl::GLfloat)); // texture coordinate
 
     // describe the attribute layout for indexed parameters
-    /*this->instanceBuf->bind();
-
-    BlockInstanceData data;
-    this->instanceBuf->bufferData(sizeof(data), (void *) &data);
+    this->instanceBuf->bind();
 
     const size_t instanceElementSize = 3 * sizeof(gl::GLfloat);
-    this->vao->registerVertexAttribPointer(3, 3, VertexArray::Float, instanceElementSize, 0); // per vertex position offset
+    this->vao->registerVertexAttribPointer(3, 3, VertexArray::Float, instanceElementSize, 0, 1); // per vertex position offset
     this->instanceBuf->unbind();
-    // gl::glVertexAttribDivisor(3, 1);
-*/
+
     VertexArray::unbind();
 
     // lastly, load the placeholder texture
-    this->placeholderTex = std::make_shared<Texture2D>();
+    this->placeholderTex = std::make_shared<Texture2D>(6);
     this->placeholderTex->loadFromImage("/test/empty/whitegreen.png");
 }
 
@@ -154,13 +158,13 @@ void WorldChunk::frameBegin() {
         });
     }
     // highlight related stuff
-    if(this->highlightsNeedUpdate) { // queue updating of buffer in background
+    /*if(this->highlightsNeedUpdate) { // queue updating of buffer in background
         ChunkWorker::pushWork([&]() -> void {
             // clear flag first, so if data changes while we're updating, it's fixed next frame
             this->highlightsNeedUpdate = false;
             this->updateHighlightBuffer();
         });
-    }
+    }*/
 
     // draw debugger
     if(this->debugger) {
@@ -181,37 +185,28 @@ void WorldChunk::draw(std::shared_ptr<gfx::RenderProgram> program) {
     this->transferBuffers();
 
     // set up for rendering
-    this->vao->bind();
+    program->bind();
+    if(program->rendersColor()) {
+        this->placeholderTex->bind();
+        program->setUniform1i("texture_diffuse1", this->placeholderTex->unit);
+    }
 
     if(this->numInstances) {
-        if(program->rendersColor()) {
-            this->placeholderTex->bind();
-            program->setUniform1i("texture_diffuse1", this->placeholderTex->unit);
-
-            // set the shininess and how many diffuse/specular textures we have
-            glm::vec2 texNums(1, 0);
-            program->setUniformVec("NumTextures", texNums);
-            program->setUniform1f("ColorBlendFactor", 0);
-        }
-
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 36, 1);
+        this->vao->bind();
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 36, this->numInstances);
+        gfx::VertexArray::unbind();
     }
     // if no chunk data available, draw a wireframe outline of the chunk
     else {
-        if(program->rendersColor()) {
-            program->setUniform1f("ColorBlendFactor", 1);
-            // program->setUniformVec("SolidColor", glm::vec3(1, 0, 0));
-            this->placeholderTex->bind();
-            program->setUniform1i("texture_diffuse1", this->placeholderTex->unit);
-        }
-
         // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+        this->vao->bind();
+        // glDrawArrays(GL_TRIANGLES, 0, 36);
         glDrawArraysInstanced(GL_TRIANGLES, 0, 36, 1);
+        gfx::VertexArray::unbind();
+
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     }
-
-    // clean up
-    gfx::VertexArray::unbind();
 }
 
 /**
@@ -488,7 +483,7 @@ void WorldChunk::updateHighlightBuffer() {
         translation = glm::translate(translation, glm::vec3(-xScale/2, -yScale/2, -zScale/2));
         scaled = glm::scale(translation, glm::vec3(1.1, 1.1, 1.1));
 
-        Logging::trace("Scale for extents {},{} -> {}", info.start, info.end, scale);
+        // Logging::trace("Scale for extents {},{} -> {}", info.start, info.end, scale);
         translation = glm::scale(translation, scale);
         scaled = glm::scale(scaled, scale);
 

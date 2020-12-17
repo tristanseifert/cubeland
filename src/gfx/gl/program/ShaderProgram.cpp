@@ -51,8 +51,8 @@ ShaderProgram::ShaderProgram(const std::string &vertPath, const std::string &fra
     const auto fragSource = std::string(fragment.begin(), fragment.end());
 
     // add shaders
-    this->addShaderSource(vertSource);
-    this->addShaderSource(fragSource);
+    this->addShaderSource(vertSource, Shader::ShaderType::Vertex);
+    this->addShaderSource(fragSource, Shader::ShaderType::Fragment);
 }
 
 /**
@@ -73,13 +73,14 @@ ShaderProgram::~ShaderProgram() {
  * Adds a shader to this program from the given string.
  */
 void ShaderProgram::addShaderSource(const std::string &source) {
-    Shader::ShaderType type;
+    this->addShaderSource(source, Shader::typeFromSource(source));
+}
 
-    // create the shader
-    type = Shader::typeFromSource(source);
+/*
+ * Adds a shader program.
+ */
+void ShaderProgram::addShaderSource(const std::string &source, const Shader::ShaderType type) {
     auto shader = std::make_shared<Shader>(type, source);
-
-    // add it to our program
     this->addShader(shader);
 }
 

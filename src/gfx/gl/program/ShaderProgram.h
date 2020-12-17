@@ -28,6 +28,7 @@ class ShaderProgram {
         ~ShaderProgram();
 
         void addShaderSource(const std::string &source);
+        void addShaderSource(const std::string &source, const Shader::ShaderType type);
         void addShader(std::shared_ptr<Shader> shader);
 
         void link();

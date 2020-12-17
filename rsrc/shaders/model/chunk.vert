@@ -17,8 +17,7 @@ uniform mat3 normalMatrix; // transpose(inverse(mat3(model)))
 
 void main() {
     // Forward the world position and texture coordinates
-    // vec4 worldPos = model * vec4(position + blockPos, 1);
-    vec4 worldPos = model * vec4(position, 1);
+    vec4 worldPos = model * vec4(position + blockPos, 1);
     WorldPos = worldPos.xyz;
     TexCoords = texCoords;
 

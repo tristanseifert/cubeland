@@ -25,51 +25,51 @@ uniform float fogOffset;
 
 // Ambient light
 struct AmbientLight {
-	float Intensity;
+    float Intensity;
 
-	vec3 Colour;
+    vec3 Colour;
 };
 
 uniform AmbientLight ambientLight;
 
 // Directional, point and spotlight data
 struct DirectionalLight {
-	// direction pointing FROM light source
-	vec3 Direction;
+    // direction pointing FROM light source
+    vec3 Direction;
 
-	vec3 DiffuseColour;
-	vec3 SpecularColour;
+    vec3 DiffuseColour;
+    vec3 SpecularColour;
 };
 
 const int MAX_NUM_DIRECTIONAL_LIGHTS = 4;
 uniform DirectionalLight directionalLights[MAX_NUM_DIRECTIONAL_LIGHTS];
 
 struct PointLight {
-	vec3 Position;
+    vec3 Position;
 
-	vec3 DiffuseColour;
-	vec3 SpecularColour;
+    vec3 DiffuseColour;
+    vec3 SpecularColour;
 
-	float Linear;
-	float Quadratic;
+    float Linear;
+    float Quadratic;
 };
 
 const int MAX_NUM_POINT_LIGHTS = 32;
 uniform PointLight pointLights[MAX_NUM_POINT_LIGHTS];
 
 struct SpotLight {
-	vec3 Position;
-	vec3 Direction;
+    vec3 Position;
+    vec3 Direction;
 
-	vec3 DiffuseColour;
-	vec3 SpecularColour;
+    vec3 DiffuseColour;
+    vec3 SpecularColour;
 
-	// cosines of angles
-	float InnerCutOff; // when the light begins to fade
-	float OuterCutOff; // outside of this angle, no light is produced
+    // cosines of angles
+    float InnerCutOff; // when the light begins to fade
+    float OuterCutOff; // outside of this angle, no light is produced
 
-	float Linear;
-	float Quadratic;
+    float Linear;
+    float Quadratic;
 };
 
 const int MAX_NUM_SPOT_LIGHTS = 8;
@@ -98,157 +98,157 @@ vec3 WorldPosFromDepth(float depth);
 
 // 1.0 when x > y, 0.0 otherwise
 float when_gt(float x, float y) {
-	return max(sign(x - y), 0.0);
+    return max(sign(x - y), 0.0);
 }
 
 void main() {
-	// Get the depth of the fragment and recalculate the position
-	float Depth = texture(gDepth, TexCoord).x;
-	vec3 FragWorldPos = WorldPosFromDepth(Depth);
+    // Get the depth of the fragment and recalculate the position
+    float Depth = texture(gDepth, TexCoord).x;
+    vec3 FragWorldPos = WorldPosFromDepth(Depth);
 
-	// retrieve the normals
-	vec3 Normal = texture(gNormal, TexCoord).rgb;
+    // retrieve the normals
+    vec3 Normal = texture(gNormal, TexCoord).rgb;
 
-	// Calculate the view direction
-	vec3 viewDir = normalize(viewPos - FragWorldPos);
+    // Calculate the view direction
+    vec3 viewDir = normalize(viewPos - FragWorldPos);
 
-	// retrieve albedo (diffuse color)
-	vec3 Diffuse = texture(gDiffuse, TexCoord).rgb;
+    // retrieve albedo (diffuse color)
+    vec3 Diffuse = texture(gDiffuse, TexCoord).rgb;
 
-	// Retrieve material properties
-	vec4 MatProps = texture(gMatProps, TexCoord);
-	float Specular = MatProps.g;
-	float Shininess = MatProps.r;
+    // Retrieve material properties
+    vec4 MatProps = texture(gMatProps, TexCoord);
+    float Specular = MatProps.g;
+    float Shininess = MatProps.r;
 
-	// if only the skybox is rendered at a given light, skip lighting
-	if(Depth < 1.0) {
-		// Ambient lighting
-		vec3 ambient = Diffuse * ambientLight.Intensity;
-		vec3 lighting = vec3(0, 0, 0);
+    // if only the skybox is rendered at a given light, skip lighting
+    if(Depth < 1.0) {
+        // Ambient lighting
+        vec3 ambient = Diffuse * ambientLight.Intensity;
+        vec3 lighting = vec3(0, 0, 0);
 
-		// Directional lights
-		for(int i = 0; i < LightCount.x;  ++i) {
-			// get some info about the light
-			DirectionalLight light = directionalLights[i];
+        // Directional lights
+        for(int i = 0; i < LightCount.x;  ++i) {
+            // get some info about the light
+            DirectionalLight light = directionalLights[i];
 
-			// TODO: Figure out if this should be normalized
-			vec3 lightDir = light.Direction;
+            // TODO: Figure out if this should be normalized
+            vec3 lightDir = light.Direction;
 
-			// Diffuse
-			vec3 diffuse = max(dot(Normal, lightDir), 0.0) * Diffuse * light.DiffuseColour;
+            // Diffuse
+            vec3 diffuse = max(dot(Normal, lightDir), 0.0) * Diffuse * light.DiffuseColour;
 
-			// Specular
-			vec3 halfwayDir = normalize(lightDir + viewDir);
-			float spec = pow(max(dot(Normal, halfwayDir), 0.0), Shininess);
-			vec3 specular = spec * Specular * light.SpecularColour;
+            // Specular
+            vec3 halfwayDir = normalize(lightDir + viewDir);
+            float spec = pow(max(dot(Normal, halfwayDir), 0.0), Shininess);
+            vec3 specular = spec * Specular * light.SpecularColour;
 
-			// Output
-			lighting += (diffuse + specular);
-		}
+            // Output
+            lighting += (diffuse + specular);
+        }
 
-		// Point lights
-		for(int i = 0; i < LightCount.y; ++i) {
-			// get some light info
-			PointLight light = pointLights[i];
-			vec3 lightDir = normalize(light.Position - FragWorldPos);
+        // Point lights
+        for(int i = 0; i < LightCount.y; ++i) {
+            // get some light info
+            PointLight light = pointLights[i];
+            vec3 lightDir = normalize(light.Position - FragWorldPos);
 
-			// Diffuse
-			vec3 diffuse = max(dot(Normal, lightDir), 0.0) * Diffuse * light.DiffuseColour;
+            // Diffuse
+            vec3 diffuse = max(dot(Normal, lightDir), 0.0) * Diffuse * light.DiffuseColour;
 
-			// Specular
-			vec3 halfwayDir = normalize(lightDir + viewDir);
-			float spec = pow(max(dot(Normal, halfwayDir), 0.0), Shininess);
+            // Specular
+            vec3 halfwayDir = normalize(lightDir + viewDir);
+            float spec = pow(max(dot(Normal, halfwayDir), 0.0), Shininess);
 
-			vec3 specular = spec * Specular * light.SpecularColour;
+            vec3 specular = spec * Specular * light.SpecularColour;
 
-			// Attenuation
-			float distance = length(light.Position - FragWorldPos);
-			float attenuation = 1.0 / (1.0 + (light.Linear * distance) +
-								(light.Quadratic * distance * distance));
+            // Attenuation
+            float distance = length(light.Position - FragWorldPos);
+            float attenuation = 1.0 / (1.0 + (light.Linear * distance) +
+                                                    (light.Quadratic * distance * distance));
 
-			diffuse *= attenuation;
-			specular *= attenuation;
+            diffuse *= attenuation;
+            specular *= attenuation;
 
-			// Output
-			lighting += (diffuse + specular);
-		}
-
-
-		// Multiply all lighting so far by inverse of shadow
-		vec3 sunDirection = directionalLights[0].Direction;
-		vec4 FragPosLightSpace = lightSpaceMatrix * vec4(FragWorldPos, 1.0f);
-		float shadow = ShadowCalculation(FragPosLightSpace, Normal, sunDirection);
-
-		lighting *= (1.0 - shadow);
+            // Output
+            lighting += (diffuse + specular);
+        }
 
 
-		// Spot lights
-		for(int i = 0; i < LightCount.z;  ++i) {
-			// get some info about the light
-			SpotLight light = spotLights[i];
+        // Multiply all lighting so far by inverse of shadow
+        vec3 sunDirection = directionalLights[0].Direction;
+        vec4 FragPosLightSpace = lightSpaceMatrix * vec4(FragWorldPos, 1.0f);
+        float shadow = ShadowCalculation(FragPosLightSpace, Normal, sunDirection);
 
-			// Calculate to see whether we're inside the 'cone of influence'
-			vec3 lightDir = normalize(light.Position - FragWorldPos);
-			float theta = dot(lightDir, normalize(-light.Direction));
-
-			// We're working with cosines, not angles, so >
-			if(theta > light.OuterCutOff) {
-				// Diffuse
-				vec3 diffuse = max(dot(Normal, lightDir), 0.0) * Diffuse * light.DiffuseColour;
-
-				// Specular
-				vec3 halfwayDir = normalize(lightDir + viewDir);
-				float spec = pow(max(dot(Normal, halfwayDir), 0.0), Shininess);
-
-				vec3 specular = spec * Specular * light.SpecularColour;
-
-				// Spotlight (soft edges)
-				float theta = dot(lightDir, normalize(-light.Direction));
-				float epsilon = (light.InnerCutOff - light.OuterCutOff);
-				float intensity = clamp((theta - light.OuterCutOff) / epsilon, 0.0, 1.0);
-				diffuse *= intensity;
-				specular *= intensity;
-
-				// Attenuation
-				float distance = length(light.Position - FragWorldPos);
-				float attenuation = 1.0f / (1.0 + (light.Linear * distance) +
-									(light.Quadratic * (distance * distance)));
-
-				diffuse  *= attenuation;
-				specular *= attenuation;
-
-				lighting += (diffuse + specular);
-			}
-		}
+        lighting *= (1.0 - shadow);
 
 
-		// Add ambient lighting
-		lighting += ambient;
+        // Spot lights
+        for(int i = 0; i < LightCount.z;  ++i) {
+            // get some info about the light
+            SpotLight light = spotLights[i];
+
+            // Calculate to see whether we're inside the 'cone of influence'
+            vec3 lightDir = normalize(light.Position - FragWorldPos);
+            float theta = dot(lightDir, normalize(-light.Direction));
+
+            // We're working with cosines, not angles, so >
+            if(theta > light.OuterCutOff) {
+                // Diffuse
+                vec3 diffuse = max(dot(Normal, lightDir), 0.0) * Diffuse * light.DiffuseColour;
+
+                // Specular
+                vec3 halfwayDir = normalize(lightDir + viewDir);
+                float spec = pow(max(dot(Normal, halfwayDir), 0.0), Shininess);
+
+                vec3 specular = spec * Specular * light.SpecularColour;
+
+                // Spotlight (soft edges)
+                float theta = dot(lightDir, normalize(-light.Direction));
+                float epsilon = (light.InnerCutOff - light.OuterCutOff);
+                float intensity = clamp((theta - light.OuterCutOff) / epsilon, 0.0, 1.0);
+                diffuse *= intensity;
+                specular *= intensity;
+
+                // Attenuation
+                float distance = length(light.Position - FragWorldPos);
+                float attenuation = 1.0f / (1.0 + (light.Linear * distance) +
+                                                        (light.Quadratic * (distance * distance)));
+
+                diffuse  *= attenuation;
+                specular *= attenuation;
+
+                lighting += (diffuse + specular);
+            }
+        }
 
 
-		// apply fog as needed
-		float fogDist = max(FogDistanceFromDepth(Depth) - fogOffset, 0);
-
-		float fogFactor = 1.0 / exp((fogDist * fogDensity) * (fogDist * fogDensity));
-		fogFactor = clamp(fogFactor, 0.0, 1.0);
-
-		vec3 finalColor = mix(fogColor, lighting, fogFactor);
+        // Add ambient lighting
+        lighting += ambient;
 
 
-		// output colour of the fragment
-		FragColour = vec4(finalColor, 1);
-	} else {
-		// If we don't have anything rendered here, output fog colour
-		FragColour = vec4(fogColor, 1);
-	}
+        // apply fog as needed
+        float fogDist = max(FogDistanceFromDepth(Depth) - fogOffset, 0);
 
-	// DEBUG: Read shadow map
-	/*if(TexCoord.x >= 0.5 && TexCoord.y >= 0.5) {
-		vec2 coord = vec2((TexCoord.x - 0.5) * 2, (TexCoord.y - 0.5) * 2);
+        float fogFactor = 1.0 / exp((fogDist * fogDensity) * (fogDist * fogDensity));
+        fogFactor = clamp(fogFactor, 0.0, 1.0);
 
-		float depthValue = texture(gSunShadowMap, coord).r;
-		FragColour = vec4(vec3(depthValue), 1);
-	}*/
+        vec3 finalColor = mix(fogColor, lighting, fogFactor);
+
+
+        // output colour of the fragment
+        FragColour = vec4(finalColor, 1);
+    } else {
+        // If we don't have anything rendered here, output fog colour
+        FragColour = vec4(fogColor, 1);
+    }
+
+    // DEBUG: Read shadow map
+    /*if(TexCoord.x >= 0.5 && TexCoord.y >= 0.5) {
+            vec2 coord = vec2((TexCoord.x - 0.5) * 2, (TexCoord.y - 0.5) * 2);
+
+            float depthValue = texture(gSunShadowMap, coord).r;
+            FragColour = vec4(vec3(depthValue), 1);
+    }*/
 }
 
 

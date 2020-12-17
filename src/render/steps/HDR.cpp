@@ -94,7 +94,7 @@ void HDR::setUpInputBuffers(void) {
  */
 void HDR::setUpHDRLumaBuffers() {
     using namespace gfx;
-    
+
     // get size of the viewport
     unsigned int width = 1024;
     unsigned int height = 768;
@@ -113,7 +113,7 @@ void HDR::setUpHDRLumaBuffers() {
     // this->sceneLuma = this->lumaHisto->createSharedTextureForCurrentContext();
     this->sceneLuma->setDebugName("HDRPerPixelLuma");
 
-    this->hdrLumaFBO->attachTextureRect(this->sceneLuma, FrameBuffer::ColourAttachment1);
+    this->hdrLumaFBO->attachTexture2D(this->sceneLuma, FrameBuffer::ColourAttachment1);
 
     // Specify the buffers used for rendering
     FrameBuffer::AttachmentType buffers[] = {
@@ -484,7 +484,7 @@ void HDR::setOutputFBO(std::shared_ptr<gfx::FrameBuffer> fbo, bool attach) {
     if(attach == true) {
         // attach texture
         this->outFBO->bindRW();
-        this->outFBO->attachTextureRect(this->sceneLuma, FrameBuffer::ColourAttachment1);
+        this->outFBO->attachTexture2D(this->sceneLuma, FrameBuffer::ColourAttachment1);
 
         // Specify the buffers used for rendering
         FrameBuffer::AttachmentType buffers[] = {

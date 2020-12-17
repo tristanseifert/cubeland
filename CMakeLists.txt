@@ -60,8 +60,8 @@ add_executable(cubeland
     src/gfx/gl/buffer/RenderBuffer.cpp
     src/gfx/gl/buffer/VertexArray.cpp
 # model loading
-    src/gfx/model/Mesh.cpp
-    src/gfx/model/Model.cpp
+#    src/gfx/model/Mesh.cpp
+#    src/gfx/model/Model.cpp
 # lighting
     src/gfx/lights/abstract/AbstractLight.cpp
     src/gfx/lights/abstract/LightPosition.cpp
@@ -132,7 +132,7 @@ file(GLOB MODEL_FILES ${CMAKE_CURRENT_SOURCE_DIR}/rsrc/models/*/*)
 cmrc_add_resource_library(cubeland-rsrc-models
     ${MODEL_FILES}
 ALIAS cubeland::rsrc_models WHENCE rsrc/models NAMESPACE models)
-target_link_libraries(cubeland PRIVATE cubeland::rsrc_models)
+#target_link_libraries(cubeland PRIVATE cubeland::rsrc_models)
 
 # textures
 cmrc_add_resource_library(cubeland-rsrc-textures

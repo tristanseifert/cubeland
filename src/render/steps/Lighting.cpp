@@ -199,14 +199,14 @@ void Lighting::setUpRenderBuffer() {
 
     // Normal vector buffer
     this->gNormal = std::make_shared<Texture2D>(0);
-    this->gNormal->allocateBlank(width, height, Texture2D::RGB16F);
+    this->gNormal->allocateBlank(width, height, Texture2D::RGBA16F);
     this->gNormal->setDebugName("gBufNormal");
 
     this->fbo->attachTexture2D(this->gNormal, FrameBuffer::ColourAttachment0);
 
     // Diffuse colour buffer
     this->gDiffuse = std::make_shared<Texture2D>(1);
-    this->gDiffuse->allocateBlank(width, height, Texture2D::RGB8);
+    this->gDiffuse->allocateBlank(width, height, Texture2D::RGBA8);
     this->gDiffuse->setUsesLinearFiltering(true);
     this->gDiffuse->setDebugName("gBufDiffuse");
 
@@ -375,8 +375,8 @@ void Lighting::sendLightsToShader(void) {
  * Resize the G-buffer as needed
  */
 void Lighting::reshape(int width, int height) {
-    this->gNormal->allocateBlank(width, height, gfx::Texture2D::RGB16F);
-    this->gDiffuse->allocateBlank(width, height, gfx::Texture2D::RGB8);
+    this->gNormal->allocateBlank(width, height, gfx::Texture2D::RGBA16F);
+    this->gDiffuse->allocateBlank(width, height, gfx::Texture2D::RGBA8);
     this->gMatProps->allocateBlank(width, height, gfx::Texture2D::RGBA8);
     this->gDepth->allocateBlank(width, height, gfx::Texture2D::Depth24Stencil8);
 }
@@ -390,13 +390,9 @@ void Lighting::preRender(WorldRenderer *renderer) {
     using namespace gfx;
     using namespace gl;
 
-    // get currently bound FBO
+    // render shadow map and restore the previously bound framebuffer after
     GLint drawFboId = FrameBuffer::currentDrawBuffer();
-
-    // render the shadow map???
     this->renderShadowMap(renderer);
-
-    // bind the last framebuffer again
     FrameBuffer::bindDrawBufferByName(drawFboId);
 
     // clear the output buffer
@@ -408,7 +404,7 @@ void Lighting::preRender(WorldRenderer *renderer) {
 
     // ensure we do not write to the depth buffer during lighting
     glDepthMask(GL_FALSE);
-    // glStencilMask(0x00);
+    glStencilMask(0x00);
 }
 
 /**
@@ -514,11 +510,13 @@ void Lighting::renderSkybox(void) {
  * Restores the previous rendering state.
  */
 void Lighting::postRender(WorldRenderer *) {
+    using namespace gl;
+
     // allow successive render passes to render depth
-    gl::glDepthMask(gl::GL_TRUE);
+    glDepthMask(GL_TRUE);
 
     // re-enable depth testing
-    gl::glEnable(gl::GL_DEPTH_TEST);
+    glEnable(GL_DEPTH_TEST);
 }
 
 
@@ -619,18 +617,18 @@ void Lighting::renderShadowMap(WorldRenderer *wr) {
 
     glViewport(0, 0, this->shadowW, this->shadowH);
 
-    glClearColor(0.f, 0.f, 0.f, 1.f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // glClearColor(0.f, 0.f, 0.f, 1.f);
+    glClear(GL_DEPTH_BUFFER_BIT);
 
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
+    glDepthFunc(GL_EQUAL);
 
     // set up culling: prevents peter panning
     glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);
 
     // render the scene
-    this->shadowSceneRenderer->_doRender(this->shadowViewMatrix, true, false);
+    this->shadowSceneRenderer->render(this->shadowViewMatrix, true, false);
 
     // reset viewport
     glViewport(last_viewport[0], last_viewport[1], (GLsizei)last_viewport[2], (GLsizei)last_viewport[3]);

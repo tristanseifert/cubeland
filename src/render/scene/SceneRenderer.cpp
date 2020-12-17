@@ -3,10 +3,8 @@
 
 #include "render/chunk/WorldChunk.h"
 #include "render/chunk/ChunkWorker.h"
-#include "gfx/gl/buffer/Buffer.h"
 #include "gfx/gl/buffer/VertexArray.h"
 #include "gfx/model/RenderProgram.h"
-#include "gfx/model/Model.h"
 
 #include <Logging.h>
 
@@ -18,27 +16,13 @@
 
 using namespace render;
 
-// for debuggers
-gl::GLuint VBO, VAO;
-
-// World space positions of the objects
-static const glm::vec3 cubePositions[] = {
-    glm::vec3( 1.3f, -2.0f, -2.5f),
-    glm::vec3( 1.0f,  1.0f,  1.0f),
-    glm::vec3( 2.0f,  5.0f, -15.0f),
-    glm::vec3(-1.5f, -2.2f, -2.5f),
-    glm::vec3(-3.8f, -2.0f, -12.3f),
-    glm::vec3( 2.4f, -0.4f, -3.5f),
-    glm::vec3(-1.7f,  3.0f, -7.5f),
-    glm::vec3( 1.5f,  2.0f, -2.5f),
-    glm::vec3( 1.5f,  0.2f, -1.5f),
-    glm::vec3(-1.3f,  1.0f, -1.5f)
-};
-
 /**
  * Init; this loads the program/shader we use normally for drawing
  */
 SceneRenderer::SceneRenderer() {
+    // force initialization of some stuff
+    chunk::ChunkWorker::init();
+
     // set up the shaders for the color and shadow programs
     this->colorPrograms[kProgramChunkDraw] = WorldChunk::getProgram();
     this->colorPrograms[kProgramChunkHighlight] = WorldChunk::getHighlightProgram();
@@ -46,12 +30,8 @@ SceneRenderer::SceneRenderer() {
     this->shadowPrograms[kProgramChunkDraw] = WorldChunk::getShadowProgram();
 
     // load the model
-    // this->model = std::make_shared<gfx::Model>("/teapot/teapot.obj");
     auto chonker = std::make_shared<WorldChunk>();
     this->chunks.push_back(chonker);
-
-    // force initialization of some stuff
-    chunk::ChunkWorker::init();
 }
 
 /**
@@ -95,28 +75,16 @@ void SceneRenderer::preRender(WorldRenderer *) {
  * Actually renders the scene. This is called with the G-buffer attached.
  */
 void SceneRenderer::render(WorldRenderer *renderer) {
-    // gl::glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
+    gl::glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
 
     glm::mat4 projView = this->projectionMatrix * this->viewMatrix;
-    this->_doRender(projView, false, true);
-
-    // draw outlines
-    /*auto program = this->getProgram(kProgramChunkHighlight, false);
-    program->bind();
-    program->setUniformMatrix("projectionView", projView);
-
-    for(auto chunk : this->chunks) {
-        if(!chunk->needsDrawHighlights()) continue;
-
-        this->prepareChunk(program, chunk, false);
-        chunk->drawHighlights(program);
-    }*/
+    this->render(projView, false, true);
 }
 
 /**
  * Performs the actual rendering of the scene.
  */
-void SceneRenderer::_doRender(glm::mat4 projView, const bool shadow, bool hasNormalMatrix) {
+void SceneRenderer::render(glm::mat4 projView, const bool shadow, bool hasNormalMatrix) {
     using namespace gl;
     PROFILE_SCOPE(SceneRender);
 
@@ -132,8 +100,6 @@ void SceneRenderer::_doRender(glm::mat4 projView, const bool shadow, bool hasNor
             chunk->draw(program);
         }
     }
-
-    gfx::VertexArray::unbind();
 }
 
 /**
@@ -144,7 +110,7 @@ void SceneRenderer::prepareChunk(std::shared_ptr<gfx::RenderProgram> program,
     // TODO: per chunk model matrix
     glm::mat4 model(1);
 
-    model = glm::rotate(model, this->time, glm::vec3(0, 0, 1));
+    // model = glm::rotate(model, this->time, glm::vec3(0, 1, 0));
 
     program->setUniformMatrix("model", model);
 
