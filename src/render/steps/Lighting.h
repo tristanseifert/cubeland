@@ -104,10 +104,10 @@ class Lighting : public RenderStep {
 
     private:
         // Fog density and color
-        float fogDensity = 0.03f;
+        float fogDensity = 0.025f;
         glm::vec3 fogColor = glm::vec3(0.53, 0.8, 0.98);
         // This is subtracted from the distance to push the fog back
-        float fogOffset = 25.f;
+        float fogOffset = 50.f;
 
     private:
         glm::mat4 shadowViewMatrix;
@@ -118,8 +118,6 @@ class Lighting : public RenderStep {
         // Shadow texture dimensions
         unsigned int shadowW = 2048, shadowH = 2048;
 
-        // Shadow model rendering program
-        std::shared_ptr<gfx::RenderProgram> shadowRenderProgram = nullptr;
         // Framebuffer object with shadow depth texture
         std::shared_ptr<gfx::FrameBuffer> shadowFbo = nullptr;
         // Shadow depth texture

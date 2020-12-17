@@ -39,13 +39,16 @@ static const glm::vec3 cubePositions[] = {
  * Init; this loads the program/shader we use normally for drawing
  */
 SceneRenderer::SceneRenderer() {
-    // Create a shader
-    this->program = std::make_shared<gfx::RenderProgram>("/model/model.vert", "/model/model.frag", true);
-    this->program->link();
+    // set up the shaders for the color and shadow programs
+    this->colorPrograms[kProgramChunkDraw] = WorldChunk::getProgram();
+    this->colorPrograms[kProgramChunkHighlight] = WorldChunk::getHighlightProgram();
+
+    this->shadowPrograms[kProgramChunkDraw] = WorldChunk::getShadowProgram();
 
     // load the model
     // this->model = std::make_shared<gfx::Model>("/teapot/teapot.obj");
-    this->model = std::make_shared<WorldChunk>();
+    auto chonker = std::make_shared<WorldChunk>();
+    this->chunks.push_back(chonker);
 
     // force initialization of some stuff
     chunk::ChunkWorker::init();
@@ -62,7 +65,9 @@ SceneRenderer::~SceneRenderer() {
  * Invoke the start-of-frame handler on all drawables.
  */
 void SceneRenderer::startOfFrame() {
-    this->model->frameBegin();
+    for(auto chunk : this->chunks) {
+        chunk->frameBegin();
+    }
 }
 
 /**
@@ -71,9 +76,10 @@ void SceneRenderer::startOfFrame() {
 void SceneRenderer::preRender(WorldRenderer *) {
     using namespace gl;
 
-    // set clear colour and depth testing
-    glClearColor(0.f, 0.f, 0.f, 1.f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // set clear colour and depth testing; clear stencil as well
+    // TODO: better granularity on stencil testing?
+    glClearColor(0.f, 0.f, 0.f, 0.f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT/* | GL_STENCIL_BUFFER_BIT*/);
 
     // Enable depth testing
     glEnable(GL_DEPTH_TEST);
@@ -86,42 +92,67 @@ void SceneRenderer::preRender(WorldRenderer *) {
 }
 
 /**
- * Actually renders the scene.
+ * Actually renders the scene. This is called with the G-buffer attached.
  */
 void SceneRenderer::render(WorldRenderer *renderer) {
-    gl::glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
+    // gl::glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
 
     glm::mat4 projView = this->projectionMatrix * this->viewMatrix;
-    this->_doRender(projView, this->program);
+    this->_doRender(projView, false, true);
+
+    // draw outlines
+    /*auto program = this->getProgram(kProgramChunkHighlight, false);
+    program->bind();
+    program->setUniformMatrix("projectionView", projView);
+
+    for(auto chunk : this->chunks) {
+        if(!chunk->needsDrawHighlights()) continue;
+
+        this->prepareChunk(program, chunk, false);
+        chunk->drawHighlights(program);
+    }*/
 }
 
 /**
  * Performs the actual rendering of the scene.
  */
-void SceneRenderer::_doRender(glm::mat4 projView, std::shared_ptr<gfx::RenderProgram> program, bool hasNormalMatrix) {
+void SceneRenderer::_doRender(glm::mat4 projView, const bool shadow, bool hasNormalMatrix) {
     using namespace gl;
     PROFILE_SCOPE(SceneRender);
 
-    program->bind();
-    program->setUniformMatrix("projectionView", projView);
+    // draw chunks
+    {
+        // set up the block rendering shader
+        auto program = this->getProgram(kProgramChunkDraw, shadow);
+        program->bind();
+        program->setUniformMatrix("projectionView", projView);
 
-    // Calculate the model matrix for each object and pass it to shader before drawing
+        for(auto chunk : this->chunks) {
+            this->prepareChunk(program, chunk, hasNormalMatrix);
+            chunk->draw(program);
+        }
+    }
+
+    gfx::VertexArray::unbind();
+}
+
+/**
+ * Prepares a chunk for drawing.
+ */
+void SceneRenderer::prepareChunk(std::shared_ptr<gfx::RenderProgram> program,
+        std::shared_ptr<WorldChunk> chunk, bool hasNormal) {
+    // TODO: per chunk model matrix
     glm::mat4 model(1);
-    model = glm::translate(model, cubePositions[0]);
 
-//		model = glm::rotate(model, angle, glm::vec3(1.0f, 0.3f, 0.5f));
-//        model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));
+    model = glm::rotate(model, this->time, glm::vec3(0, 0, 1));
+
     program->setUniformMatrix("model", model);
 
-    if(hasNormalMatrix == true) {
+    if(hasNormal) {
         glm::mat3 normalMatrix;
         normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
         program->setUniformMatrix("normalMatrix", normalMatrix);
     }
-
-    this->model->draw(program);
-
-    gfx::VertexArray::unbind();
 }
 
 /**

@@ -414,7 +414,7 @@ void WorldDebugger::drawChunkViewer(gui::GameUI *ui) {
 
     // actions
     if(ImGui::Button("Render")) {
-        auto world = dynamic_pointer_cast<render::WorldChunk>(gSceneRenderer->model);
+        auto world = dynamic_pointer_cast<render::WorldChunk>(gSceneRenderer->chunks[0]);
         if(!world) {
             this->worldError = std::make_unique<std::string>("Failed to get world chunk (for drawing)");
         } else {
@@ -823,7 +823,7 @@ void WorldDebugger::fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax) {
         // create a sparse row for each column
         for(size_t z = 0; z < 256; z++) {
             auto row = std::make_shared<ChunkSliceRowSparse>();
-            row->defaultBlockId = 3;
+            row->defaultBlockId = 0;
 
             // this makes a diagonal stripe
             for(size_t x = 0; x < 256; x++) {
@@ -838,7 +838,7 @@ void WorldDebugger::fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax) {
                         chunk->blockMeta[((y & 0xFF) << 16) | ((z & 0xFF) << 8) | (x & 0xFF)] = fucker;
                     }
                 } else if(x == (z / 2)) {
-                    row->storage[x] = 0;
+                    row->storage[x] = 2;
                     
                     BlockMeta fucker;
                     fucker.meta[2] = "Sativa";

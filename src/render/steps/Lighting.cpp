@@ -161,10 +161,6 @@ Lighting::Lighting() {
 void Lighting::setUpShadowing() {
     using namespace gfx;
 
-    // Set up new render program
-    this->shadowRenderProgram = std::make_shared<RenderProgram>("/model/model_shadow.vert", "/model/model_shadow.frag", false);
-    this->shadowRenderProgram->link();
-
     // Create FBO for shadow rendering
     this->shadowFbo = std::make_shared<FrameBuffer>();
     this->shadowFbo->bindRW();
@@ -528,17 +524,20 @@ void Lighting::postRender(WorldRenderer *) {
 
 
 /**
- * Binds the various G-buffer elements before the scene itself is rendered. This
- * sets up three textures, into which the following data is rendered:
+ * Binds the various G-buffer elements before the scene itself is rendered. This sets up three
+ * textures, into which the following data is rendered:
  *
  * 1. Positions (RGB)
- * 2. Colour (RGB) plus specular (A)
+ * 2. Color (RGB) plus specular (A)
  * 3. Normal vectors (RGB)
  * 4. Material properties
  *
- * Following a call to this function, the scene should be rendered, and when
- * this technique is rendered, it will render the final geometry with lighting
- * applied.
+ * Following a call to this function, the scene should be rendered, and when this technique is
+ * rendered, it will render the final geometry with lighting applied.
+ *
+ * A depth buffer with at least an 8-bit stencil is also atacched. The usage of stencil bits is
+ * as follows:
+ * - Bit 0: Chunk outlines
  */
 void Lighting::bindGBuffer(void) {
     this->fbo->bindRW();
@@ -631,7 +630,7 @@ void Lighting::renderShadowMap(WorldRenderer *wr) {
     glCullFace(GL_FRONT);
 
     // render the scene
-    this->shadowSceneRenderer->_doRender(this->shadowViewMatrix, this->shadowRenderProgram, false);
+    this->shadowSceneRenderer->_doRender(this->shadowViewMatrix, true, false);
 
     // reset viewport
     glViewport(last_viewport[0], last_viewport[1], (GLsizei)last_viewport[2], (GLsizei)last_viewport[3]);

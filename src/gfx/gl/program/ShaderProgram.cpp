@@ -169,6 +169,7 @@ void ShaderProgram::setFragDataLocation(const std::string &name, GLuint loc) {
  */
 void ShaderProgram::setUniform1i(const std::string &name, GLint i1) {
     GLint loc = this->getUniformLocation(name);
+    if(loc == -1) return;
     glUniform1i(loc, i1);
 }
 
@@ -177,6 +178,7 @@ void ShaderProgram::setUniform1i(const std::string &name, GLint i1) {
  */
 void ShaderProgram::setUniform1f(const std::string &name, gl::GLfloat f1) {
     GLint loc = this->getUniformLocation(name);
+    if(loc == -1) return;
     glUniform1f(loc, f1);
 }
 
@@ -185,6 +187,7 @@ void ShaderProgram::setUniform1f(const std::string &name, gl::GLfloat f1) {
  */
 void ShaderProgram::setUniformVec(const std::string &name, glm::vec2 vec) {
     GLint loc = this->getUniformLocation(name);
+    if(loc == -1) return;
     glUniform2f(loc, vec.x, vec.y);
 }
 
@@ -193,6 +196,7 @@ void ShaderProgram::setUniformVec(const std::string &name, glm::vec2 vec) {
  */
 void ShaderProgram::setUniformVec(const std::string &name, glm::vec3 vec) {
     GLint loc = this->getUniformLocation(name);
+    if(loc == -1) return;
     glUniform3f(loc, vec.x, vec.y, vec.z);
 }
 
@@ -201,6 +205,7 @@ void ShaderProgram::setUniformVec(const std::string &name, glm::vec3 vec) {
  */
 void ShaderProgram::setUniformVec(const std::string &name, glm::vec4 vec) {
     GLint loc = this->getUniformLocation(name);
+    if(loc == -1) return;
     glUniform4f(loc, vec.x, vec.y, vec.z, vec.w);
 }
 
@@ -209,6 +214,7 @@ void ShaderProgram::setUniformVec(const std::string &name, glm::vec4 vec) {
  */
 void ShaderProgram::setUniformMatrix(const std::string &name, const glm::mat3 &matrix) {
     GLint loc = this->getUniformLocation(name);
+    if(loc == -1) return;
     glUniformMatrix3fv(loc, 1, GL_FALSE, glm::value_ptr(matrix));
 }
 
@@ -217,5 +223,6 @@ void ShaderProgram::setUniformMatrix(const std::string &name, const glm::mat3 &m
  */
 void ShaderProgram::setUniformMatrix(const std::string &name, const glm::mat4 &matrix) {
     GLint loc = this->getUniformLocation(name);
+    if(loc == -1) return;
     glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(matrix));
 }
