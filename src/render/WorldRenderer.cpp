@@ -1,4 +1,5 @@
 #include "WorldRenderer.h"
+#include "WorldRendererDebugger.h"
 #include "RenderStep.h"
 #include "scene/SceneRenderer.h"
 #include "input/InputManager.h"
@@ -66,6 +67,11 @@ void WorldRenderer::willBeginFrame() {
 
     for(auto &step : this->steps) {
         step->startOfFrame();
+    }
+
+    // draw debuggre ig
+    if(this->debugger) {
+        this->debugger->draw();
     }
 }
 
@@ -145,8 +151,8 @@ void WorldRenderer::updateView() {
     float width = (float) this->viewportWidth;
     float height = (float) this->viewportHeight;
 
-    this->projection = glm::perspective(this->projFoV, (float) (width / height), this->zNear,
-                                        this->zFar);
+    this->projection = glm::perspective(glm::radians(this->projFoV), (float) (width / height), 
+            this->zNear, this->zFar);
 
 
     // give each of the stages some information from the camera for rendering

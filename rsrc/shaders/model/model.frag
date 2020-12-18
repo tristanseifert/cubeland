@@ -8,9 +8,9 @@ struct MaterialStruct {
 };
 
 // The normal/shininess buffer is colour attachment 0
-layout (location = 0) out vec3 gNormal;
+layout (location = 0) out vec4 gNormal;
 // The albedo/specular buffer is colour attachment 1
-layout (location = 1) out vec3 gDiffuse;
+layout (location = 1) out vec4 gDiffuse;
 // The albedo/specular buffer is colour attachment 2
 layout (location = 2) out vec4 gMatSpec;
 
@@ -77,5 +77,5 @@ void main() {
 	gDiffuse.rgb = diffuse;
 
 	// Store material properties
-	gMatSpec = vec4(Material.shininess, specular, 1, 0);
+	gMatSpec = vec4(Material.shininess, specular, 0, 0);
 }

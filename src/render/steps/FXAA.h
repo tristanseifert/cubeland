@@ -76,9 +76,6 @@ class FXAA : public RenderStep {
 
     private:
         void drawDebugWindow();
-
-        // when set, the render debug window is shown
-        bool showDebugWindow = false;
 };
 }
 

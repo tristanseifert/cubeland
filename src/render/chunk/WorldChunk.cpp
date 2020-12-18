@@ -138,6 +138,8 @@ WorldChunk::WorldChunk() {
 
     VertexArray::unbind();
 
+    this->initHighlightBuffer();
+
     // lastly, load the placeholder texture
     this->placeholderTex = std::make_shared<Texture2D>(6);
     this->placeholderTex->loadFromImage("/test/empty/whitegreen.png");
@@ -158,13 +160,13 @@ void WorldChunk::frameBegin() {
         });
     }
     // highlight related stuff
-    /*if(this->highlightsNeedUpdate) { // queue updating of buffer in background
+    if(this->highlightsNeedUpdate) { // queue updating of buffer in background
         ChunkWorker::pushWork([&]() -> void {
             // clear flag first, so if data changes while we're updating, it's fixed next frame
             this->highlightsNeedUpdate = false;
             this->updateHighlightBuffer();
         });
-    }*/
+    }
 
     // draw debugger
     if(this->debugger) {
@@ -198,7 +200,7 @@ void WorldChunk::draw(std::shared_ptr<gfx::RenderProgram> program) {
     }
     // if no chunk data available, draw a wireframe outline of the chunk
     else {
-        // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
         this->vao->bind();
         // glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -441,17 +443,6 @@ void WorldChunk::initHighlightBuffer() {
     this->highlightVao->registerVertexAttribPointer(2, 2, VertexArray::Float, 8 * sizeof(gl::GLfloat),
             6 * sizeof(gl::GLfloat)); // texture coordinate
 
-    // and the transform matrix instance variable
-    /*this->highlightBuf->bind();
-
-    const auto instanceSize = sizeof(HighlightInstanceData);
-    const auto rowStride = sizeof(gl::GLfloat) * 4;
-
-    this->highlightVao->registerVertexAttribPointer(3, 4, VertexArray::Float, instanceSize, 0, 1);
-    this->highlightVao->registerVertexAttribPointer(4, 4, VertexArray::Float, instanceSize, rowStride, 1);
-    this->highlightVao->registerVertexAttribPointer(5, 4, VertexArray::Float, instanceSize, rowStride*2, 1);
-    this->highlightVao->registerVertexAttribPointer(6, 4, VertexArray::Float, instanceSize, rowStride*3, 1);*/
-
     // clean up
     VertexArray::unbind();
 }
@@ -478,10 +469,11 @@ void WorldChunk::updateHighlightBuffer() {
         float zScale = fabs(info.start.z - info.end.z);
         glm::vec3 scale(xScale, yScale, zScale);
 
+        translation = glm::translate(translation, glm::vec3(0.01, 0.01, 0.01));
         translation = glm::translate(translation, info.start);
 
-        translation = glm::translate(translation, glm::vec3(-xScale/2, -yScale/2, -zScale/2));
-        scaled = glm::scale(translation, glm::vec3(1.1, 1.1, 1.1));
+        translation = glm::translate(translation, glm::vec3(xScale/2, yScale/2, zScale/2));
+        scaled = glm::scale(translation, glm::vec3(1.25, 1.25, 1.25));
 
         // Logging::trace("Scale for extents {},{} -> {}", info.start, info.end, scale);
         translation = glm::scale(translation, scale);
@@ -530,18 +522,19 @@ void WorldChunk::drawHighlights(std::shared_ptr<gfx::RenderProgram> program) {
     }
 
     // set the highlight color
-    program->setUniformVec("HighlightColor", glm::vec3(0, 1, 0));
+    program->setUniformVec("HighlightColor", glm::vec3(1, 1, 0));
     program->setUniform1f("WriteColor", 0);
 
     // step 1: draw to stencil buffer
     // configure to always write a 1 to the appropriate bit in the stencil buffer. no color is written
     glEnable(GL_STENCIL_TEST);
-    glDepthMask(GL_FALSE);
+    // glDepthMask(GL_FALSE);
+    // glDepthFunc(GL_LEQUAL);
+    glDepthFunc(GL_ALWAYS);
 
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
     glStencilFunc(GL_ALWAYS, 1, 0x01);
     glStencilMask(0x01);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
     this->highlightVao->bind();
     for(const auto &data: this->highlightData) {
@@ -555,7 +548,6 @@ void WorldChunk::drawHighlights(std::shared_ptr<gfx::RenderProgram> program) {
     glStencilFunc(GL_NOTEQUAL, 1, 0x01);
     glStencilMask(0x00); // do not write to stencil buffer
     glDisable(GL_DEPTH_TEST);
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
 
     this->highlightVao->bind();
     for(const auto &data: this->highlightData) {

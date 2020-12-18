@@ -23,8 +23,11 @@ class RenderStep;
 class Lighting;
 class HDR;
 class FXAA;
+class WorldRendererDebugger;
 
 class WorldRenderer: public gui::RunLoopStep {
+    friend class WorldRendererDebugger;
+
     public:
         WorldRenderer(gui::MainWindow *);
         virtual ~WorldRenderer();
@@ -51,13 +54,15 @@ class WorldRenderer: public gui::RunLoopStep {
     private:
         // used for keyboard/game controller input
         std::shared_ptr<input::InputManager> input = nullptr;
+        // debugging
+        std::shared_ptr<WorldRendererDebugger> debugger = nullptr;
 
     private:
         // near and far clipping planes
         float zNear = 0.1f;
-        float zFar = 100.f;
+        float zFar = 50.f;
         // field of view, in degrees
-        float projFoV = 50.f;
+        float projFoV = 70.f;
         // size of the viewport (render canvas)
         unsigned int viewportWidth = 0, viewportHeight = 0;
 
@@ -73,6 +78,9 @@ class WorldRenderer: public gui::RunLoopStep {
         std::shared_ptr<Lighting> lighting = nullptr;
         std::shared_ptr<HDR> hdr = nullptr;
         std::shared_ptr<FXAA> fxaa = nullptr;
+
+        // whether the debugger is visible
+        bool isDebuggerOpen = true;
 };
 }
 

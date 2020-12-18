@@ -72,6 +72,7 @@ add_executable(cubeland
     src/gfx/lights/DirectionalLight.cpp
 # rendering pipeline
     src/render/WorldRenderer.cpp
+    src/render/WorldRendererDebugger.cpp
     src/render/Camera.cpp
     src/render/scene/SceneRenderer.cpp
     src/render/chunk/WorldChunk.cpp

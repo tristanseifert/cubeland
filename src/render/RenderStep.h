@@ -9,9 +9,11 @@
 
 namespace render {
 class WorldRenderer;
+class WorldRendererDebugger;
 
 class RenderStep {
     friend class Renderer;
+    friend class WorldRendererDebugger;
 
     public:
         virtual ~RenderStep() {};
@@ -38,6 +40,9 @@ class RenderStep {
         glm::vec3 viewLookAt; // camera "look at" vector
         glm::vec3 viewDirection; // camera front vector
         glm::vec3 viewUp; // camera up vector
+
+    protected:
+        bool showDebugWindow = false;
 
     private:
 };

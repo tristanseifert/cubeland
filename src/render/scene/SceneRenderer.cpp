@@ -58,8 +58,8 @@ void SceneRenderer::preRender(WorldRenderer *) {
 
     // set clear colour and depth testing; clear stencil as well
     // TODO: better granularity on stencil testing?
-    glClearColor(0.f, 0.f, 0.f, 0.f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT/* | GL_STENCIL_BUFFER_BIT*/);
+    // glClearColor(0.f, 0.f, 0.f, 0.f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
     // Enable depth testing
     glEnable(GL_DEPTH_TEST);
@@ -79,6 +79,22 @@ void SceneRenderer::render(WorldRenderer *renderer) {
 
     glm::mat4 projView = this->projectionMatrix * this->viewMatrix;
     this->render(projView, false, true);
+
+    // draw the highlights
+    {
+        PROFILE_SCOPE(ChunkHighlights);
+
+        auto program = this->getProgram(kProgramChunkHighlight, false);
+        program->bind();
+        program->setUniformMatrix("projectionView", projView);
+
+        for(auto &chunk : this->chunks) {
+            if(chunk->needsDrawHighlights()) {
+                this->prepareChunk(program, chunk, false);
+                chunk->drawHighlights(program);
+            }
+        }
+    }
 }
 
 /**
@@ -109,8 +125,6 @@ void SceneRenderer::prepareChunk(std::shared_ptr<gfx::RenderProgram> program,
         std::shared_ptr<WorldChunk> chunk, bool hasNormal) {
     // TODO: per chunk model matrix
     glm::mat4 model(1);
-
-    // model = glm::rotate(model, this->time, glm::vec3(0, 1, 0));
 
     program->setUniformMatrix("model", model);
 

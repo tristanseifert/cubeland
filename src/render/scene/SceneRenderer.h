@@ -69,8 +69,6 @@ class SceneRenderer: public RenderStep {
         /// the chunks we're rendering as part of the world
         std::vector<std::shared_ptr<WorldChunk>> chunks;
 
-        float time = 0;
-
         /// regular (color rendering) programs
         std::unordered_map<ProgramType, std::shared_ptr<gfx::RenderProgram>> colorPrograms;
         /// shadow rendering programs
