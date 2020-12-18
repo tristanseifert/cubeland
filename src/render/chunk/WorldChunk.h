@@ -168,6 +168,8 @@ class WorldChunk: public Drawable {
 
         // debugger for this world chunk
         std::shared_ptr<chunk::WorldChunkDebugger> debugger = nullptr;
+        // when set, all chunks are drown in wireframe mode rather than solid
+        bool drawWireframe = false;
 };
 }
 

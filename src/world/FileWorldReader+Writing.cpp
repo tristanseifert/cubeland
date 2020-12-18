@@ -290,12 +290,14 @@ void FileWorldReader::serializeSliceBlocks(std::shared_ptr<Chunk> chunk, const i
         PROFILE_SCOPE(Build8To16Map);
 
         std::array<uint16_t, 256> ids;
+        ids.fill(0xFFFF);
+
         XASSERT(ids.size() == map.idMap.size(), "mismatched ID map sizes");
 
         for(size_t i = 0; i < ids.size(); i++) {
             // ignore nil UUIDs (array is already zeroed)
             const auto uuid = map.idMap[i];
-            if(uuid. is_nil()) continue;
+            if(uuid.is_nil()) continue;
 
             // look it up otherwise
             ids[i] = fileIdMap.at(uuid);

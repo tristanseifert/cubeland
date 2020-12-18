@@ -194,9 +194,17 @@ void WorldChunk::draw(std::shared_ptr<gfx::RenderProgram> program) {
     }
 
     if(this->numInstances) {
+        if(this->drawWireframe) {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        }
+
         this->vao->bind();
         glDrawArraysInstanced(GL_TRIANGLES, 0, 36, this->numInstances);
         gfx::VertexArray::unbind();
+
+        if(this->drawWireframe) {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        }
     }
     // if no chunk data available, draw a wireframe outline of the chunk
     else {
@@ -261,12 +269,15 @@ void WorldChunk::fillInstanceBuf() {
 
     PROFILE_SCOPE(FillInstanceBuf);
 
+    // counters
+    size_t numCulled = 0, numTotal = 0;
+
     // clear caches if needed
     if(this->withoutCaching) {
         PROFILE_SCOPE(ClearCaches);
 
+        this->instanceData.clear();
         this->exposureIdMaps.clear();
-        // this->exposureMap.reset();
         std::fill(this->exposureMap.begin(), this->exposureMap.end(), false);
     }
 
@@ -285,7 +296,7 @@ void WorldChunk::fillInstanceBuf() {
     // update the actual instance buffer itself
     for(size_t y = 0; y < Chunk::kMaxY; y++) {
         PROFILE_SCOPE(ProcessSlice);
-        size_t yOffset = (y & 0xFF) << 16;
+        const size_t yOffset = (y & 0xFF) << 16;
 
         // if there's no blocks at this Y level, check the next one
         auto slice = this->chunk->slices[y];
@@ -297,18 +308,22 @@ void WorldChunk::fillInstanceBuf() {
             auto row = slice->rows[z];
             if(!row) continue;
 
-            size_t zOffset = ((z & 0xFF) << 8) | yOffset;
+            const size_t zOffset = yOffset |  ((z & 0xFF) << 8);
 
             // process each block in this row
             const auto &map = this->chunk->sliceIdMaps[row->typeMap];
 
             for(size_t x = 0; x < 256; x++) {
-                // skip block if not exposed
-                if(!this->exposureMap[zOffset + x]) continue;
-
-                // skip blocks to not draw XXX: handle this properly
+                // skip blocks to not draw (e.g. air) XXX: handle this properly
                 uint8_t temp = row->at(x);
                 if(temp == 0) continue;
+                numTotal++;
+
+                // skip block if not exposed
+                if(!this->exposureMap[zOffset + x]) {
+                    numCulled++;
+                    continue;
+                }
 
                 /// TODO: properly drawing
                 BlockInstanceData data;
@@ -320,7 +335,9 @@ void WorldChunk::fillInstanceBuf() {
     }
 
     // ensure the buffer is transferred on the next frame
-    Logging::trace("Filled {} items to instance buffer", this->instanceData.size());
+    Logging::trace("Filled {} items to instance buffer ({} total, culled {} blocks ({}%))",
+            this->instanceData.size(), numTotal, numCulled, 
+            100 * (((float) numCulled) / ((float) numTotal)));
     this->instanceBufDirty = true;
 }
 
@@ -331,22 +348,121 @@ void WorldChunk::fillInstanceBuf() {
  * is air-like (for purposes of exposure calculations) or whether it's solid. The grids are
  * centered at the current Y position; that is to say, there will be one layer of this data for
  * both the immediately above and below of all positions.
- *
- * For the top/bottom-most layers, there will only be 2 layers. For now, we always display all
- * blocks at Ymin and Ymax, and let them get culled later on.
  */
 void WorldChunk::updateExposureMap() {
     PROFILE_SCOPE(UpdateExposureMap);
 
-    // Y = 256 and Y = 0 all visible
-    /*for(size_t i = 0; i < 0x10000; i++) {
-        this->exposureMap[0x000000 + i] = true;
-        this->exposureMap[0xFF0000 + i] = true;
-    }*/
-    std::fill(this->exposureMap.begin() + 0x000000, this->exposureMap.begin() + 0x010000, true);
-    std::fill(this->exposureMap.begin() + 0xFF0000, this->exposureMap.end(), true);
+    // generate bitset data for Y=0 and Y=1
+    std::bitset<256*256> above, current, below;
 
-    // TODO: implement
+    below.reset();
+    this->buildAirMap(this->chunk->slices[0], current);
+    this->buildAirMap(this->chunk->slices[1], above);
+
+    // iterate every row
+    for(size_t y = 0; y < 256; y++) {
+        // ignore empty slices
+        const size_t yOff = ((y & 0xFF) << 16);
+        auto slice = this->chunk->slices[y];
+        if(!slice) {
+            std::fill(this->exposureMap.begin() + yOff,
+                      this->exposureMap.begin() + (yOff + 0x10000), false);
+            goto nextRow;
+        }
+
+        // iterate over each row
+        for(size_t z = 0; z < 256; z++) {
+            // ignore empty rows
+            const size_t zOff = yOff | ((z & 0xFF) << 8);
+            auto row = slice->rows[z];
+
+            if(!row) {
+                std::fill(this->exposureMap.begin() + zOff, 
+                          this->exposureMap.begin() + (zOff + 0x100), false);
+                continue;
+            }
+
+            // iterate over all blocks in the row. check if any of its faces touch 'air'
+            for(size_t x = 0; x < 256; x++) {
+                const size_t airMapOff = ((z & 0xFF) << 8) | (x & 0xFF);
+                bool visible = false;
+
+                // above or below
+                if(above[airMapOff]) {
+                    visible = true;
+                    goto writeResult;
+                }
+                if(below[airMapOff]) {
+                    visible = true;
+                    goto writeResult;
+                }
+
+                // check adjacent faces
+                for(int i = -1; i <= 1; i+=2) {
+                    // left or right
+                    if((x == 0 && i == -1) || (x == 255 && i == 1) || current[airMapOff + i]) {
+                        visible = true;
+                        goto writeResult;
+                    }
+                    // front or back
+                    if((z == 0 && i == -1) || (z == 255 && i == 1) || current[airMapOff + (i * 256)]) {
+                        visible = true;
+                        goto writeResult;
+                    }
+                }
+
+writeResult:;
+                // write the result into the exposure map
+                this->exposureMap[zOff + x] = visible;
+            }
+        }
+
+        // generate air map for the next row
+nextRow:;
+        below = std::move(current);
+        current = std::move(above);
+
+        if((y+2) < this->chunk->slices.size()) {
+            above.reset();
+            this->buildAirMap(this->chunk->slices[y+2], above);
+        } else {
+            above.set();
+        }
+    }
+}
+/**
+ * For a particular Y layer, generates a bitmap indicating whether the block at the given (Z, X)
+ * position is air-like or not.
+ *
+ * Indices into the bitset are 16-bit 0xZZXX coordinates.
+ */
+void WorldChunk::buildAirMap(std::shared_ptr<world::ChunkSlice> slice, std::bitset<256*256> &b) {
+    // if the slice is empty (e.g. nonexistent,) bail; the entire thing is air
+    if(!slice) {
+        b.set();
+        return;
+    }
+
+    // iterate over every row
+    for(size_t z = 0; z < 256; z++) {
+        // ignore empty rows
+        const size_t zOff = ((z & 0xFF) << 8);
+        auto row = slice->rows[z];
+
+        if(!row) {
+            for(size_t x = 0; x < 256; x++) {
+                b[zOff + x] = true;
+            }
+            continue;
+        }
+
+        // iterate each block in the row to determine if it's air or not
+        const auto &airMap = this->exposureIdMaps[row->typeMap];
+        for(size_t x = 0; x < 256; x++) {
+            const bool isAir = airMap[row->at(x)];
+            b[zOff + x] = isAir;
+        }
+    }
 }
 
 /**
@@ -354,6 +470,9 @@ void WorldChunk::updateExposureMap() {
  */
 void WorldChunk::generateBlockIdMap() {
     PROFILE_SCOPE(GenerateAirMap);
+
+    std::vector<std::array<bool, 256>> maps;
+    maps.reserve(this->chunk->sliceIdMaps.size());
 
     // iterate over each input ID map...
     for(const auto &map : this->chunk->sliceIdMaps) {
@@ -373,9 +492,22 @@ void WorldChunk::generateBlockIdMap() {
             }
 
             // TODO: check for solidity
-            isAir[i] = false;
+            static std::array<uuids::uuid::value_type, 16> raw = {0x71, 0x4a, 0x92, 0xe3, 
+                0x29, 0x84, 0x4f, 0x0e, 0x86, 0x9e, 0x14, 0x16, 0x2d, 0x46, 0x27, 0x60};
+            static const uuids::uuid id(raw);
+
+            if(uuid == id) {
+                Logging::trace("Id {} is air (uuid {})", i, uuids::to_string(uuid));
+                isAir[i] = true;
+            } else {
+                isAir[i] = false;
+            }
         }
+
+        maps.push_back(isAir);
     }
+
+    this->exposureIdMaps = std::move(maps);
 }
 
 

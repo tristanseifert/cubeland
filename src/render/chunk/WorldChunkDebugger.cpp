@@ -35,6 +35,9 @@ void WorldChunkDebugger::draw() {
         return;
     }
 
+    // yeet
+    ImGui::Checkbox("Draw Wireframe", &this->chunk->drawWireframe);
+
     // exposure map
     if(ImGui::CollapsingHeader("Exposure Map")) {
         this->drawExposureMap();

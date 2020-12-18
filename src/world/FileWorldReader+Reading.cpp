@@ -91,7 +91,7 @@ std::shared_ptr<Chunk> FileWorldReader::loadChunk(int x, int z) {
                     if(blockId == 0xFFFF) {
                         m.idMap[j] = uuids::uuid();
                     } else {
-                        throw std::runtime_error(f("Invalid block id 0x{:4x}", blockId));
+                        throw std::runtime_error(f("Invalid block id 0x{:04x}", blockId));
                     }
                 }
             }

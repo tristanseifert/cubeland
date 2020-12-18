@@ -319,9 +319,10 @@ void WorldDebugger::drawChunkReadUi(gui::GameUI *ui) {
  */
 void WorldDebugger::drawChunkWriteUi(gui::GameUI *ui) {
     // string constants
-    const static size_t kNumFillTypes = 1;
+    const static size_t kNumFillTypes = 2;
     const static char *kFillTypes[kNumFillTypes] = {
         "Solid (y <= 32)",
+        "Sphere (d = 32)"
     };
 
     // default item width
@@ -366,7 +367,12 @@ void WorldDebugger::drawChunkWriteUi(gui::GameUI *ui) {
 
             {
                 PROFILE_SCOPE(FillChunk);
-                this->fillChunkSolid(chunk, this->chunkState.fillLevel);
+
+                if(this->chunkState.fillType == 0) {
+                    this->fillChunkSolid(chunk, this->chunkState.fillLevel);
+                } else if(this->chunkState.fillType == 1) {
+                    this->fillChunkSphere(chunk, this->chunkState.fillLevel);
+                }
             }
 
             this->chunk = chunk;
@@ -596,32 +602,34 @@ void WorldDebugger::drawChunkRows(gui::GameUI *ui) {
     auto row = slice->rows[this->viewerState.currentRow];
     ImGui::Text("%p", row.get());
 
-    ImGui::TextUnformatted("ID Map: ");
-    ImGui::SameLine();
-    ImGui::Text("0x%02x", row->typeMap);
+    if(row) {
+        ImGui::TextUnformatted("ID Map: ");
+        ImGui::SameLine();
+        ImGui::Text("0x%02x", row->typeMap);
 
-    // draw the type of the row and detail about it
-    auto sparse = dynamic_pointer_cast<ChunkSliceRowSparse>(row);
-    auto dense = dynamic_pointer_cast<ChunkSliceRowDense>(row);
+        // draw the type of the row and detail about it
+        auto sparse = dynamic_pointer_cast<ChunkSliceRowSparse>(row);
+        auto dense = dynamic_pointer_cast<ChunkSliceRowDense>(row);
 
-    ImGui::TextUnformatted("Type: ");
-    ImGui::SameLine();
+        ImGui::TextUnformatted("Type: ");
+        ImGui::SameLine();
 
-    // sparse
-    if(sparse) {
-        ImGui::TextUnformatted("Sparse");
-        this->drawRowInfo(ui, sparse);
+        // sparse
+        if(sparse) {
+            ImGui::TextUnformatted("Sparse");
+            this->drawRowInfo(ui, sparse);
+        }
+        // dense
+        else if(dense) {
+            ImGui::TextUnformatted("Dense");
+            this->drawRowInfo(ui, dense);
+        }
+        // none
+        else {
+            ImGui::TextUnformatted("??? Unknown (this should not happen)");
+        }
+        ImGui::PopItemWidth();
     }
-    // dense
-    else if(dense) {
-        ImGui::TextUnformatted("Dense");
-        this->drawRowInfo(ui, dense);
-    }
-    // none
-    else {
-        ImGui::TextUnformatted("??? Unknown (this should not happen)");
-    }
-    ImGui::PopItemWidth();
 }
 
 /**
@@ -784,12 +792,11 @@ void WorldDebugger::sendWorkerNop() {
     this->workQueue.enqueue([&]{ /* nothing */ });
 }
 
-/**
- * Fills a solid pile of blocks into the chunk up to the given Y level.
- */
-void WorldDebugger::fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax) {
-    Logging::debug("Filling chunk {} with solid data to y {}", (void *) chunk.get(), yMax);
 
+/**
+ * Prepares a chunk by setting its id maps.
+ */
+void WorldDebugger::prepareChunkMaps(std::shared_ptr<Chunk> chunk) {
     /// UUIDs of blocks
     static const std::array<uuids::uuid::value_type, 16> kBlockIdsRaw[4] = {
         {0x71, 0x4a, 0x92, 0xe3, 0x29, 0x84, 0x4f, 0x0e, 0x86, 0x9e, 0x14, 0x16, 0x2d, 0x46, 0x27, 0x60},
@@ -810,6 +817,14 @@ void WorldDebugger::fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax) {
         idMap.idMap[i] = kBlockIds[i];
     }
     chunk->sliceIdMaps.push_back(idMap);
+}
+
+/**
+ * Fills a solid pile of blocks into the chunk up to the given Y level.
+ */
+void WorldDebugger::fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax) {
+    Logging::debug("Filling chunk {} with solid data to y {}", (void *) chunk.get(), yMax);
+    this->prepareChunkMaps(chunk);
 
     // metadata keys
     chunk->blockMetaIdMap[1] = "me.tseifert.cubeland.test";
@@ -823,13 +838,13 @@ void WorldDebugger::fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax) {
         // create a sparse row for each column
         for(size_t z = 0; z < 256; z++) {
             auto row = std::make_shared<ChunkSliceRowSparse>();
-            row->defaultBlockId = 0;
+            row->defaultBlockId = 1;
 
             // this makes a diagonal stripe
             for(size_t x = 0; x < 256; x++) {
                 if(x == y) {
-                    row->storage[x] = 1;
-                    
+                    row->storage[x] = 0;
+
                     // literally fuck me in the god damn ass
                     BlockMeta fucker;
                     fucker.meta[1] = 420.69;
@@ -839,7 +854,7 @@ void WorldDebugger::fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax) {
                     }
                 } else if(x == (z / 2)) {
                     row->storage[x] = 2;
-                    
+
                     BlockMeta fucker;
                     fucker.meta[2] = "Sativa";
                     if(y & 0x01 && (z % 32) == 0 && this->chunkState.writeBlockProps) {
@@ -861,6 +876,38 @@ void WorldDebugger::fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax) {
 
             // assign row to the slice
             slice->rows[z] = row;
+        }
+
+        // attach it to the chunk
+        chunk->slices[y] = slice;
+    }
+}
+
+/**
+ * Fills a chunk with a roughly spherical meeper.
+ */
+void WorldDebugger::fillChunkSphere(std::shared_ptr<Chunk> chunk, size_t radius) {
+    this->prepareChunkMaps(chunk);
+
+    for(size_t y = 0; y < 32; y++) {
+        auto slice = std::make_shared<ChunkSlice>();
+
+        // create a sparse row for each column
+        for(size_t z = 0; z < 256; z++) {
+            auto row = std::make_shared<ChunkSliceRowSparse>();
+            row->defaultBlockId = 0;
+            bool written = false;
+
+            for(size_t x = 0; x < 256; x++) {
+                const float WORLD_SIZE = (float) radius;
+                if (sqrt((float) (x-WORLD_SIZE/2)*(x-WORLD_SIZE/2) + (y-WORLD_SIZE/2)*(y-WORLD_SIZE/2) + (z-WORLD_SIZE/2)*(z-WORLD_SIZE/2)) < WORLD_SIZE/2) {
+                    row->storage[x] = 1;
+                    written = true;
+                }
+            }
+
+            // assign row to the slice
+            if(written) slice->rows[z] = row;
         }
 
         // attach it to the chunk

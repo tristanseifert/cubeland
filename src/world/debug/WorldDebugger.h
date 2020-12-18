@@ -75,7 +75,9 @@ class WorldDebugger: public gui::GameWindow {
         void workerMain();
         void sendWorkerNop();
 
+        void prepareChunkMaps(std::shared_ptr<Chunk> chunk);
         void fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax);
+        void fillChunkSphere(std::shared_ptr<Chunk> chunk, size_t radius = 32);
 
     private:
         /// Whether the debug window is open
@@ -101,7 +103,7 @@ class WorldDebugger: public gui::GameWindow {
             /// X/Z coord for the block to write
             int writeCoord[2] = {0, 0};
             /// current fill type
-            int fillType = 0;
+            int fillType = 1;
             /// fill level
             int fillLevel = 32;
             /// whether block properties are written

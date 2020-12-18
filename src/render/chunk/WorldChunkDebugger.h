@@ -14,7 +14,7 @@ class WorldChunkDebugger {
         WorldChunkDebugger(WorldChunk *);
 
         void draw();
-        
+
         /// Returns the visibility state of the debugger.
         bool isOpen() const {
             return this->isDebuggerOpen;
@@ -34,7 +34,7 @@ class WorldChunkDebugger {
             // current row (Z) of exposure map to show
             int mapZ = 0;
             // should that section of the chunk be highlighted?
-            bool highlight = true;
+            bool highlight = false;
 
             // when set, highlight needs to be updated
             bool updateHighlights = true;
