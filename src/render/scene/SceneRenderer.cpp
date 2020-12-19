@@ -70,8 +70,8 @@ void SceneRenderer::preRender(WorldRenderer *) {
 
     // set up culling
     glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glFrontFace(GL_CW);
+    // glCullFace(GL_BACK);
+    // glFrontFace(GL_CCW);
 }
 
 /**
@@ -145,6 +145,5 @@ void SceneRenderer::postRender(WorldRenderer *) {
     using namespace gl;
 
     // disable culling again
-    glFrontFace(GL_CCW);
     glDisable(GL_CULL_FACE);
 }

@@ -68,10 +68,7 @@ void MainWindow::initGLLibs() {
     setCallbackMaskExcept(CallbackMask::After, { "glGetError" });
     setAfterCallback([](const FunctionCall &) {
         const auto error = glGetError();
-        if(error != GL_NO_ERROR) {
-            Logging::error("GL error: {:x}", error);
-        }
-        XASSERT(error == GL_NO_ERROR, "GL error: {:x}", error);
+        XASSERT(error == GL_NO_ERROR, "GL error: {}", error);
     });
 
 }

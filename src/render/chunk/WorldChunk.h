@@ -15,6 +15,9 @@
 #include <mutex>
 #include <unordered_map>
 
+#include <glbinding/gl/gl.h>
+
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
 
@@ -65,21 +68,10 @@ class WorldChunk: public Drawable {
         }
 
     private:
-        void initHighlightBuffer();
-        void updateHighlightBuffer();
-
-        void transferBuffers();
-
-        void fillInstanceBuf();
-
-        void updateExposureMap();
-        void generateBlockIdMap();
-        void buildAirMap(std::shared_ptr<world::ChunkSlice> slice, std::bitset<256*256> &map);
-
-    private:
-        struct BlockInstanceData {
-            // block offset, relative to the origin of the chunk
-            glm::vec3 blockPos = glm::vec3(0);
+        struct BlockVertex {
+            glm::vec3 position;
+            glm::vec3 normal;
+            glm::vec2 uv;
         };
 
         struct HighlightInfo {
@@ -99,12 +91,29 @@ class WorldChunk: public Drawable {
             glm::mat4 transform, scaled;
         };
 
-    private:
-        // lock around this vector
-        std::mutex outstandingWorkLock;
-        // work pending by this chunk
-        std::vector<std::future<void>> outstandingWork;
+        /*
+         * Data passed around when calculating the exposure map, as well as the block contents. It
+         * contains mostly a map of which blocks are "air" at, immediately above, and below the
+         * current Y level.
+         */
+        struct AirMap {
+            std::bitset<256*256> above, current, below;
+        };
 
+    private:
+        void initHighlightBuffer();
+        void updateHighlightBuffer();
+
+        void transferBuffers();
+
+        void fillInstanceBuf();
+        void insertBlockVertices(const AirMap &am, size_t x, size_t y, size_t z);
+
+        void updateExposureMap();
+        void generateBlockIdMap();
+        void buildAirMap(std::shared_ptr<world::ChunkSlice> slice, std::bitset<256*256> &map);
+
+    private:
         // lock for the highlights array
         std::mutex highlightsLock;
         // cached flag indicating whether there are any highlights
@@ -149,18 +158,28 @@ class WorldChunk: public Drawable {
 
         // when set, the instance buffer is updated at the start of the next frame
         std::atomic_bool instanceDataNeedsUpdate = false;
-        // data to load into instance buffer
-        std::vector<BlockInstanceData> instanceData;
 
-        // when set, the instance buffer must be reloaded
-        std::atomic_bool instanceBufDirty = false;
-        // number of instanced values to render
-        size_t numInstances = 0;
-        // instance data buffer
-        std::shared_ptr<gfx::Buffer> instanceBuf = nullptr;
+        // vertex array used for rendering the block vertex data
+        std::shared_ptr<gfx::VertexArray> facesVao = nullptr;
+
+        // when set, the vertex buffer must be reloaded
+        std::atomic_bool vertexBufDirty = false;
+        // block vertex buffer
+        std::shared_ptr<gfx::Buffer> vertexBuf = nullptr;
+        // this buffer contains all the vertices to display
+        std::vector<BlockVertex> vertexData;
+
+        // when set, the vertex index buffer is uploaded to the GPU
+        std::atomic_bool indexBufDirty = false;
+        // buffer containing vertex index data
+        std::shared_ptr<gfx::Buffer> vertexIndexBuf = nullptr;
+        // index buffer for vertex data
+        std::vector<gl::GLuint> vertexIndexData;
+        // number of indices to render
+        size_t numIndices = 0;
 
         // vertex array and buffer for a single cube
-        std::shared_ptr<gfx::VertexArray> vao = nullptr;
+        std::shared_ptr<gfx::VertexArray> placeholderVao = nullptr;
         std::shared_ptr<gfx::Buffer> vbo = nullptr;
 
         // empty placeholder texture

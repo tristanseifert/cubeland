@@ -4,9 +4,6 @@ layout (location = 0) in vec3 position;
 layout (location = 1) in vec3 normal;
 layout (location = 2) in vec2 texCoords;
 
-// instance attributes
-layout (location = 3) in vec3 blockPos;
-
 out vec3 WorldPos;
 out vec2 TexCoords;
 out vec3 Normal;
@@ -17,7 +14,7 @@ uniform mat3 normalMatrix; // transpose(inverse(mat3(model)))
 
 void main() {
     // Forward the world position and texture coordinates
-    vec4 worldPos = model * vec4(position + blockPos, 1);
+    vec4 worldPos = model * vec4(position, 1);
     WorldPos = worldPos.xyz;
     TexCoords = texCoords;
 

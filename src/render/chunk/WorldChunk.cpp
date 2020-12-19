@@ -101,44 +101,46 @@ std::shared_ptr<gfx::RenderProgram> WorldChunk::getShadowProgram() {
 WorldChunk::WorldChunk() {
     using namespace gfx;
 
-    // allocate memory
-    this->exposureMap.resize((256 * 256 * 256));
-
-    // create buffers and prepare to bind the vertex attrib object
-    this->vao = std::make_shared<VertexArray>();
-
+    // set up the placeholder vertex array
     this->vbo = std::make_shared<Buffer>(Buffer::Array, Buffer::StaticDraw);
     this->vbo->bind();
     this->vbo->bufferData(sizeof(kCubeVertices), (void *) &kCubeVertices);
     this->vbo->unbind();
 
-    BlockInstanceData data;
-    this->instanceBuf = std::make_shared<Buffer>(Buffer::Array, Buffer::DynamicDraw);
-    this->instanceBuf->bind();
-    this->instanceBuf->bufferData(sizeof(BlockInstanceData), (void *) &data);
-    this->instanceBuf->unbind();
+    this->placeholderVao = std::make_shared<VertexArray>();
 
-
-    // define the attribute layout for the fixed per-vertex buffer
-    this->vao->bind();
     this->vbo->bind();
-
-    this->vao->registerVertexAttribPointer(0, 3, VertexArray::Float, 8 * sizeof(gl::GLfloat), 
+    this->placeholderVao->registerVertexAttribPointer(0, 3, VertexArray::Float, 8 * sizeof(gl::GLfloat), 
             0); // vertex position
-    this->vao->registerVertexAttribPointer(1, 3, VertexArray::Float, 8 * sizeof(gl::GLfloat),
+    this->placeholderVao->registerVertexAttribPointer(1, 3, VertexArray::Float, 8 * sizeof(gl::GLfloat),
             3 * sizeof(gl::GLfloat)); // normals
-    this->vao->registerVertexAttribPointer(2, 2, VertexArray::Float, 8 * sizeof(gl::GLfloat),
+    this->placeholderVao->registerVertexAttribPointer(2, 2, VertexArray::Float, 8 * sizeof(gl::GLfloat),
             6 * sizeof(gl::GLfloat)); // texture coordinate
-
-    // describe the attribute layout for indexed parameters
-    this->instanceBuf->bind();
-
-    const size_t instanceElementSize = 3 * sizeof(gl::GLfloat);
-    this->vao->registerVertexAttribPointer(3, 3, VertexArray::Float, instanceElementSize, 0, 1); // per vertex position offset
-    this->instanceBuf->unbind();
 
     VertexArray::unbind();
 
+    // set up the block face vertex array
+    this->vertexBuf = std::make_shared<Buffer>(Buffer::Array, Buffer::DynamicDraw);
+    this->vertexIndexBuf = std::make_shared<Buffer>(Buffer::ElementArray, Buffer::DynamicDraw);
+
+    this->facesVao = std::make_shared<VertexArray>();
+    this->facesVao->bind();
+
+    this->vertexBuf->bind();
+    this->vertexIndexBuf->bind();
+
+    const size_t kVertexSize = sizeof(BlockVertex);
+    this->facesVao->registerVertexAttribPointer(0, 3, VertexArray::Float, kVertexSize,
+            0); // vertex position
+    this->facesVao->registerVertexAttribPointer(1, 3, VertexArray::Float, kVertexSize,
+            3 * sizeof(gl::GLfloat)); // normals
+    this->facesVao->registerVertexAttribPointer(2, 2, VertexArray::Float, kVertexSize,
+            6 * sizeof(gl::GLfloat)); // texture coordinate
+
+    VertexArray::unbind();
+
+    // set up highlighting and allocate some other buffers
+    this->exposureMap.resize((256 * 256 * 256));
     this->initHighlightBuffer();
 
     // lastly, load the placeholder texture
@@ -194,13 +196,16 @@ void WorldChunk::draw(std::shared_ptr<gfx::RenderProgram> program) {
         program->setUniform1i("texture_diffuse1", this->placeholderTex->unit);
     }
 
-    if(this->numInstances) {
+    if(this->numIndices) {
         if(this->drawWireframe) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         }
 
-        this->vao->bind();
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 36, this->numInstances);
+        this->facesVao->bind();
+        this->vertexIndexBuf->bind();
+
+        glDrawElements(GL_TRIANGLES, this->numIndices, GL_UNSIGNED_INT, nullptr);
+
         gfx::VertexArray::unbind();
 
         if(this->drawWireframe) {
@@ -211,9 +216,8 @@ void WorldChunk::draw(std::shared_ptr<gfx::RenderProgram> program) {
     else {
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-        this->vao->bind();
-        // glDrawArrays(GL_TRIANGLES, 0, 36);
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 36, 1);
+        this->placeholderVao->bind();
+        glDrawArrays(GL_TRIANGLES, 0, 36);
         gfx::VertexArray::unbind();
 
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -224,22 +228,36 @@ void WorldChunk::draw(std::shared_ptr<gfx::RenderProgram> program) {
  * Transfers dirty buffers to the GPU.
  */
 void WorldChunk::transferBuffers() {
-    PROFILE_SCOPE(BufferXfer);
-
-    // instance data buffer
-    if(this->instanceBufDirty) {
-        const auto size = sizeof(BlockInstanceData) * this->instanceData.size();
+    // vertex data for all exposed block faces
+    if(this->vertexBufDirty) {
+        const auto size = sizeof(BlockVertex) * this->vertexData.size();
         if(size) {
-            this->instanceBuf->bind();
-            this->instanceBuf->bufferData(size, this->instanceData.data());
-            this->instanceBuf->unbind();
+            PROFILE_SCOPE(XferVertexBuf);
+            this->vertexBuf->bind();
+            this->vertexBuf->bufferData(size, this->vertexData.data());
+            this->vertexBuf->unbind();
 
-            this->numInstances = this->instanceData.size();
+            Logging::debug("Chunk vertex buf xfer: {} bytes", size);
         } else {
-            Logging::warn("Chunk {} instance buffer is empty", (void *) this->chunk.get());
+            Logging::warn("Chunk {} vertex buffer is empty", (void *) this->chunk.get());
         }
 
-        this->instanceBufDirty = false;
+        this->vertexBufDirty = false;
+    }
+    // index data for all exposed block faces
+    if(this->indexBufDirty) {
+        const auto size = sizeof(gl::GLuint) * this->vertexIndexData.size();
+        if(size) {
+            PROFILE_SCOPE(XferIndexBuf);
+            this->vertexIndexBuf->bind();
+            this->vertexIndexBuf->bufferData(size, this->vertexIndexData.data());
+            this->vertexIndexBuf->unbind();
+
+            this->numIndices = this->vertexIndexData.size();
+            Logging::debug("Chunk index buf xfer: {} bytes", size);
+        }
+
+        this->indexBufDirty = false;
     }
 }
 
@@ -255,8 +273,8 @@ void WorldChunk::transferBuffers() {
 void WorldChunk::setChunk(std::shared_ptr<world::Chunk> chunk) {
     this->chunk = chunk;
 
-    this->instanceDataNeedsUpdate = true;
     this->withoutCaching = true;
+    this->instanceDataNeedsUpdate = true;
     this->exposureMapNeedsUpdate = true;
 }
 
@@ -277,7 +295,9 @@ void WorldChunk::fillInstanceBuf() {
     if(this->withoutCaching) {
         PROFILE_SCOPE(ClearCaches);
 
-        this->instanceData.clear();
+        this->vertexData.clear();
+        this->vertexIndexData.clear();
+
         this->exposureIdMaps.clear();
         std::fill(this->exposureMap.begin(), this->exposureMap.end(), false);
     }
@@ -288,11 +308,11 @@ void WorldChunk::fillInstanceBuf() {
         this->exposureMapNeedsUpdate = true;
     }
 
-    // update exposed blocks map if chunk is dirty
-    if(this->withoutCaching || this->exposureMapNeedsUpdate) {
-        this->updateExposureMap();
-        this->exposureMapNeedsUpdate = false;
-    }
+    // initial air map filling
+    AirMap am;
+    am.below.reset();
+    this->buildAirMap(this->chunk->slices[0], am.current);
+    this->buildAirMap(this->chunk->slices[1], am.above);
 
     // update the actual instance buffer itself
     for(size_t y = 0; y < Chunk::kMaxY; y++) {
@@ -301,20 +321,62 @@ void WorldChunk::fillInstanceBuf() {
 
         // if there's no blocks at this Y level, check the next one
         auto slice = this->chunk->slices[y];
-        if(!slice) continue;
+        if(!slice) {
+            // clear the exposure map
+            std::fill(this->exposureMap.begin() + yOffset,
+                      this->exposureMap.begin() + (yOffset + 0x10000), false);
+            goto nextRow;
+        }
 
         // iterate over each of the slice's rows
         for(size_t z = 0; z < 256; z++) {
             // skip empty rows
+            const size_t zOffset = yOffset | ((z & 0xFF) << 8);
             auto row = slice->rows[z];
-            if(!row) continue;
-
-            const size_t zOffset = yOffset |  ((z & 0xFF) << 8);
+            if(!row) {
+                std::fill(this->exposureMap.begin() + zOffset, 
+                          this->exposureMap.begin() + (zOffset + 0x100), false);
+                continue;
+            }
 
             // process each block in this row
             const auto &map = this->chunk->sliceIdMaps[row->typeMap];
 
             for(size_t x = 0; x < 256; x++) {
+                // update exposure map for this position if needed
+                if(this->exposureMapNeedsUpdate || true) {
+                    const size_t airMapOff = ((z & 0xFF) << 8) | (x & 0xFF);
+                    bool visible = false;
+
+                    // above or below
+                    if(am.above[airMapOff]) {
+                        visible = true;
+                        goto writeResult;
+                    }
+                    if(am.below[airMapOff]) {
+                        visible = true;
+                        goto writeResult;
+                    }
+
+                    // check adjacent faces
+                    for(int i = -1; i <= 1; i+=2) {
+                        // left or right
+                        if((x == 0 && i == -1) || (x == 255 && i == 1) || am.current[airMapOff + i]) {
+                            visible = true;
+                            goto writeResult;
+                        }
+                        // front or back
+                        if((z == 0 && i == -1) || (z == 255 && i == 1) || am.current[airMapOff + (i * 256)]) {
+                            visible = true;
+                            goto writeResult;
+                        }
+                    }
+
+    writeResult:;
+                    // write the result into the exposure map
+                    this->exposureMap[zOffset + x] = visible;
+                }
+
                 // skip blocks to not draw (e.g. air)
                 uint8_t temp = row->at(x);
                 const auto &id = map.idMap[temp];
@@ -329,111 +391,129 @@ void WorldChunk::fillInstanceBuf() {
                     continue;
                 }
 
-                /// TODO: properly drawing
-                BlockInstanceData data;
-                data.blockPos = glm::vec3(x, y, z);
-
-                this->instanceData.push_back(std::move(data));
+                // append the vertices for this block
+                this->insertBlockVertices(am, x, y, z);
             }
+        }
+
+        // set up for processing the next row
+nextRow:;
+        am.below = std::move(am.current);
+        am.current = std::move(am.above);
+
+        if((y+2) < this->chunk->slices.size()) {
+            am.above.reset();
+            this->buildAirMap(this->chunk->slices[y+2], am.above);
+        } else {
+            am.above.set();
         }
     }
 
+    // clear dirty flags
+    this->exposureMapNeedsUpdate = false;
+
     // ensure the buffer is transferred on the next frame
-    Logging::trace("Filled {} items to instance buffer ({} total, culled {} blocks ({}%))",
-            this->instanceData.size(), numTotal, numCulled, 
-            100 * (((float) numCulled) / ((float) numTotal)));
-    this->instanceBufDirty = true;
+    Logging::trace("Wrote {} vertices ({} indices)", this->vertexData.size(),
+            this->vertexIndexData.size());
+
+    this->vertexBufDirty = true;
+    this->indexBufDirty = true;
 }
 
 /**
- * Updates the map of what blocks are exposed.
- *
- * This works by generating a 3x256x256 boolean grid, indicating whether the block at that position
- * is air-like (for purposes of exposure calculations) or whether it's solid. The grids are
- * centered at the current Y position; that is to say, there will be one layer of this data for
- * both the immediately above and below of all positions.
+ * For a visible (e.g. at least one exposed face) block at the given coordinates, insert the
+ * necessary vertices to the vertex buffer.
  */
-void WorldChunk::updateExposureMap() {
-    PROFILE_SCOPE(UpdateExposureMap);
+void WorldChunk::insertBlockVertices(const AirMap &am, size_t x, size_t y, size_t z) {
+    const size_t yOff = (y & 0xFF) << 16;
+    const size_t zOff = yOff | (z & 0xFF) << 8;
+    const size_t xOff = zOff | (x & 0xFF);
+    const size_t airMapOff = ((z & 0xFF) << 8) | (x & 0xFF);
 
-    // generate bitset data for Y=0 and Y=1
-    std::bitset<256*256> above, current, below;
+    const glm::vec3 pos(x, y, z);
 
-    below.reset();
-    this->buildAirMap(this->chunk->slices[0], current);
-    this->buildAirMap(this->chunk->slices[1], above);
+    gl::GLuint iVtx = this->vertexData.size();
 
-    // iterate every row
-    for(size_t y = 0; y < 256; y++) {
-        // ignore empty slices
-        const size_t yOff = ((y & 0xFF) << 16);
-        auto slice = this->chunk->slices[y];
-        if(!slice) {
-            std::fill(this->exposureMap.begin() + yOff,
-                      this->exposureMap.begin() + (yOff + 0x10000), false);
-            goto nextRow;
-        }
-
-        // iterate over each row
-        for(size_t z = 0; z < 256; z++) {
-            // ignore empty rows
-            const size_t zOff = yOff | ((z & 0xFF) << 8);
-            auto row = slice->rows[z];
-
-            if(!row) {
-                std::fill(this->exposureMap.begin() + zOff, 
-                          this->exposureMap.begin() + (zOff + 0x100), false);
-                continue;
-            }
-
-            // iterate over all blocks in the row. check if any of its faces touch 'air'
-            for(size_t x = 0; x < 256; x++) {
-                const size_t airMapOff = ((z & 0xFF) << 8) | (x & 0xFF);
-                bool visible = false;
-
-                // above or below
-                if(above[airMapOff]) {
-                    visible = true;
-                    goto writeResult;
-                }
-                if(below[airMapOff]) {
-                    visible = true;
-                    goto writeResult;
-                }
-
-                // check adjacent faces
-                for(int i = -1; i <= 1; i+=2) {
-                    // left or right
-                    if((x == 0 && i == -1) || (x == 255 && i == 1) || current[airMapOff + i]) {
-                        visible = true;
-                        goto writeResult;
-                    }
-                    // front or back
-                    if((z == 0 && i == -1) || (z == 255 && i == 1) || current[airMapOff + (i * 256)]) {
-                        visible = true;
-                        goto writeResult;
-                    }
-                }
-
-writeResult:;
-                // write the result into the exposure map
-                this->exposureMap[zOff + x] = visible;
-            }
-        }
-
-        // generate air map for the next row
-nextRow:;
-        below = std::move(current);
-        current = std::move(above);
-
-        if((y+2) < this->chunk->slices.size()) {
-            above.reset();
-            this->buildAirMap(this->chunk->slices[y+2], above);
-        } else {
-            above.set();
-        }
+    // is the left edge exposed?
+    if(x == 0 || am.current[airMapOff - 1]) {
+        const glm::vec3 kNormal(-1, 0, 0);
+        this->vertexData.insert(this->vertexData.end(), {
+            {pos + glm::vec3(0,0,1), kNormal, glm::vec2(0,1)},
+            {pos + glm::vec3(0,1,1), kNormal, glm::vec2(1,1)},
+            {pos + glm::vec3(0,1,0), kNormal, glm::vec2(1,0)},
+            {pos + glm::vec3(0,0,0), kNormal, glm::vec2(0,0)},
+        });
+        this->vertexIndexData.insert(this->vertexIndexData.end(), 
+                {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
+        iVtx += 4;
+    }
+    // is the right edge exposed?
+    if(x == 255 || am.current[airMapOff + 1]) {
+        const glm::vec3 kNormal(1, 0, 0);
+        this->vertexData.insert(this->vertexData.end(), {
+            {pos + glm::vec3(1,0,0), kNormal, glm::vec2(0,1)},
+            {pos + glm::vec3(1,1,0), kNormal, glm::vec2(1,1)},
+            {pos + glm::vec3(1,1,1), kNormal, glm::vec2(1,0)},
+            {pos + glm::vec3(1,0,1), kNormal, glm::vec2(0,0)},
+        });
+        this->vertexIndexData.insert(this->vertexIndexData.end(), 
+                {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
+        iVtx += 4;
+    }
+    // is the bottom exposed?
+    if(y == 0 || am.below[airMapOff]) {
+        const glm::vec3 kNormal(0, -1, 0);
+        this->vertexData.insert(this->vertexData.end(), {
+            {pos + glm::vec3(0,0,0), kNormal, glm::vec2(0,1)},
+            {pos + glm::vec3(1,0,0), kNormal, glm::vec2(1,1)},
+            {pos + glm::vec3(1,0,1), kNormal, glm::vec2(1,0)},
+            {pos + glm::vec3(0,0,1), kNormal, glm::vec2(0,0)},
+        });
+        this->vertexIndexData.insert(this->vertexIndexData.end(), 
+                {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
+        iVtx += 4;
+    }
+    // is the top exposed?
+    if((y + 1) >= 255 || am.above[airMapOff]) {
+        const glm::vec3 kNormal(0, 1, 0);
+        this->vertexData.insert(this->vertexData.end(), {
+            {pos + glm::vec3(0,1,1), kNormal, glm::vec2(0,1)},
+            {pos + glm::vec3(1,1,1), kNormal, glm::vec2(1,1)},
+            {pos + glm::vec3(1,1,0), kNormal, glm::vec2(1,0)},
+            {pos + glm::vec3(0,1,0), kNormal, glm::vec2(0,0)},
+        });
+        this->vertexIndexData.insert(this->vertexIndexData.end(), 
+                {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
+        iVtx += 4;
+    }
+    // is the z-1 edge exposed?
+    if(z == 0 || am.current[airMapOff - 0x100]) {
+        const glm::vec3 kNormal(0, 0, -1);
+        this->vertexData.insert(this->vertexData.end(), {
+            {pos + glm::vec3(0,1,0), kNormal, glm::vec2(0,1)},
+            {pos + glm::vec3(1,1,0), kNormal, glm::vec2(1,1)},
+            {pos + glm::vec3(1,0,0), kNormal, glm::vec2(1,0)},
+            {pos + glm::vec3(0,0,0), kNormal, glm::vec2(0,0)},
+        });
+        this->vertexIndexData.insert(this->vertexIndexData.end(), 
+                {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
+        iVtx += 4;
+    }
+    // is the z+2 edge exposed?
+    if(z == 255 || am.current[airMapOff + 0x100]) {
+        const glm::vec3 kNormal(0,0,1);
+        this->vertexData.insert(this->vertexData.end(), {
+            {pos + glm::vec3(0,0,1), kNormal, glm::vec2(0,1)},
+            {pos + glm::vec3(1,0,1), kNormal, glm::vec2(1,1)},
+            {pos + glm::vec3(1,1,1), kNormal, glm::vec2(1,0)},
+            {pos + glm::vec3(0,1,1), kNormal, glm::vec2(0,0)},
+        });
+        this->vertexIndexData.insert(this->vertexIndexData.end(), 
+                {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
+        iVtx += 4;
     }
 }
+
 /**
  * For a particular Y layer, generates a bitmap indicating whether the block at the given (Z, X)
  * position is air-like or not.
@@ -636,7 +716,7 @@ void WorldChunk::drawHighlights(std::shared_ptr<gfx::RenderProgram> program) {
         const auto size = sizeof(HighlightInstanceData) * this->highlightData.size();
         if(size) {
             this->highlightBuf->bind();
-            this->highlightBuf->bufferData(size, this->instanceData.data());
+            this->highlightBuf->bufferData(size, this->highlightData.data());
             this->highlightBuf->unbind();
         }
 
