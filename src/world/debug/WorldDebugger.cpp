@@ -889,7 +889,7 @@ void WorldDebugger::fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax) {
 void WorldDebugger::fillChunkSphere(std::shared_ptr<Chunk> chunk, size_t radius) {
     this->prepareChunkMaps(chunk);
 
-    for(size_t y = 0; y < 32; y++) {
+    for(size_t y = 0; y < (radius * 2); y++) {
         auto slice = std::make_shared<ChunkSlice>();
 
         // create a sparse row for each column

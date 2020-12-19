@@ -1,6 +1,7 @@
 #include "SceneRenderer.h"
 #include "Drawable.h"
 
+#include "world/block/BlockRegistry.h"
 #include "render/chunk/WorldChunk.h"
 #include "render/chunk/ChunkWorker.h"
 #include "gfx/gl/buffer/VertexArray.h"
@@ -21,6 +22,7 @@ using namespace render;
  */
 SceneRenderer::SceneRenderer() {
     // force initialization of some stuff
+    world::BlockRegistry::init();
     chunk::ChunkWorker::init();
 
     // set up the shaders for the color and shadow programs
@@ -39,6 +41,7 @@ SceneRenderer::SceneRenderer() {
  */
 SceneRenderer::~SceneRenderer() {
     chunk::ChunkWorker::shutdown();
+    world::BlockRegistry::shutdown();
 }
 
 /**

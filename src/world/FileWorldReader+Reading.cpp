@@ -3,6 +3,7 @@
 
 #include "chunk/Chunk.h"
 #include "chunk/ChunkSlice.h"
+#include "block/BlockRegistry.h"
 
 #include "util/LZ4.h"
 #include "io/Format.h"
@@ -69,7 +70,12 @@ std::shared_ptr<Chunk> FileWorldReader::loadChunk(int x, int z) {
         this->loadSlice(state, sliceId, chunk, y);
     }
 
-    // convert the 8 -> 16 maps we've built to 8 -> UUID
+    /*
+     * Convert our 8 -> 16 maps to be 8 -> UUID instead so we can assign them to the chunks and
+     * their data slices.
+     *
+     * The 16-bit value of 0xFFFF is reserved; it always maps to the null UUID.
+     */
     {
         PROFILE_SCOPE(ConvertMap);
 
@@ -81,18 +87,22 @@ std::shared_ptr<Chunk> FileWorldReader::loadChunk(int x, int z) {
             XASSERT(inMap.size() == m.idMap.size(), "mismatched id map sizes");
 
             for(size_t j = 0; j < inMap.size(); j++) {
-                const uint16_t blockId = inMap[j];
-
+                const auto blockId = inMap[j];
+                // 0xFFFF = air
+                if(blockId == 0xFFFF) {
+                    m.idMap[j] = BlockRegistry::kAirBlockId;
+                }
+                // 0x0000 = not defined
+                else if(!blockId) {
+                    continue;
+                }
                 // copy ID directly
-                if(this->blockIdMap.contains(blockId)) {
+                else if(this->blockIdMap.contains(blockId)) {
                     m.idMap[j] = this->blockIdMap[blockId];
-                } else {
-                    // 0xFFFF = unused entry
-                    if(blockId == 0xFFFF) {
-                        m.idMap[j] = uuids::uuid();
-                    } else {
-                        throw std::runtime_error(f("Invalid block id 0x{:04x}", blockId));
-                    }
+                } 
+                // unknown block id
+                else {
+                    throw std::runtime_error(f("Invalid block id 0x{:04x} (map {}, index {})", blockId, i, j));
                 }
             }
 
@@ -200,8 +210,6 @@ void FileWorldReader::deserializeSliceBlocks(std::shared_ptr<Chunk> chunk, const
     char *bytes = reinterpret_cast<char *>(this->sliceTempGrid.data());
     const size_t numBytes = this->sliceTempGrid.size() * sizeof(uint16_t);
 
-    this->sliceTempGrid[0] = 0xFF;
-
     PROFILE_SCOPE(LZ4Decompress);
     this->compressor->decompress(compressed, bytes, numBytes);
 }
@@ -287,6 +295,22 @@ void FileWorldReader::processSliceRow(SliceState &state, std::shared_ptr<Chunk> 
     // get pointer to this row's data
     const auto ptr = this->sliceTempGrid.data() + (z * 256);
 
+    // step 0. check if the entire row is empty; if so, yeet on out
+    bool empty = true;
+    for(size_t i = 0; i < 256; i++) {
+        const uint16_t temp = ptr[i];
+        if(temp && temp != 0xFFFF) {
+            empty = false;
+            goto process;
+        }
+    }
+
+    if(empty) {
+        slice->rows[z] = nullptr;
+        return;
+    }
+
+process:;
     // step 1. count unique block IDs and determine whether to use sparse/dense
     std::set<uint16_t> blockIds;
     std::multiset<uint16_t> blockIdFrequency;
@@ -296,7 +320,7 @@ void FileWorldReader::processSliceRow(SliceState &state, std::shared_ptr<Chunk> 
 
         // get the unique block IDs, _and_ in effect build a histogram
         for(size_t x = 0; x < 256; x++) {
-            uint8_t temp = ptr[x];
+            const auto temp = ptr[x];
 
             blockIds.insert(temp);
             blockIdFrequency.insert(temp);
@@ -350,11 +374,11 @@ beach:;
         }
 
         /*
-         * Create a new mapp if there is none that fit it.
+         * Create a new map if there is none that fit it.
          */
         if(mapId == -1) {
             std::array<uint16_t, 256> map;
-            std::fill(map.begin(), map.end(), 0xFFFF);
+            map.fill(0);
 
             std::unordered_map<uint16_t, uint8_t> reverse;
 
@@ -390,6 +414,9 @@ beach:;
         const auto &map = state.reverseMaps[mapId];
 
         for(size_t x = 0; x < 256; x++) {
+            const auto grid = ptr[x];
+            const auto val = map.at(grid);
+
             row->set(x, map.at(ptr[x]));
         }
     }

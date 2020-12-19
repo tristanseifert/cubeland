@@ -6,6 +6,7 @@
 
 #include "chunk/Chunk.h"
 #include "chunk/ChunkSlice.h"
+#include "block/BlockRegistry.h"
 
 #include "util/LZ4.h"
 #include "io/Format.h"
@@ -298,6 +299,7 @@ void FileWorldReader::serializeSliceBlocks(std::shared_ptr<Chunk> chunk, const i
             // ignore nil UUIDs (array is already zeroed)
             const auto uuid = map.idMap[i];
             if(uuid.is_nil()) continue;
+            if(BlockRegistry::isAirBlock(uuid)) continue;
 
             // look it up otherwise
             ids[i] = fileIdMap.at(uuid);
@@ -315,7 +317,7 @@ void FileWorldReader::serializeSliceBlocks(std::shared_ptr<Chunk> chunk, const i
         // skip if there's no storage for the row
         if(row == nullptr) {
             auto ptr = this->sliceTempGrid.begin() + gridOff;
-            std::fill(ptr, ptr+256, 0);
+            std::fill(ptr, ptr+256, 0xFFFF);
             continue;
         }
 
@@ -324,7 +326,11 @@ void FileWorldReader::serializeSliceBlocks(std::shared_ptr<Chunk> chunk, const i
 
         for(size_t x = 0; x < 256; x++) {
             uint8_t temp = row->at(x);
-            this->sliceTempGrid[gridOff + x] = mapping[temp];
+            uint16_t value = mapping[temp];
+
+            XASSERT(value, "Invalid value: 0x{:04x}", value);
+
+            this->sliceTempGrid[gridOff + x] = value;
         }
     }
 

@@ -9,6 +9,7 @@
 
 #include "world/chunk/Chunk.h"
 #include "world/chunk/ChunkSlice.h"
+#include "world/block/BlockRegistry.h"
 #include "io/Format.h"
 #include <Logging.h>
 
@@ -314,9 +315,12 @@ void WorldChunk::fillInstanceBuf() {
             const auto &map = this->chunk->sliceIdMaps[row->typeMap];
 
             for(size_t x = 0; x < 256; x++) {
-                // skip blocks to not draw (e.g. air) XXX: handle this properly
+                // skip blocks to not draw (e.g. air)
                 uint8_t temp = row->at(x);
-                if(temp == 0) continue;
+                const auto &id = map.idMap[temp];
+                if(BlockRegistry::isAirBlock(id)) {
+                    continue;
+                }
                 numTotal++;
 
                 // skip block if not exposed
@@ -491,17 +495,8 @@ void WorldChunk::generateBlockIdMap() {
                 continue;
             }
 
-            // TODO: check for solidity
-            static std::array<uuids::uuid::value_type, 16> raw = {0x71, 0x4a, 0x92, 0xe3, 
-                0x29, 0x84, 0x4f, 0x0e, 0x86, 0x9e, 0x14, 0x16, 0x2d, 0x46, 0x27, 0x60};
-            static const uuids::uuid id(raw);
-
-            if(uuid == id) {
-                Logging::trace("Id {} is air (uuid {})", i, uuids::to_string(uuid));
-                isAir[i] = true;
-            } else {
-                isAir[i] = false;
-            }
+            // query the block registry if this is an air block
+            isAir[i] = world::BlockRegistry::isAirBlock(uuid);
         }
 
         maps.push_back(isAir);
