@@ -192,7 +192,7 @@ void WorldChunk::draw(std::shared_ptr<gfx::RenderProgram> program) {
         }
 
         for(const auto &[key, globule] : this->globules) {
-            globule->draw();
+            globule->draw(program);
         }
 
         if(this->drawWireframe) {

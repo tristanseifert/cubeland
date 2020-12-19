@@ -48,15 +48,41 @@ void PrefsManager::loadDefaults() {
         this->config->getRoot().add("window", libconfig::Setting::TypeGroup);
     }
 
-    auto &window = this->config->lookup("window");
-    if(!window.exists("restoreSize")) {
-        window.add("restoreSize", libconfig::Setting::TypeBoolean) = false;
+    {
+        auto &s= this->config->lookup("window");
+        if(!s.exists("restoreSize")) {
+            s.add("restoreSize", libconfig::Setting::TypeBoolean) = false;
+        }
+        if(!s.exists("width")) {
+            s.add("width", libconfig::Setting::TypeInt64) = 1024L;
+        }
+        if(!s.exists("height")) {
+            s.add("height", libconfig::Setting::TypeInt64) = 768L;
+        }
     }
-    if(!window.exists("width")) {
-        window.add("width", libconfig::Setting::TypeInt64) = 1024L;
+
+    // world IO and generation section
+    {
+        if(!this->config->exists("world")) {
+            this->config->getRoot().add("world", libconfig::Setting::TypeGroup);
+        }
+        auto &s = this->config->lookup("world");
+        if(!s.exists("sourceWorkThreads")) {
+            // number of worker threads for world sources (generation mostly)
+            s.add("sourceWorkThreads", libconfig::Setting::TypeInt64) = 2L;
+        }
     }
-    if(!window.exists("height")) {
-        window.add("height", libconfig::Setting::TypeInt64) = 768L;
+
+    // chunk processing section
+    {
+        if(!this->config->exists("chunk")) {
+            this->config->getRoot().add("chunk", libconfig::Setting::TypeGroup);
+        }
+        auto &s = this->config->lookup("chunk");
+        if(!s.exists("drawWorkThreads")) {
+            // number of worker threads used by the WorldChunk work queue (rendering/physics)
+            s.add("drawWorkThreads", libconfig::Setting::TypeInt64) = 3L;
+        }
     }
 }
 

@@ -87,6 +87,7 @@ add_executable(cubeland
     src/world/FileWorldReader+SQLite.cpp
     src/world/FileWorldReader+Writing.cpp
     src/world/FileWorldReader+Reading.cpp
+    src/world/WorldSource.cpp
     src/world/debug/WorldDebugger.cpp
     src/world/block/BlockRegistry.cpp
 # resources and other misc stuff

@@ -26,6 +26,7 @@ struct ChunkSlice;
 namespace gfx {
 class VertexArray;
 class Buffer;
+class RenderProgram;
 }
 
 namespace render::chunk {
@@ -40,7 +41,7 @@ class Globule {
         void chunkChanged();
 
         void startOfFrame();
-        void draw();
+        void draw(std::shared_ptr<gfx::RenderProgram> &program);
 
     private:
         struct BlockVertex {

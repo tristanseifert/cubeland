@@ -1,5 +1,6 @@
 #include "ChunkWorker.h"
 
+#include "io/PrefsManager.h"
 #include "io/Format.h"
 #include <Logging.h>
 
@@ -16,10 +17,11 @@ std::shared_ptr<ChunkWorker> ChunkWorker::gShared;
  * Create the thread pool on initialization
  */
 ChunkWorker::ChunkWorker() {
-    // calculate number of workers: half the CPU cores up to a max of 5
+    // read number of workers from preferences
     unsigned int hwThreads = std::thread::hardware_concurrency() / 2;
-    this->numWorkers = std::min(hwThreads, 5U);
+    unsigned int fallback = std::min(hwThreads, 5U);
 
+    this->numWorkers = io::PrefsManager::getUnsigned("chunk.drawWorkThreads", fallback);
     Logging::debug("Using {} chunk workers", this->numWorkers);
 
     // start workers
@@ -42,7 +44,7 @@ ChunkWorker::~ChunkWorker() {
     this->acceptRequests = false;
     this->workerRun = false;
 
-    for(size_t i = 0; i < this->workers.size()+1; i++) {
+    for(size_t i = 0; i < this->numWorkers+1; i++) {
         this->pushNop();
     }
 

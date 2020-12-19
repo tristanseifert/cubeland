@@ -5,6 +5,8 @@
 
 #include <memory>
 
+#include <glm/vec3.hpp>
+
 namespace gfx {
 class Texture2D;
 class ShaderProgram;
@@ -92,6 +94,8 @@ class HDR: public RenderStep {
     private:
         // exposure value
         float exposure = 1;
+        // hue/saturation/value adjustments for the entire frame
+        glm::vec3 hsvAdjust = glm::vec3(0, 1, 1);
         // current frame's avg luminance
         double frameAvgLuma = 0.f;
 

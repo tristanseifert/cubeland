@@ -4,7 +4,7 @@
 
 #include "gfx/gl/buffer/Buffer.h"
 #include "gfx/gl/buffer/VertexArray.h"
-
+#include "gfx/model/RenderProgram.h"
 #include "world/chunk/Chunk.h"
 #include "world/chunk/ChunkSlice.h"
 #include "world/block/BlockRegistry.h"
@@ -75,11 +75,13 @@ void Globule::startOfFrame() {
 /**
  * Draws the globule.
  */
-void Globule::draw() {
+void Globule::draw(std::shared_ptr<gfx::RenderProgram> &program) {
     using namespace gl;
 
-    // transfer any buffers that need it
-    this->transferBuffers();
+    // transfer any buffers that need it, but only for color render programs
+    if(program->rendersColor()) {
+        this->transferBuffers();
+    }
 
     // draw if we have indices to do so with
     if(this->isVisible && this->numIndices) {
@@ -102,7 +104,7 @@ void Globule::transferBuffers() {
         if(size) {
             PROFILE_SCOPE(XferVertexBuf);
             this->vertexBuf->bind();
-            this->vertexBuf->bufferData(size, this->vertexData.data());
+            this->vertexBuf->replaceData(size, this->vertexData.data());
             this->vertexBuf->unbind();
 
             Logging::debug("Chunk vertex buf xfer: {} bytes", size);
@@ -116,7 +118,7 @@ void Globule::transferBuffers() {
         if(size) {
             PROFILE_SCOPE(XferIndexBuf);
             this->indexBuf->bind();
-            this->indexBuf->bufferData(size, this->indexData.data());
+            this->indexBuf->replaceData(size, this->indexData.data());
             this->indexBuf->unbind();
 
             Logging::debug("Chunk index buf xfer: {} bytes", size);
@@ -214,12 +216,12 @@ void Globule::fillBuffer() {
                     // check adjacent faces
                     for(int i = -1; i <= 1; i+=2) {
                         // left or right
-                        if((x == 0 && i == -1) || (x == 255 && i == 1) || am.current[airMapOff + i]) {
+                        if((x == this->position.x && i == -1) || (x == (this->position.x+63) && i == 1) || am.current[airMapOff + i]) {
                             visible = true;
                             goto writeResult;
                         }
                         // front or back
-                        if((z == 0 && i == -1) || (z == 255 && i == 1) || am.current[airMapOff + (i * 256)]) {
+                        if((z == this->position.z && i == -1) || (z == (this->position.z+63) && i == 1) || am.current[airMapOff + (i * 256)]) {
                             visible = true;
                             goto writeResult;
                         }
@@ -369,8 +371,13 @@ void Globule::insertBlockVertices(const AirMap &am, size_t x, size_t y, size_t z
  * position is air-like or not.
  *
  * Indices into the bitset are 16-bit 0xZZXX coordinates.
+ *
+ * We no longer go through all 256 rows/columns, but instead at least 64, and at most 66; one
+ * extra on each end, if possible.
  */
 void Globule::buildAirMap(std::shared_ptr<world::ChunkSlice> slice, std::bitset<256*256> &b) {
+    PROFILE_SCOPE(BuildAirMap);
+
     // if the slice is empty (e.g. nonexistent,) bail; the entire thing is air
     if(!slice) {
         b.set();
@@ -378,12 +385,13 @@ void Globule::buildAirMap(std::shared_ptr<world::ChunkSlice> slice, std::bitset<
     }
 
     // iterate over every row
-    for(size_t z = 0; z < 256; z++) {
+    for(size_t z = std::max((int)this->position.z - 1, 0); z < std::min((int)this->position.z + 65, 256); z++) {
         // ignore empty rows
         const size_t zOff = ((z & 0xFF) << 8);
         auto row = slice->rows[z];
 
         if(!row) {
+            // fill the entire row anyways; not a lot of overhead here
             for(size_t x = 0; x < 256; x++) {
                 b[zOff + x] = true;
             }
@@ -392,7 +400,7 @@ void Globule::buildAirMap(std::shared_ptr<world::ChunkSlice> slice, std::bitset<
 
         // iterate each block in the row to determine if it's air or not
         const auto &airMap = this->exposureIdMaps[row->typeMap];
-        for(size_t x = 0; x < 256; x++) {
+        for(size_t x = std::max((int)this->position.x, 0); x < std::min((int)this->position.x + 65, 256); x++) {
             const bool isAir = airMap[row->at(x)];
             b[zOff + x] = isAir;
         }

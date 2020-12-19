@@ -389,9 +389,10 @@ void HDR::renderPerformTonemapping(void) {
     // activate the bloom shader and transfer some settings
     this->tonemapProgram->bind();
 
-    this->tonemapProgram->setUniform1i("inSceneColours", this->inColour->unit);
+    this->tonemapProgram->setUniform1i("inSceneColors", this->inColour->unit);
     this->tonemapProgram->setUniform1i("inBloomBlur", this->inBloom1->unit);
 
+    this->tonemapProgram->setUniformVec("hsvAdjust", this->hsvAdjust);
     this->tonemapProgram->setUniform1f("exposure", this->exposure);
     this->tonemapProgram->setUniform1f("bloomFactor", this->bloomEnabled ? this->bloomFactor : 0);
 
@@ -566,9 +567,12 @@ void HDR::drawDebugWindow() {
 
     ImGui::DragFloat("Exposure", &this->exposure, 0.01, 0.1, 6);
     ImGui::PopItemWidth();
-    
+
     ImGui::PushItemWidth(150);
     ImGui::DragFloat3("White Point", &this->whitePoint.x, 0.01, 0);
+    
+    ImGui::DragFloat3("HSV Adjust", &this->hsvAdjust.x, 0.01, 0);
+    
     ImGui::PopItemWidth();
 
 done:;
