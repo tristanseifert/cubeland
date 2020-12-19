@@ -891,6 +891,7 @@ void WorldDebugger::fillChunkSphere(std::shared_ptr<Chunk> chunk, size_t radius)
 
     for(size_t y = 0; y < (radius * 2); y++) {
         auto slice = std::make_shared<ChunkSlice>();
+        bool sliceWritten = false;
 
         // create a sparse row for each column
         for(size_t z = 0; z < 256; z++) {
@@ -907,11 +908,16 @@ void WorldDebugger::fillChunkSphere(std::shared_ptr<Chunk> chunk, size_t radius)
             }
 
             // assign row to the slice
-            if(written) slice->rows[z] = row;
+            if(written) {
+                slice->rows[z] = row;
+                sliceWritten = true;
+            }
         }
 
         // attach it to the chunk
-        chunk->slices[y] = slice;
+        if(sliceWritten) {
+            chunk->slices[y] = slice;
+        }
     }
 }
 

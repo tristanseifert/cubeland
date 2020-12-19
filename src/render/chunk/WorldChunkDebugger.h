@@ -47,6 +47,8 @@ class WorldChunkDebugger {
     private:
         void drawHighlightsList();
 
+        void drawGlobules();
+
     private:
         /// chunk we're debugging
         WorldChunk *chunk = nullptr;

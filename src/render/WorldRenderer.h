@@ -60,7 +60,7 @@ class WorldRenderer: public gui::RunLoopStep {
     private:
         // near and far clipping planes
         float zNear = 0.1f;
-        float zFar = 128.f;
+        float zFar = 150.f;
         // field of view, in degrees
         float projFoV = 70.f;
         // size of the viewport (render canvas)

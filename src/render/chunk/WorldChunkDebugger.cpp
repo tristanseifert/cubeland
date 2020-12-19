@@ -1,5 +1,6 @@
 #include "WorldChunkDebugger.h"
 #include "WorldChunk.h"
+#include "Globule.h"
 
 #include "world/chunk/Chunk.h"
 
@@ -45,6 +46,9 @@ void WorldChunkDebugger::draw() {
     if(ImGui::CollapsingHeader("Highlights")) {
         this->drawHighlightsList();
     }
+    if(ImGui::CollapsingHeader("Globules")) {
+        this->drawGlobules();
+    }
 
     // done
     ImGui::End();
@@ -78,6 +82,7 @@ void WorldChunkDebugger::drawExposureMap() {
         this->exposureMapState.updateHighlights = true;
     }
 
+    /*
     // draw the rectangulars
     auto list = ImGui::GetWindowDrawList();
     auto cursor = ImGui::GetCursorScreenPos();
@@ -102,7 +107,7 @@ void WorldChunkDebugger::drawExposureMap() {
         }
     }
 
-    ImGui::Dummy(ImVec2(0, 10));
+    ImGui::Dummy(ImVec2(0, 10));*/
 }
 
 /**
@@ -171,4 +176,41 @@ void WorldChunkDebugger::drawHighlightsList() {
         i++;
     }
 
-    ImGui::EndTable();}
+    ImGui::EndTable();
+}
+
+/**
+ * Draws the globule list.
+ */
+void WorldChunkDebugger::drawGlobules() {
+   ImVec2 outerSize(0, ImGui::GetTextLineHeightWithSpacing() * 10);
+    if(!ImGui::BeginTable("globules", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
+        return;
+    }
+
+    ImGui::TableSetupColumn("Position", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 58);
+    ImGui::TableSetupColumn("Vertices");
+    ImGui::TableSetupColumn("Show", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 28);
+    ImGui::TableHeadersRow();
+
+    size_t i = 0;
+    for(const auto &[key, globule] : this->chunk->globules) {
+        ImGui::TableNextRow();
+        ImGui::PushID(i);
+
+        ImGui::TableNextColumn();
+        ImGui::Text("%d,%d,%d", (int) globule->position.x, (int) globule->position.y, 
+                (int) globule->position.z);
+
+        ImGui::TableNextColumn();
+        ImGui::Text("%lu", globule->vertexData.size());
+
+        ImGui::TableNextColumn();
+        ImGui::Checkbox("##visible", &globule->isVisible);
+
+        ImGui::PopID();
+        i++;
+    }
+
+    ImGui::EndTable();
+}

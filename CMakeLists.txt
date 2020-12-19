@@ -76,6 +76,7 @@ add_executable(cubeland
     src/render/Camera.cpp
     src/render/scene/SceneRenderer.cpp
     src/render/chunk/WorldChunk.cpp
+    src/render/chunk/Globule.cpp
     src/render/chunk/WorldChunkDebugger.cpp
     src/render/chunk/ChunkWorker.cpp
     src/render/steps/Lighting.cpp
