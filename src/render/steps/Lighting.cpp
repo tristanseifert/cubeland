@@ -628,7 +628,7 @@ void Lighting::renderShadowMap(WorldRenderer *wr) {
     glCullFace(GL_FRONT);
 
     // render the scene
-    this->shadowSceneRenderer->render(this->shadowViewMatrix, true, false);
+    this->shadowSceneRenderer->render(this->shadowViewMatrix, lightDir, true, false);
 
     // reset viewport
     glViewport(last_viewport[0], last_viewport[1], (GLsizei)last_viewport[2], (GLsizei)last_viewport[3]);

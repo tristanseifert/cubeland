@@ -203,9 +203,12 @@ void Globule::fillBuffer() {
     this->buildAirMap(c->slices[1], am.above);
 
     // update the actual instance buffer itself
-    for(size_t y = this->position.y; y < (this->position.y + 64); y++) {
+    for(size_t y = this->position.y; y <= std::max((size_t)this->position.y + 64, Chunk::kMaxY-1); y++) {
         PROFILE_SCOPE(ProcessSlice);
         const size_t yOffset = static_cast<size_t>(y - this->position.y) * (64 * 64);
+
+        // bail if needing to exit
+        if(this->abortWork) return;
 
         // if there's no blocks at this Y level, check the next one
         auto slice = c->slices[y];

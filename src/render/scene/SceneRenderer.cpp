@@ -7,13 +7,14 @@
 #include "world/FileWorldReader.h"
 #include "world/generators/Terrain.h"
 
+#include "render/WorldRenderer.h"
 #include "render/chunk/WorldChunk.h"
 #include "render/chunk/ChunkWorker.h"
 #include "gfx/gl/buffer/VertexArray.h"
 #include "gfx/model/RenderProgram.h"
 
 #include <Logging.h>
-
+#include "io/Format.h"
 #include <glbinding/gl/gl.h>
 #include <mutils/time/profiler.h>
 #include <glm/vec3.hpp>
@@ -60,14 +61,17 @@ SceneRenderer::~SceneRenderer() {
  */
 void SceneRenderer::startOfFrame() {
     this->chunkLoader->startOfFrame();
-    this->chunkLoader->updateChunks(this->viewPosition);
+    this->chunkLoader->updateChunks(this->viewPosition, this->viewDirection);
 }
 
 /**
  * Set up for rendering.
  */
-void SceneRenderer::preRender(WorldRenderer *) {
+void SceneRenderer::preRender(WorldRenderer *world) {
     using namespace gl;
+
+    // set FoV on chunk loader
+    this->chunkLoader->setFoV(world->getFoV());
 
     // set clear colour and depth testing; clear stencil as well
     // TODO: better granularity on stencil testing?
@@ -88,7 +92,7 @@ void SceneRenderer::render(WorldRenderer *renderer) {
     gl::glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
 
     glm::mat4 projView = this->projectionMatrix * this->viewMatrix;
-    this->render(projView, false, true);
+    this->render(projView, this->viewDirection, false, true);
 
     // draw the highlights
     /*{
@@ -110,7 +114,7 @@ void SceneRenderer::render(WorldRenderer *renderer) {
 /**
  * Performs the actual rendering of the scene.
  */
-void SceneRenderer::render(glm::mat4 projView, const bool shadow, bool hasNormalMatrix) {
+void SceneRenderer::render(const glm::mat4 &projView, const glm::vec3 &viewDir, const bool shadow, bool hasNormalMatrix) {
     using namespace gl;
     PROFILE_SCOPE(SceneRender);
 
@@ -120,7 +124,7 @@ void SceneRenderer::render(glm::mat4 projView, const bool shadow, bool hasNormal
         program->bind();
         program->setUniformMatrix("projectionView", projView);
 
-        this->chunkLoader->draw(program);
+        this->chunkLoader->draw(program, viewDir);
     }
 }
 

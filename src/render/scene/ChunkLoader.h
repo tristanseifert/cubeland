@@ -39,11 +39,18 @@ class ChunkLoader {
         void setSource(std::shared_ptr<world::WorldSource> source);
 
         void startOfFrame();
-        void updateChunks(const glm::vec3 &pos);
-        void draw(std::shared_ptr<gfx::RenderProgram> program);
+        void updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirection);
+        void draw(std::shared_ptr<gfx::RenderProgram> program, const glm::vec3 &viewDirection);
+
+        void setFoV(const float fov) {
+            this->fov = fov;
+        }
 
     private:
         void initDisplayChunks();
+
+        bool updateVisible(const glm::vec3 &cameraPos);
+        bool checkIntersect(const glm::vec3 &origin, const glm::vec3 &dirfrac, const glm::vec3 &lb, const glm::vec3 &rt);
 
         void updateDeferredChunks();
         void pruneLoadedChunksList();
@@ -57,6 +64,7 @@ class ChunkLoader {
         std::shared_ptr<WorldChunk> makeWorldChunk();
 
         void drawOverlay();
+        void drawChunkList();
 
     private:
         using DeferredChunk = std::future<std::shared_ptr<world::Chunk>>;
@@ -77,13 +85,38 @@ class ChunkLoader {
             }
         };
 
+        // info describing a chunk that's rendering
+        struct RenderChunk {
+            // is the chunk visible from the current camera view?
+            bool cameraVisible = true;
+            // actual chunk to render
+            std::shared_ptr<WorldChunk> wc = nullptr;
+        };
+
     private:
         /// minimum amount of movement required before we do any sort of processing
         constexpr static const float kMoveThreshold = 0.1f;
+        /// minimum change in direction vector to re-evaluate which chunks are visible
+        constexpr static const float kDirectionThreshold = 0.02f;
         /// alpha value of the statistics overlay
         constexpr static const float kOverlayAlpha = 0.42f;
 
     private:
+        /**
+         * Visibility map for chunks, based on current (primary) view direction
+         *
+         * This map is periodically updated (and garbage collected) like the loadedChunks and
+         * chunks maps. It has a boolean value indicating if the most recently passed view
+         * direction vector intersects with that chunk's bounding box; e.g. if any part of it is
+         * visible from the current view position.
+         *
+         * From this data, the renderer decides whether a render chunk is allocated right away for
+         * the loaded chunk or not.
+         */
+        std::unordered_map<glm::ivec2, bool> visibilityMap;
+        /// Max distance an entry in the visibility map can be from the current position
+        size_t visibilityReleaseDistance = 4;
+
         /**
          * Whenever a chunk load request has completed, info is pushed onto this queue. Each trip
          * through the start-of-frame handler for the loader will pop this queue until it's
@@ -119,12 +152,12 @@ class ChunkLoader {
          * This in effect defines a "ring" of the given width around the current chunk of data that
          * is loaded.
          */
-        size_t chunkRange = 2;
+        size_t chunkRange = 3;
         /**
          * Maximum distance beyond which chunks out of the loaded chunks map will begin to be
          * unloaded to save memory.
          */
-        size_t cacheReleaseDistance = 3;
+        size_t cacheReleaseDistance = 4;
 
         /// world source from which we get data
         std::shared_ptr<world::WorldSource> source;
@@ -136,7 +169,7 @@ class ChunkLoader {
          * Every few frames we'll make sure that any chunks that are too far out of view are gotten
          * rid of and moved back to our "idle" list.
          */
-        std::unordered_map<glm::ivec2, std::shared_ptr<WorldChunk>> chunks;
+        std::unordered_map<glm::ivec2, RenderChunk> chunks;
         /**
          * Spare drawing chunks; these aren't currently on screen or drawing anything, but we can
          * use them when we quickly want another chunk rather than wasting time allocating.
@@ -146,18 +179,24 @@ class ChunkLoader {
          */
         moodycamel::ConcurrentQueue<std::shared_ptr<WorldChunk>> chunkQueue;
         /// max size of the chunk queue
-        size_t maxChunkQueueSize = 6;
+        size_t maxChunkQueueSize = 8;
 
         /// chunk position of the chunk we're currently on (e.g. that the camera is on)
         glm::ivec2 centerChunkPos;
         /// most recent camera position
         glm::vec3 lastPos = glm::vec3(0);
+        /// most recent primary camera direction
+        glm::vec3 lastDirection = glm::vec3(2, 2, 2);
+        /// most recently used FoV
+        float fov = 70.;
 
         /// number of times updateChunks() has been called
         size_t numUpdates = 0;
 
         /// when set, the debug overlay is shown
         bool showsOverlay = true;
+        /// when set, the visible chunks list is shown
+        bool showsChunkList = false;
 };
 }
 

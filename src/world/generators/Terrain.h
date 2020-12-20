@@ -30,7 +30,7 @@ class Terrain: public WorldGenerator {
         // noise frequency
         float frequency = 0.005;
         // surface level
-        float surfaceLevel = -0.069;
+        float surfaceLevel = 0.69;
         // maximum height of generated structures
         size_t maxHeight = 120;
         // seed used for world generation

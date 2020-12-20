@@ -46,7 +46,7 @@ class SceneRenderer: public RenderStep {
         void reshape(int w, int h) {};
 
     protected:
-        void render(glm::mat4 projView, const bool shadow = false, const bool hasNormalMatrix = true);
+        void render(const glm::mat4 &projView, const glm::vec3 &viewDir, const bool shadow = false, const bool hasNormalMatrix = true);
 
     private:
         void prepareChunk(std::shared_ptr<gfx::RenderProgram>, std::shared_ptr<WorldChunk>, bool);

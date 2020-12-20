@@ -10,6 +10,8 @@
 #include <mutils/time/profiler.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/epsilon.hpp>
+#include <glm/gtx/rotate_vector.hpp>
+#include <glm/gtx/vector_angle.hpp>
 #include <imgui.h>
 
 #include <algorithm>
@@ -35,6 +37,7 @@ void ChunkLoader::setSource(std::shared_ptr<world::WorldSource> source) {
     // invalidate all chunks
     this->loadedChunks.clear();
     this->chunks.clear();
+    this->visibilityMap.clear();
 
     this->source = source;
 }
@@ -45,6 +48,7 @@ void ChunkLoader::setSource(std::shared_ptr<world::WorldSource> source) {
 void ChunkLoader::initDisplayChunks() {
     // get rid of all old chunks 
     this->chunks.clear();
+    this->visibilityMap.clear();
 }
 
 /**
@@ -60,46 +64,145 @@ void ChunkLoader::startOfFrame() {
     if(this->showsOverlay) {
         this->drawOverlay();
     }
+    if(this->showsChunkList) {
+        this->drawChunkList();
+    }
 }
 
 /**
  * Called at the start of a frame, this checks to see if we need to load any additional chunks as
  * the player moves.
  */
-void ChunkLoader::updateChunks(const glm::vec3 &pos) {
+void ChunkLoader::updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirection) {
+    bool visibilityChanged = false;
+
     // perform any deferred chunk loading/unloading
     this->updateDeferredChunks();
 
-    // calculate delta moved. this allows us to skip doing much work if we didn't move
-    glm::vec3 delta = pos - this->lastPos;
-    this->lastPos = pos;
+    // update which chunks are visible at the moment only if the direction changed enough
+    glm::vec3 dirDelta = viewDirection - this->lastDirection;
+    if(!glm::all(glm::epsilonEqual(dirDelta, glm::vec3(0), kDirectionThreshold))) {
+        this->lastDirection = viewDirection;
 
-    if(glm::all(glm::epsilonEqual(delta, glm::vec3(0), kMoveThreshold))) {
-        goto noLoad;
+        visibilityChanged = this->updateVisible(pos);
+    }
+
+    // if position update was significant, update both it AND the visibility map
+    glm::vec3 delta = pos - this->lastPos;
+    if(!glm::all(glm::epsilonEqual(delta, glm::vec3(0), kMoveThreshold))) {
+        this->lastPos = pos;
+
+        if(!visibilityChanged) {
+            visibilityChanged = this->updateVisible(pos);
+        }
     }
 
     // handle the current central chunk
-    if(this->updateCenterChunk(delta, pos)) {
+    if(this->updateCenterChunk(delta, pos) || visibilityChanged) {
         // recalculate all the surrounding chunks
         for(int xOff = -this->chunkRange; xOff <= (int)this->chunkRange; xOff++) {
             for(int zOff = -this->chunkRange; zOff <= (int)this->chunkRange; zOff++) {
+                const auto chunkPos = this->centerChunkPos + glm::ivec2(xOff, zOff);
+
                 // if x == z == 0, it's the central chunk and we can skip it
                 if(!xOff && !zOff) continue;
+                // skip if not visible
+                if(!this->visibilityMap[chunkPos]) continue;
 
                 // request the chunk
-                auto pos = this->centerChunkPos + glm::ivec2(xOff, zOff);
-                this->loadChunk(pos);
+                this->loadChunk(chunkPos);
             }
         }
     }
 
 noLoad:;
     // update all chunks
-    for(auto [position, chunk] : this->chunks) {
-        chunk->frameBegin();
+    for(auto [position, info] : this->chunks) {
+        info.wc->frameBegin();
     }
 
     this->numUpdates++;
+}
+
+/**
+ * Updates the visibility map from the current camera perspective.
+ *
+ * Note that this not only straight ahead direction for the camera is tried, but also ones offset
+ * by ±(1/2)FoV. This will certainly catch some extra chunks, but definitely make sure all chunks
+ * at the edge of the view are marked as visible.
+ */
+bool ChunkLoader::updateVisible(const glm::vec3 &cameraPos) {
+    // precalculate the direction vectors
+    std::vector<glm::vec3> dirfracs;
+
+    dirfracs.emplace_back(1.f/(this->lastDirection.x+FLT_MIN), 1.f/(this->lastDirection.y+FLT_MIN),
+            1.f/(this->lastDirection.z+FLT_MIN));
+
+    if(this->fov > 0) {
+        glm::vec3 left = glm::rotate(this->lastDirection, -glm::radians(this->fov/1.66f), glm::vec3(1,0,1));
+        dirfracs.emplace_back(1.f/(left.x+FLT_MIN), 1.f/(left.y+FLT_MIN), 1.f/(left.z+FLT_MIN));
+
+        glm::vec3 right = glm::rotate(this->lastDirection, glm::radians(this->fov/1.66f), glm::vec3(1,0,1));
+        dirfracs.emplace_back(1.f/(right.x+FLT_MIN), 1.f/(right.y+FLT_MIN), 1.f/(right.z+FLT_MIN));
+    }
+
+    // check each in-bounds chunk
+    const glm::vec2 centerChunk = glm::vec2(cameraPos.x/256., cameraPos.z/256.) * glm::vec2(256., 256.);
+
+    for(int xOff = -this->chunkRange; xOff <= (int)this->chunkRange; xOff++) {
+        for(int zOff = -this->chunkRange; zOff <= (int)this->chunkRange; zOff++) {
+            // calculate its bounding rect
+            const glm::vec2 chunkPos = centerChunk + glm::vec2(xOff * 256., zOff * 256.);
+            const glm::vec3 lb(chunkPos.x, 0, chunkPos.y), rt(chunkPos.x+256., 256, chunkPos.y+256.);
+
+            // check for intersection
+            bool intersects = false;
+            for(const auto &dirfrac : dirfracs) {
+                intersects = this->checkIntersect(cameraPos, dirfrac, lb, rt);
+                if(intersects) goto beach;
+            }
+
+beach:;
+            const auto key = this->centerChunkPos + glm::ivec2(xOff, zOff);
+            this->visibilityMap.insert_or_assign(key, intersects);
+            // Logging::trace("Check visibility of chunk {} (off ({}, {})) bounds {} {} -> {}", chunkPos, xOff, zOff, lb, rt, intersects);
+        }
+    }
+
+    // TODO: determine if anything actually did change
+    return true;
+}
+
+/**
+ * Checks whether the given direction (in this case, an inverse direction vector) intersects the
+ * volume defined by the lower/bottom (lb) and right/top (rt) coordinates.
+ */
+bool ChunkLoader::checkIntersect(const glm::vec3 &org, const glm::vec3 &dirfrac, const glm::vec3 &lb, const glm::vec3 &rt) {
+    float t1 = (lb.x - org.x)*dirfrac.x;
+    float t2 = (rt.x - org.x)*dirfrac.x;
+    float t3 = (lb.y - org.y)*dirfrac.y;
+    float t4 = (rt.y - org.y)*dirfrac.y;
+    float t5 = (lb.z - org.z)*dirfrac.z;
+    float t6 = (rt.z - org.z)*dirfrac.z;
+
+    float tmin = fmax(fmax(fmin(t1, t2), fmin(t3, t4)), fmin(t5, t6));
+    float tmax = fmin(fmin(fmax(t1, t2), fmax(t3, t4)), fmax(t5, t6));
+    float t = 0;
+
+    // if tmax < 0, ray (line) is intersecting AABB, but the whole AABB is behind us
+    if (tmax < 0) {
+        t = tmax;
+        return false;
+    }
+
+    // if tmin > tmax, ray doesn't intersect AABB
+    if (tmin > tmax) {
+        t = tmax;
+        return false;
+    }
+
+    t = tmin;
+    return true;
 }
 
 /**
@@ -128,19 +231,25 @@ void ChunkLoader::updateDeferredChunks() {
 
             // Logging::trace("Finished processing for {}: {} (took {:L} µs)", pending.position, (void*) chunk.get(), diffUs);
 
-            // update existing chunk
-            if(this->chunks.contains(pending.position)) {
-                this->chunks[pending.position]->setChunk(chunk);
-            }
-            // otherwise, create a new one
-            else {
-                auto wc = this->makeWorldChunk();
-                wc->setChunk(chunk);
+            // skip assigning it to a draw chunk if it is not currently visible
+            if(this->visibilityMap.contains(pending.position) && this->visibilityMap[pending.position]) {
+                // update existing chunk
+                if(this->chunks.contains(pending.position)) {
+                    // this->chunks[pending.position].wc->setChunk(chunk);
+                }
+                // otherwise, create a new one
+                else {
+                    auto wc = this->makeWorldChunk();
+                    wc->setChunk(chunk);
 
-                this->chunks[pending.position] = wc;
+                    RenderChunk info;
+                    info.wc = wc;
+
+                    this->chunks[pending.position] = info;
+                }
             }
 
-            // store it in the cache
+            // regardless, store it in the cache
             this->loadedChunks[pending.position] = chunk;
         }
         // got an error?
@@ -177,13 +286,13 @@ std::shared_ptr<render::WorldChunk> ChunkLoader::makeWorldChunk() {
  * our internal limit, away they go.
  */
 void ChunkLoader::pruneLoadedChunksList() {
-    PROFILE_SCOPE(PruneLoadedChunks);
+    PROFILE_SCOPE(PruneChunks);
 
-    size_t numChunks = 0, numWorldChunks = 0;
+    size_t numChunks = 0, numWorldChunks = 0, numVisibility = 0;
 
     // remove the stored chunks, if we are able to obtain the lock
     if(this->chunksToDeallocLock.try_lock()){
-        PROFILE_SCOPE(PruneChunkData);
+        PROFILE_SCOPE(DataChunk);
 
         numChunks = std::erase_if(this->loadedChunks, [&](const auto &item) {
             auto const& [pos, chunk] = item;
@@ -200,21 +309,33 @@ void ChunkLoader::pruneLoadedChunksList() {
 
     // then, the drawing chunks
     {
-        PROFILE_SCOPE(PruneWorldChunk);
+        PROFILE_SCOPE(DrawChunk);
         numWorldChunks = std::erase_if(this->chunks, [&](const auto &item) {
-            auto const& [pos, chunk] = item;
+            auto const& [pos, info] = item;
             const auto distance = std::max(fabs(pos.x - this->centerChunkPos.x), fabs(pos.y - this->centerChunkPos.y));
             bool toRemove = (distance > this->chunkRange);
             if(toRemove && this->chunkQueue.size_approx() < this->maxChunkQueueSize) {
-                chunk->setChunk(nullptr);
-                this->chunkQueue.enqueue(chunk);
+                info.wc->setChunk(nullptr);
+                this->chunkQueue.enqueue(info.wc);
             }
             return toRemove;
         });
     }
 
+    // garbage collect the visibility map
+    {
+        PROFILE_SCOPE(VisibilityMap);
+        numWorldChunks = std::erase_if(this->visibilityMap, [&](const auto &item) {
+            auto const& [pos, visible] = item;
+            const auto distance = std::max(fabs(pos.x - this->centerChunkPos.x), fabs(pos.y - this->centerChunkPos.y));
+            return (distance > this->visibilityReleaseDistance);
+        });
+
+    }
+
     if(numChunks || numWorldChunks) {
-        Logging::debug("Released {} data chunk(s), {} drawing chunk(s)", numChunks, numWorldChunks);
+        Logging::debug("Released {} data chunk(s), {} drawing chunk(s), {} visibility map entries", 
+                numChunks, numWorldChunks, numVisibility);
     }
 
     // if we removed chunks, queue deallocation
@@ -254,11 +375,21 @@ bool ChunkLoader::updateCenterChunk(const glm::vec3 &delta, const glm::vec3 &pos
  * to the main loop to process next frame.
  */
 void ChunkLoader::loadChunk(const glm::ivec2 position) {
-    // make sure the chunk isn't already loaded or in the process of loading
+    // ignore requests to load on-screen chunks
     if(this->chunks.contains(position)) {
-        // TODO: should we force chunk to be re-loaded?
         return;
-    } else if(std::find(this->currentlyLoading.begin(), this->currentlyLoading.end(), position) != this->currentlyLoading.end()) {
+    }
+    // if the chunk is not visible, but we've loaded it, pretend it has just finished loading
+    else if(this->loadedChunks.contains(position)) {
+        LoadChunkInfo info;
+        info.position = position;
+        info.data = this->loadedChunks[position];
+        this->loaded.enqueue(std::move(info));
+
+        return;
+    }
+    // if the chunk is currently being loaded, exit
+    else if(std::find(this->currentlyLoading.begin(), this->currentlyLoading.end(), position) != this->currentlyLoading.end()) {
         return;
     }
 
@@ -287,16 +418,18 @@ void ChunkLoader::loadChunk(const glm::ivec2 position) {
 /**
  * Draws all of the chunks currently loaded.
  */
-void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> program) {
+void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> program, const glm::vec3 &viewDirection) {
     const bool withNormals = program->rendersColor();
 
-    for(auto [pos, chunk] : this->chunks) {
-        // ignore chunks without any data
-        if(!chunk->chunk) continue;
+    // draw chunks
+    for(auto [pos, info] : this->chunks) {
+        // ignore chunks without any data or if they're invisible
+        if(!info.wc || !info.wc->chunk) continue;
+        else if(!info.cameraVisible) continue;
 
         // otherwise, draw them
-        this->prepareChunk(program, chunk, withNormals);
-        chunk->draw(program);
+        this->prepareChunk(program, info.wc, withNormals);
+        info.wc->draw(program);
     }
 }
 
@@ -339,7 +472,7 @@ void ChunkLoader::drawOverlay() {
     ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
 
     ImGui::SetNextWindowBgAlpha(kOverlayAlpha);
-    if(!ImGui::Begin("Example: Simple overlay", &this->showsOverlay, window_flags)) {
+    if(!ImGui::Begin("ChunkLoader Overlay", &this->showsOverlay, window_flags)) {
         return;
     }
 
@@ -355,5 +488,69 @@ void ChunkLoader::drawOverlay() {
     // chunk work queue items remaining
     ImGui::Text("Work Queue: %lu", chunk::ChunkWorker::getPendingItemCount());
 
+    // context menu
+    if(ImGui::BeginPopupContextWindow()) {
+        if(ImGui::MenuItem("Show Draw Chunk List", nullptr, &this->showsChunkList)) {
+            // nothing
+        }
+
+        ImGui::Separator();
+        if(this->showsOverlay && ImGui::MenuItem("Close Overlay")) {
+            this->showsOverlay = false;
+        }
+
+        ImGui::EndPopup();
+    }
+
     ImGui::End();
 }
+
+/**
+ * Draws the chunk visibility table.
+ */
+void ChunkLoader::drawChunkList() {
+    // start window
+    if(!ImGui::Begin("World Chunks", &this->showsChunkList)) {
+        return;
+    }
+
+    // table
+    ImVec2 outerSize(0, ImGui::GetTextLineHeightWithSpacing() * 12);
+    if(!ImGui::BeginTable("chonks", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
+        ImGui::End();
+        return;
+    }
+
+    ImGui::TableSetupColumn("Position", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 58);
+    ImGui::TableSetupColumn("Ptr");
+    ImGui::TableSetupColumn("Vis", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 28);
+    ImGui::TableSetupColumn("Cam", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 26);
+    ImGui::TableHeadersRow();
+
+    // iterate
+    size_t i = 0;
+    for(auto &[position, info] : this->chunks) {
+        ImGui::TableNextRow();
+        ImGui::PushID(i);
+
+        ImGui::TableNextColumn();
+        ImGui::Text("%d,%d", (int) position.x, (int) position.y);
+
+        ImGui::TableNextColumn();
+        ImGui::Text("%p", info.wc.get());
+
+        ImGui::TableNextColumn();
+        ImGui::Text("%s", (this->visibilityMap.contains(position) && this->visibilityMap[position]) ? "Ye" : "No");
+
+        ImGui::TableNextColumn();
+        ImGui::Checkbox("##visible", &info.cameraVisible);
+
+        ImGui::PopID();
+        i++;
+    }
+    ImGui::EndTable();
+
+    // finish
+    ImGui::End();
+}
+

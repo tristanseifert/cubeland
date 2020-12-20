@@ -48,6 +48,11 @@ class WorldRenderer: public gui::RunLoopStep {
             return this->camera;
         }
 
+        /// gets the field of view, in degrees
+        const float getFoV() const {
+            return this->projFoV;
+        }
+
     private:
         void updateView();
 
