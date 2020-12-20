@@ -37,6 +37,7 @@ class Globule {
 
     public:
         Globule(WorldChunk *chunk, const glm::vec3 pos);
+        ~Globule();
 
         void chunkChanged();
 

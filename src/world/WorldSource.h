@@ -19,6 +19,8 @@
 #include <blockingconcurrentqueue.h>
 
 namespace world {
+struct Chunk;
+
 class WorldReader;
 class WorldGenerator;
 
@@ -28,8 +30,22 @@ class WorldSource {
                 std::shared_ptr<WorldGenerator> generator, const size_t numThreads = 0);
         virtual ~WorldSource();
 
+        /// Gets a chunk from either the file or the world generator.
+        std::future<std::shared_ptr<Chunk>> getChunk(int x, int z) {
+            return this->work([&, x, z]{
+                return this->workerGetChunk(x, z);
+            });
+        }
+
+        /// Sets whether we ignore the file and generate all data
+        void setGenerateOnly(const bool value) {
+            this->generateOnly = value;
+        }
+
     private:
         using WorkItem = std::function<void(void)>;
+
+        std::shared_ptr<Chunk> workerGetChunk(const int x, const int z);
 
     private:
         // executes a function on the work queue, resulting a future holding its return value
@@ -66,7 +82,6 @@ class WorldSource {
         // generator to fill in areas not backed by the file
         std::shared_ptr<WorldGenerator> generator = nullptr;
 
-
         /// number of worker threads to create
         size_t numWorkers;
         /// worker thread processes requests as long as this is set
@@ -78,6 +93,9 @@ class WorldSource {
 
         /// when set, we accept work items
         std::atomic_bool acceptRequests;
+
+        /// when set, we go directly to the generator for all chunks
+        std::atomic_bool generateOnly;
 };
 }
 

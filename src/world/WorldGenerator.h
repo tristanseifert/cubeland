@@ -22,7 +22,7 @@ class WorldGenerator {
         /**
          * Generates data for a chunk at the given world coordinate.
          */
-        virtual std::promise<std::shared_ptr<Chunk>> generateChunk(int x, int z) = 0;
+        virtual std::shared_ptr<Chunk> generateChunk(int x, int z) = 0;
 };
 }
 

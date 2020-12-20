@@ -49,9 +49,9 @@ const unsigned int frameMarkerColor = 0x22FFFFFF;
 
 const uint32_t MaxThreads = 50;
 const uint32_t MaxCallStack = 20;
-const uint32_t MaxEntriesPerThread = 100000;
-const uint32_t MaxFrames = 10000;
-const uint32_t MaxRegions = 10000;
+const uint32_t MaxEntriesPerThread = 250000;
+const uint32_t MaxFrames = 25000;
+const uint32_t MaxRegions = 25000;
 
 const uint32_t MinLeadInFrames = 3;
 const uint32_t MinFrame = MinLeadInFrames - 2;

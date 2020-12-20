@@ -45,10 +45,14 @@ namespace chunk {
 class WorldChunkDebugger;
 class Globule;
 }
+namespace scene {
+class ChunkLoader;
+}
 
 class WorldChunk: public Drawable {
     friend class chunk::WorldChunkDebugger;
     friend class chunk::Globule;
+    friend class scene::ChunkLoader;
 
     public:
         WorldChunk();

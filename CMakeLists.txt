@@ -75,6 +75,7 @@ add_executable(cubeland
     src/render/WorldRendererDebugger.cpp
     src/render/Camera.cpp
     src/render/scene/SceneRenderer.cpp
+    src/render/scene/ChunkLoader.cpp
     src/render/chunk/WorldChunk.cpp
     src/render/chunk/Globule.cpp
     src/render/chunk/WorldChunkDebugger.cpp
@@ -90,6 +91,7 @@ add_executable(cubeland
     src/world/WorldSource.cpp
     src/world/debug/WorldDebugger.cpp
     src/world/block/BlockRegistry.cpp
+    src/world/generators/Terrain.cpp
 # resources and other misc stuff
     ${version_file}
 )
@@ -305,6 +307,11 @@ target_include_directories(cubeland PRIVATE libs/concurrentqueue)
 
 # Cereal (serialization)
 target_include_directories(cubeland PRIVATE libs/cereal/include)
+
+# fastnoise 2 (used primarily for terrain generation)
+target_link_libraries(cubeland PRIVATE FastNoise)
+target_link_directories(cubeland PRIVATE libs/fastnoise2/build/src)
+target_include_directories(cubeland PRIVATE libs/fastnoise2/include)
 
 ###################################################################################################
 #### platform-specific libraries

@@ -76,7 +76,7 @@ struct Chunk {
     /**
      * X/Z coordinates of this chunk, in world chunk coordinate space.
      */
-    glm::vec2 worldPos;
+    glm::ivec2 worldPos;
 
     /**
      * Chunk slice pointers for each horizontal layer of the chunk. If there are no blocks at that

@@ -18,6 +18,10 @@ class WorldDebugger;
 }
 
 namespace render {
+namespace scene {
+class ChunkLoader;
+}
+
 class Drawable;
 class WorldChunk;
 
@@ -66,6 +70,8 @@ class SceneRenderer: public RenderStep {
         }
 
     private:
+        /// chunk loader responsible for getting world data into the game
+        std::shared_ptr<scene::ChunkLoader> chunkLoader = nullptr;
         /// the chunks we're rendering as part of the world
         std::vector<std::shared_ptr<WorldChunk>> chunks;
 

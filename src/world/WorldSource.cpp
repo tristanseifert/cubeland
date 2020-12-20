@@ -37,7 +37,8 @@ WorldSource::WorldSource(std::shared_ptr<WorldReader> _r, std::shared_ptr<WorldG
         this->workers.push_back(std::move(worker));
     }
 
-    // once the workers are started, allow accepting requests
+    // set up some additional initial state
+    this->generateOnly = false;
     this->acceptRequests = true;
 }
 
@@ -57,6 +58,26 @@ WorldSource::~WorldSource() {
     for(auto &thread : this->workers) {
         thread->join();
     }
+}
+
+/**
+ * Retrieves a chunk of the world.
+ *
+ * This will first check if the chunk exists in the persistent (WorldReader) backing store. If so,
+ * it is read from there. Otherwise, we generate it on our background thread and return it.
+ */
+std::shared_ptr<Chunk> WorldSource::workerGetChunk(const int x, const int z) {
+    // check the world reader if we're not in generate only mode
+    if(!this->generateOnly && this->reader) {
+        auto exists = this->reader->chunkExists(x, z);
+        if(exists.get_future().get()) {
+            auto chunk = this->reader->getChunk(x, z);
+            return chunk.get_future().get();
+        }
+    }
+
+    // if we get here, we need to invoke the generatour
+    return this->generator->generateChunk(x, z);
 }
 
 

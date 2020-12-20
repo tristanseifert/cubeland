@@ -14,6 +14,8 @@
 
 using namespace render::chunk;
 
+// uncomment to log buffer transfers
+// #define LOG_BUFFER_XFER
 
 /**
  * Initializes a new globule.
@@ -43,6 +45,13 @@ Globule::Globule(WorldChunk *_chunk, const glm::vec3 _pos) : position(_pos), chu
             6 * sizeof(gl::GLfloat)); // texture coordinate
 
     VertexArray::unbind();
+}
+
+/**
+ * Wait for any pending work to complete.
+ */
+Globule::~Globule() {
+    // TODO: implement
 }
 
 /**
@@ -107,7 +116,9 @@ void Globule::transferBuffers() {
             this->vertexBuf->replaceData(size, this->vertexData.data());
             this->vertexBuf->unbind();
 
+#ifdef LOG_BUFFER_XFER
             Logging::debug("Chunk vertex buf xfer: {} bytes", size);
+#endif
         }
 
         this->vertexBufDirty = false;
@@ -121,7 +132,9 @@ void Globule::transferBuffers() {
             this->indexBuf->replaceData(size, this->indexData.data());
             this->indexBuf->unbind();
 
+#ifdef LOG_BUFFER_XFER
             Logging::debug("Chunk index buf xfer: {} bytes", size);
+#endif
         }
 
         this->numIndices = this->indexData.size();
@@ -264,8 +277,10 @@ nextRow:;
 
     // ensure the buffer is transferred on the next frame
     if(!this->vertexData.empty()) {
+#ifdef LOG_BUFFER_XFER
         Logging::trace("Wrote {} vertices ({} indices)", this->vertexData.size(),
                 this->indexData.size());
+#endif
     }
 
     this->vertexBufDirty = true;

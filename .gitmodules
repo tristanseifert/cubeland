@@ -43,3 +43,6 @@
 [submodule "libs/cereal"]
 	path = libs/cereal
 	url = git@github.com:USCiLab/cereal.git
+[submodule "libs/fastnoise2"]
+	path = libs/fastnoise2
+	url = git@github.com:Auburn/FastNoise2.git

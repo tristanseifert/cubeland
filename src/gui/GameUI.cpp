@@ -107,7 +107,6 @@ GameUI::GameUI(SDL_Window *_window, void *context) : window(_window) {
     // initialize the GL drawing layer
     ImGui_ImplSDL2_InitForOpenGL(this->window, context);
     ImGui_ImplOpenGL3_Init(nullptr);
-
 }
 
 /**

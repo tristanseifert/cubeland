@@ -1,7 +1,12 @@
 #include "SceneRenderer.h"
 #include "Drawable.h"
+#include "ChunkLoader.h"
 
 #include "world/block/BlockRegistry.h"
+#include "world/WorldSource.h"
+#include "world/FileWorldReader.h"
+#include "world/generators/Terrain.h"
+
 #include "render/chunk/WorldChunk.h"
 #include "render/chunk/ChunkWorker.h"
 #include "gfx/gl/buffer/VertexArray.h"
@@ -16,6 +21,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 using namespace render;
+using namespace render::scene;
 
 /**
  * Init; this loads the program/shader we use normally for drawing
@@ -31,15 +37,18 @@ SceneRenderer::SceneRenderer() {
 
     this->shadowPrograms[kProgramChunkDraw] = WorldChunk::getShadowProgram();
 
-    // load the model
-    auto chonker = std::make_shared<WorldChunk>();
-    this->chunks.push_back(chonker);
+    // create the chunk loader
+    this->chunkLoader = std::make_shared<ChunkLoader>();
 }
 
 /**
  * Release a bunch of global state
  */
 SceneRenderer::~SceneRenderer() {
+    // destroy all of our helper objects
+    this->chunkLoader = nullptr;
+
+    // shut down other systems of the engine
     chunk::ChunkWorker::shutdown();
     world::BlockRegistry::shutdown();
 }
@@ -48,9 +57,7 @@ SceneRenderer::~SceneRenderer() {
  * Invoke the start-of-frame handler on all drawables.
  */
 void SceneRenderer::startOfFrame() {
-    for(auto chunk : this->chunks) {
-        chunk->frameBegin();
-    }
+    this->chunkLoader->updateChunks(this->viewPosition);
 }
 
 /**
@@ -61,7 +68,6 @@ void SceneRenderer::preRender(WorldRenderer *) {
 
     // set clear colour and depth testing; clear stencil as well
     // TODO: better granularity on stencil testing?
-    // glClearColor(0.f, 0.f, 0.f, 0.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
     // Enable depth testing
@@ -70,8 +76,6 @@ void SceneRenderer::preRender(WorldRenderer *) {
 
     // set up culling
     glEnable(GL_CULL_FACE);
-    // glCullFace(GL_BACK);
-    // glFrontFace(GL_CCW);
 }
 
 /**
@@ -84,7 +88,7 @@ void SceneRenderer::render(WorldRenderer *renderer) {
     this->render(projView, false, true);
 
     // draw the highlights
-    {
+    /*{
         PROFILE_SCOPE(ChunkHighlights);
 
         auto program = this->getProgram(kProgramChunkHighlight, false);
@@ -97,7 +101,7 @@ void SceneRenderer::render(WorldRenderer *renderer) {
                 chunk->drawHighlights(program);
             }
         }
-    }
+    }*/
 }
 
 /**
@@ -109,15 +113,11 @@ void SceneRenderer::render(glm::mat4 projView, const bool shadow, bool hasNormal
 
     // draw chunks
     {
-        // set up the block rendering shader
         auto program = this->getProgram(kProgramChunkDraw, shadow);
         program->bind();
         program->setUniformMatrix("projectionView", projView);
 
-        for(auto chunk : this->chunks) {
-            this->prepareChunk(program, chunk, hasNormalMatrix);
-            chunk->draw(program);
-        }
+        this->chunkLoader->draw(program);
     }
 }
 

@@ -19,6 +19,9 @@
 #include <sstream>
 #include <set>
 
+// uncomment to add profiling steps to inner parts of the per-row loop
+// #define PROFILE_ROW_INNER 0
+
 using namespace world;
 
 /**
@@ -191,8 +194,13 @@ void FileWorldReader::loadSlice(SliceState &state, const int sliceId, std::share
     // allocate the slice and process each row
     auto slice = std::make_shared<ChunkSlice>();
 
-    for(size_t z = 0; z < 256; z++) {
-        this->processSliceRow(state, chunk, slice, z);
+    {
+#ifndef PROFILE_ROW_INNER
+        PROFILE_SCOPE(ProcessRows);
+#endif
+        for(size_t z = 0; z < 256; z++) {
+            this->processSliceRow(state, chunk, slice, z);
+        }
     }
 
     // we're done, assign the slice to the chunk
@@ -287,7 +295,9 @@ found:;
  *   row data.
  */
 void FileWorldReader::processSliceRow(SliceState &state, std::shared_ptr<Chunk> chunk, std::shared_ptr<ChunkSlice> slice, const size_t z) {
+#ifdef PROFILE_ROW_INNER
     PROFILE_SCOPE(ProcessRow);
+#endif
 
     std::shared_ptr<ChunkSliceRow> row = nullptr;
     uint16_t mostFrequentBlock = 0;
@@ -316,7 +326,9 @@ process:;
     std::multiset<uint16_t> blockIdFrequency;
 
     {
+#ifdef PROFILE_ROW_INNER
         PROFILE_SCOPE(AnalyzeIds);
+#endif
 
         // get the unique block IDs, _and_ in effect build a histogram
         for(size_t x = 0; x < 256; x++) {
@@ -353,7 +365,9 @@ process:;
     int mapId = -1;
 
     {
+#ifdef PROFILE_ROW_INNER
         PROFILE_SCOPE(FindIdMap);
+#endif
 
         /*
          * Now that we have a set of all of the 16-bit block IDs used by this row, we can use this
@@ -410,7 +424,9 @@ beach:;
 
     // step 3: fill data into the row
     {
+#ifdef PROFILE_ROW_INNER
         PROFILE_SCOPE(Fill);
+#endif
         const auto &map = state.reverseMaps[mapId];
 
         for(size_t x = 0; x < 256; x++) {
