@@ -45,11 +45,13 @@ SceneRenderer::SceneRenderer() {
  * Release a bunch of global state
  */
 SceneRenderer::~SceneRenderer() {
+    // this will wait for the work queue to drain
+    chunk::ChunkWorker::shutdown();
+
     // destroy all of our helper objects
     this->chunkLoader = nullptr;
 
     // shut down other systems of the engine
-    chunk::ChunkWorker::shutdown();
     world::BlockRegistry::shutdown();
 }
 
@@ -57,6 +59,7 @@ SceneRenderer::~SceneRenderer() {
  * Invoke the start-of-frame handler on all drawables.
  */
 void SceneRenderer::startOfFrame() {
+    this->chunkLoader->startOfFrame();
     this->chunkLoader->updateChunks(this->viewPosition);
 }
 

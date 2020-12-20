@@ -48,7 +48,10 @@ class ChunkWorker {
 
             return fut;
         }
-
+        /// number of pending work items
+        static size_t getPendingItemCount() {
+            return gShared->workQueue.size_approx();
+        }
         /// whether we can have more than one work thread
         static bool hasMultipleWorkers() {
             return (gShared->numWorkers > 1);

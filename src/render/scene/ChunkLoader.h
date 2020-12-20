@@ -38,6 +38,7 @@ class ChunkLoader {
 
         void setSource(std::shared_ptr<world::WorldSource> source);
 
+        void startOfFrame();
         void updateChunks(const glm::vec3 &pos);
         void draw(std::shared_ptr<gfx::RenderProgram> program);
 
@@ -52,6 +53,10 @@ class ChunkLoader {
 
         void prepareChunk(std::shared_ptr<gfx::RenderProgram> program, 
                 std::shared_ptr<WorldChunk> chunk, bool hasNormal);
+
+        std::shared_ptr<WorldChunk> makeWorldChunk();
+
+        void drawOverlay();
 
     private:
         using DeferredChunk = std::future<std::shared_ptr<world::Chunk>>;
@@ -75,6 +80,8 @@ class ChunkLoader {
     private:
         /// minimum amount of movement required before we do any sort of processing
         constexpr static const float kMoveThreshold = 0.1f;
+        /// alpha value of the statistics overlay
+        constexpr static const float kOverlayAlpha = 0.42f;
 
     private:
         /**
@@ -96,6 +103,15 @@ class ChunkLoader {
          * List of all chunks we're currently loading.
          */
         std::vector<glm::ivec2> currentlyLoading;
+        /**
+         * List of chunks that should be deallocated.
+         *
+         * When chunks go out of display range, we push them onto this queue; then, periodically,
+         * a background task is queued to get rid of them. There's tons of memory management that
+         * will happen here, so it helps to not block the rendering loop with that.
+         */
+        std::vector<std::shared_ptr<world::Chunk>> chunksToDealloc;
+        std::mutex chunksToDeallocLock;
 
         /**
          * Defines the number of chunks that we eagerly load every time the camera moves.
@@ -104,8 +120,11 @@ class ChunkLoader {
          * is loaded.
          */
         size_t chunkRange = 2;
-        /// Index of the central chunk
-        size_t centerIndex;
+        /**
+         * Maximum distance beyond which chunks out of the loaded chunks map will begin to be
+         * unloaded to save memory.
+         */
+        size_t cacheReleaseDistance = 3;
 
         /// world source from which we get data
         std::shared_ptr<world::WorldSource> source;
@@ -114,10 +133,20 @@ class ChunkLoader {
          * These are the actual rendering chunks used to convert the in-memory world data to meshes
          * that are displayed.
          *
-         * Index 0 is always the "current" chunk, e.g. the one in which the camera position is
-         * located.
+         * Every few frames we'll make sure that any chunks that are too far out of view are gotten
+         * rid of and moved back to our "idle" list.
          */
-        std::vector<std::shared_ptr<WorldChunk>> chunks;
+        std::unordered_map<glm::ivec2, std::shared_ptr<WorldChunk>> chunks;
+        /**
+         * Spare drawing chunks; these aren't currently on screen or drawing anything, but we can
+         * use them when we quickly want another chunk rather than wasting time allocating.
+         *
+         * The maximum number of chunks that chill in this queue is set by the `maxChunkQueueSize`
+         * variable.
+         */
+        moodycamel::ConcurrentQueue<std::shared_ptr<WorldChunk>> chunkQueue;
+        /// max size of the chunk queue
+        size_t maxChunkQueueSize = 6;
 
         /// chunk position of the chunk we're currently on (e.g. that the camera is on)
         glm::ivec2 centerChunkPos;
@@ -126,6 +155,9 @@ class ChunkLoader {
 
         /// number of times updateChunks() has been called
         size_t numUpdates = 0;
+
+        /// when set, the debug overlay is shown
+        bool showsOverlay = true;
 };
 }
 

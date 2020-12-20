@@ -221,10 +221,11 @@ void WorldChunk::draw(std::shared_ptr<gfx::RenderProgram> program) {
  * comes around, we'll skip updating the buffer and possibly draw stale data.
  */
 void WorldChunk::setChunk(std::shared_ptr<world::Chunk> chunk) {
+    bool changed = (chunk != this->chunk);
     this->chunk = chunk;
 
     for(auto &[key, globule] : this->globules) {
-        globule->chunkChanged();
+        globule->chunkChanged(changed);
     }
 }
 

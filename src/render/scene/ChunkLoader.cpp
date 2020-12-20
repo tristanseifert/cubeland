@@ -10,6 +10,7 @@
 #include <mutils/time/profiler.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/epsilon.hpp>
+#include <imgui.h>
 
 #include <algorithm>
 
@@ -33,9 +34,7 @@ void ChunkLoader::setSource(std::shared_ptr<world::WorldSource> source) {
 
     // invalidate all chunks
     this->loadedChunks.clear();
-    for(auto &chunk : this->chunks) {
-        chunk->setChunk(nullptr);
-    }
+    this->chunks.clear();
 
     this->source = source;
 }
@@ -46,25 +45,22 @@ void ChunkLoader::setSource(std::shared_ptr<world::WorldSource> source) {
 void ChunkLoader::initDisplayChunks() {
     // get rid of all old chunks 
     this->chunks.clear();
-
-    // set up the central chunk
-    this->chunks.push_back(std::make_shared<WorldChunk>());
-
-    // then, the outer "ring" of bonus chunks
-    size_t n = (this->chunkRange * 2) + 1;
-    size_t numChunks = (n * n) - 1;
-
-    Logging::debug("Chunk range {} -> {}+1 chunks", this->chunkRange, numChunks);
-
-    for(size_t i = 0; i < numChunks; i++) {
-        this->chunks.push_back(std::make_shared<WorldChunk>());
-    }
-
-    // index of the center chunk
-    this->centerIndex = (n * this->chunkRange) + this->chunkRange;
-    Logging::debug("Center index: {}", this->centerIndex);
 }
 
+/**
+ * Perform some general start-of-frame bookkeeping.
+ */
+void ChunkLoader::startOfFrame() {
+    // prune chunk list every 20 or so frames
+    if((this->numUpdates % 20) == 0) {
+        this->pruneLoadedChunksList();
+    }
+
+    // draw the overlay if enabled
+    if(this->showsOverlay) {
+        this->drawOverlay();
+    }
+}
 
 /**
  * Called at the start of a frame, this checks to see if we need to load any additional chunks as
@@ -73,11 +69,6 @@ void ChunkLoader::initDisplayChunks() {
 void ChunkLoader::updateChunks(const glm::vec3 &pos) {
     // perform any deferred chunk loading/unloading
     this->updateDeferredChunks();
-
-    if((this->numUpdates % 15) == 0) {
-        // only do this every 15 frames
-        this->pruneLoadedChunksList();
-    }
 
     // calculate delta moved. this allows us to skip doing much work if we didn't move
     glm::vec3 delta = pos - this->lastPos;
@@ -104,7 +95,7 @@ void ChunkLoader::updateChunks(const glm::vec3 &pos) {
 
 noLoad:;
     // update all chunks
-    for(auto chunk : this->chunks) {
+    for(auto [position, chunk] : this->chunks) {
         chunk->frameBegin();
     }
 
@@ -135,29 +126,18 @@ void ChunkLoader::updateDeferredChunks() {
         if(std::holds_alternative<ChunkPtr>(pending.data)) {
             auto chunk = std::get<ChunkPtr>(pending.data);
 
-            Logging::info("Finished processing for {}: {} (took {:L} µs)", pending.position, 
-                    (void*) chunk.get(), diffUs);
+            // Logging::trace("Finished processing for {}: {} (took {:L} µs)", pending.position, (void*) chunk.get(), diffUs);
 
-            // if it's the central chunk, set it there
-            if(pending.position == this->centerChunkPos) {
-                this->chunks[this->centerIndex]->setChunk(chunk);
+            // update existing chunk
+            if(this->chunks.contains(pending.position)) {
+                this->chunks[pending.position]->setChunk(chunk);
             }
-            // TODO: figure out which render chunk it go to
+            // otherwise, create a new one
             else {
-                // convert the offset from the center into an index
-                glm::ivec2 diff = pending.position - this->centerChunkPos;
-                diff += glm::ivec2(this->chunkRange, this->chunkRange);
-                size_t offset = diff.x + (diff.y * ((this->chunkRange * 2) + 1));
+                auto wc = this->makeWorldChunk();
+                wc->setChunk(chunk);
 
-                if(offset >= this->chunks.size()) {
-                    Logging::info("Chunk pos {} (idx {}) out of bounds", pending.position, offset);
-                } else {
-                    Logging::trace("Exterior chunk: {} (world pos {}) (index {})", diff,
-                            pending.position, offset);
-
-                    // set it
-                    this->chunks[offset]->setChunk(chunk);
-                }
+                this->chunks[pending.position] = wc;
             }
 
             // store it in the cache
@@ -178,11 +158,73 @@ void ChunkLoader::updateDeferredChunks() {
 }
 
 /**
+ * Either pops an previous chunk off the chunk queue, or allocates a new one.
+ */
+std::shared_ptr<render::WorldChunk> ChunkLoader::makeWorldChunk() {
+    std::shared_ptr<WorldChunk> chunk = nullptr;
+
+    // get one from the queue if possible
+    if(this->chunkQueue.try_dequeue(chunk)) {
+        return chunk;
+    }
+
+    // fall back to allocation
+    return std::make_shared<WorldChunk>();
+}
+
+/**
  * Calculates the distance between our current position and all loaded chunks; if it's greater than
  * our internal limit, away they go.
  */
 void ChunkLoader::pruneLoadedChunksList() {
-    // TODO: implement this
+    PROFILE_SCOPE(PruneLoadedChunks);
+
+    size_t numChunks = 0, numWorldChunks = 0;
+
+    // remove the stored chunks, if we are able to obtain the lock
+    if(this->chunksToDeallocLock.try_lock()){
+        PROFILE_SCOPE(PruneChunkData);
+
+        numChunks = std::erase_if(this->loadedChunks, [&](const auto &item) {
+            auto const& [pos, chunk] = item;
+            const auto distance = std::max(fabs(pos.x - this->centerChunkPos.x), fabs(pos.y - this->centerChunkPos.y));
+            bool toRemove = (distance > this->cacheReleaseDistance);
+            if(toRemove) {
+                this->chunksToDealloc.push_back(chunk);
+            }
+            return toRemove;
+        });
+
+        this->chunksToDeallocLock.unlock();
+    }
+
+    // then, the drawing chunks
+    {
+        PROFILE_SCOPE(PruneWorldChunk);
+        numWorldChunks = std::erase_if(this->chunks, [&](const auto &item) {
+            auto const& [pos, chunk] = item;
+            const auto distance = std::max(fabs(pos.x - this->centerChunkPos.x), fabs(pos.y - this->centerChunkPos.y));
+            bool toRemove = (distance > this->chunkRange);
+            if(toRemove && this->chunkQueue.size_approx() < this->maxChunkQueueSize) {
+                chunk->setChunk(nullptr);
+                this->chunkQueue.enqueue(chunk);
+            }
+            return toRemove;
+        });
+    }
+
+    if(numChunks || numWorldChunks) {
+        Logging::debug("Released {} data chunk(s), {} drawing chunk(s)", numChunks, numWorldChunks);
+    }
+
+    // if we removed chunks, queue deallocation
+    if(numChunks) {
+        auto future = render::chunk::ChunkWorker::pushWork([&] {
+            PROFILE_SCOPE(DeallocChunks);
+            LOCK_GUARD(this->chunksToDeallocLock, DeallocChunksList);
+            this->chunksToDealloc.clear();
+        });
+    }
 }
 
 /**
@@ -191,18 +233,14 @@ void ChunkLoader::pruneLoadedChunksList() {
  * @return Whether the center chunk changed.
  */
 bool ChunkLoader::updateCenterChunk(const glm::vec3 &delta, const glm::vec3 &pos) {
-    auto &wc = this->chunks[this->centerIndex];
-
     // ensure we're not duplicating any work by loading the chunk if it already is
     glm::ivec2 camChunk(floor(pos.x / 256), floor(pos.z / 256));
 
-    if(wc->chunk && this->centerChunkPos == camChunk) {
+    if(!this->chunks.empty() && this->centerChunkPos == camChunk) {
         return false;
     }
 
     // request to load the chunk
-    Logging::trace("Center chunk is {}", camChunk);
-
     this->centerChunkPos = camChunk;
     this->loadChunk(camChunk);
 
@@ -217,18 +255,14 @@ bool ChunkLoader::updateCenterChunk(const glm::vec3 &delta, const glm::vec3 &pos
  */
 void ChunkLoader::loadChunk(const glm::ivec2 position) {
     // make sure the chunk isn't already loaded or in the process of loading
-    if(this->loadedChunks.contains(position)) {
-        // if already loaded, push the work item
-        LoadChunkInfo info;
-        info.position = position;
-        info.data = this->loadedChunks[position];
-        this->loaded.enqueue(std::move(info));
+    if(this->chunks.contains(position)) {
+        // TODO: should we force chunk to be re-loaded?
         return;
     } else if(std::find(this->currentlyLoading.begin(), this->currentlyLoading.end(), position) != this->currentlyLoading.end()) {
         return;
     }
 
-    Logging::trace("Requesting loading of chunk {}", position);
+    // Logging::trace("Requesting loading of chunk {}", position);
     this->currentlyLoading.push_back(position);
 
     // push work to the chunk worker queue
@@ -256,7 +290,7 @@ void ChunkLoader::loadChunk(const glm::ivec2 position) {
 void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> program) {
     const bool withNormals = program->rendersColor();
 
-    for(auto chunk : this->chunks) {
+    for(auto [pos, chunk] : this->chunks) {
         // ignore chunks without any data
         if(!chunk->chunk) continue;
 
@@ -287,3 +321,39 @@ void ChunkLoader::prepareChunk(std::shared_ptr<gfx::RenderProgram> program,
     }
 }
 
+/**
+ * Draws the chunk loader status overlay.
+ */
+void ChunkLoader::drawOverlay() {
+    // distance from the edge of display for the overview
+    const float DISTANCE = 10.0f;
+    const size_t corner = 1; // top-right
+    ImGuiIO& io = ImGui::GetIO();
+
+    // get the window position
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
+    ImVec2 window_pos = ImVec2((corner & 1) ? io.DisplaySize.x - DISTANCE : DISTANCE, (corner & 2) ? io.DisplaySize.y - DISTANCE : DISTANCE);
+    ImVec2 window_pos_pivot = ImVec2((corner & 1) ? 1.0f : 0.0f, (corner & 2) ? 1.0f : 0.0f);
+
+    ImGui::SetNextWindowSize(ImVec2(230, 0));
+    ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+
+    ImGui::SetNextWindowBgAlpha(kOverlayAlpha);
+    if(!ImGui::Begin("Example: Simple overlay", &this->showsOverlay, window_flags)) {
+        return;
+    }
+
+    // current camera and chunk positions
+    ImGui::Text("Chunk: %d, %d", this->centerChunkPos.x, this->centerChunkPos.y);
+    ImGui::SameLine();
+    ImGui::Text("Camera: %.1f, %.1f, %.1f", this->lastPos.x, this->lastPos.y, this->lastPos.z);
+
+    // active chunks (data and drawing)
+    ImGui::Text("Count: %lu data (%lu pend), %lu draw (%lu cache)", this->loadedChunks.size(),
+            this->currentlyLoading.size(), this->chunks.size(), this->chunkQueue.size_approx());
+
+    // chunk work queue items remaining
+    ImGui::Text("Work Queue: %lu", chunk::ChunkWorker::getPendingItemCount());
+
+    ImGui::End();
+}

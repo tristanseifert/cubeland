@@ -104,10 +104,10 @@ class Lighting : public RenderStep {
 
     private:
         // Fog density and color
-        float fogDensity = 0.025f;
+        float fogDensity = 0.005f;
         glm::vec3 fogColor = glm::vec3(0.53, 0.8, 0.98);
         // This is subtracted from the distance to push the fog back
-        float fogOffset = 256.f;
+        float fogOffset = 574.f;
 
     private:
         glm::mat4 shadowViewMatrix;

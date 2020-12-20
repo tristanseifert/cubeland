@@ -39,7 +39,7 @@ class Globule {
         Globule(WorldChunk *chunk, const glm::vec3 pos);
         ~Globule();
 
-        void chunkChanged();
+        void chunkChanged(const bool isDifferentChunk);
 
         void startOfFrame();
         void draw(std::shared_ptr<gfx::RenderProgram> &program);
@@ -105,6 +105,11 @@ class Globule {
          */
         std::vector<std::array<bool, 256>> exposureIdMaps;
 
+        /// when set, we are being destructed/want to bail out of work early
+        std::atomic_bool abortWork = false;
+
+        /// inhibits the chunk visibility til the next time the index/vertex buffers are uploaded
+        bool inhibitDrawing = false;
         /// visibility override flag
         bool isVisible = true;
 };

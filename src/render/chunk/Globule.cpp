@@ -51,6 +51,8 @@ Globule::Globule(WorldChunk *_chunk, const glm::vec3 _pos) : position(_pos), chu
  * Wait for any pending work to complete.
  */
 Globule::~Globule() {
+    // wait for any background work to complete
+    this->abortWork = true;
     // TODO: implement
 }
 
@@ -61,7 +63,17 @@ Globule::~Globule() {
  * calls to this routine in the same frame (for example, from a mass update that didn't properly
  * get coalesced) don't cause us to fill the work queue with superfluous work.
  */
-void Globule::chunkChanged() {
+void Globule::chunkChanged(const bool isDifferentChunk) {
+    // abort any in-process work
+    if(!this->chunk || !this->chunk->chunk || isDifferentChunk) {
+        this->abortWork = true;
+    }
+
+    // if chunk is different, inhibit drawing til buffers are updated
+    if(isDifferentChunk) {
+        this->inhibitDrawing = true;
+    }
+
     // clear caches
     this->invalidateCaches = true;
     this->vertexDataNeedsUpdate = true;
@@ -72,6 +84,7 @@ void Globule::chunkChanged() {
  */
 void Globule::startOfFrame() {
     if(this->vertexDataNeedsUpdate) {
+        this->abortWork = false;
         this->vertexDataNeedsUpdate = false;
         ChunkWorker::pushWork([&]() -> void {
             // clear flag first, so if data changes while we're updating, it's fixed next frame
@@ -93,7 +106,7 @@ void Globule::draw(std::shared_ptr<gfx::RenderProgram> &program) {
     }
 
     // draw if we have indices to do so with
-    if(this->isVisible && this->numIndices) {
+    if(this->isVisible && !this->inhibitDrawing && this->numIndices) {
         this->facesVao->bind();
         this->indexBuf->bind();
 
@@ -139,6 +152,7 @@ void Globule::transferBuffers() {
 
         this->numIndices = this->indexData.size();
         this->indexBufDirty = false;
+        this->inhibitDrawing = false;
     }
 }
 
@@ -151,6 +165,8 @@ void Globule::transferBuffers() {
 void Globule::fillBuffer() {
     using namespace world;
     PROFILE_SCOPE(GlobuleFillBuf);
+
+    if(!this->chunk) return;
 
     auto c = this->chunk->chunk;
     if(!c) {
@@ -199,6 +215,9 @@ void Globule::fillBuffer() {
 
         // iterate over each of the slice's rows
         for(size_t z = this->position.z; z < (this->position.z + 64); z++) {
+            // bail if needing to exit
+            if(this->abortWork) return;
+
             // skip empty rows
             const size_t zOffset = yOffset + (static_cast<size_t>(z - this->position.z) * 64);
             auto row = slice->rows[z];

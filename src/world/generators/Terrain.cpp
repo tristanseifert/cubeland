@@ -67,7 +67,8 @@ std::shared_ptr<Chunk> Terrain::generateChunk(int x, int z) {
     chunk->worldPos = glm::ivec2(x, z);
     this->prepareChunkMeta(chunk);
 
-    for(size_t y = 0; y < this->maxHeight; y++) {
+    this->fillFloor(chunk);
+    for(size_t y = 1; y < this->maxHeight; y++) {
         this->fillSlice(noise, y, chunk);
     }
 
@@ -103,6 +104,23 @@ void Terrain::prepareChunkMeta(std::shared_ptr<Chunk> chunk) {
         idMap.idMap[i] = kBlockIds[i];
     }
     chunk->sliceIdMaps.push_back(idMap);
+}
+
+/**
+ * Writes a solid ground floor at y=0.
+ */
+void Terrain::fillFloor(std::shared_ptr<Chunk> chunk) {
+    auto slice = std::make_shared<ChunkSlice>();
+
+    for(size_t z = 0; z < 256; z++) {
+        auto row = std::make_shared<ChunkSliceRowSparse>();
+        row->defaultBlockId = 1;
+        row->typeMap = 0;
+
+        slice->rows[z] = row;
+    }
+
+    chunk->slices[0] = slice;
 }
 
 /**

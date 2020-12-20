@@ -21,6 +21,7 @@ class Terrain: public WorldGenerator {
 
     private:
         void prepareChunkMeta(std::shared_ptr<Chunk> chunk);
+        void fillFloor(std::shared_ptr<Chunk> chunk);
         void fillSlice(const std::vector<float> &noise, const size_t y, std::shared_ptr<Chunk> chunk);
 
     private:
@@ -29,7 +30,7 @@ class Terrain: public WorldGenerator {
         // noise frequency
         float frequency = 0.005;
         // surface level
-        float surfaceLevel = 0;
+        float surfaceLevel = -0.069;
         // maximum height of generated structures
         size_t maxHeight = 120;
         // seed used for world generation
