@@ -47,10 +47,13 @@ class WorldRenderer: public gui::RunLoopStep {
         const Camera &getCamera() const {
             return this->camera;
         }
-
         /// gets the field of view, in degrees
         const float getFoV() const {
             return this->projFoV;
+        }
+        /// returns the current world time
+        const double getTime() const {
+            return this->time;
         }
 
     private:
@@ -63,6 +66,14 @@ class WorldRenderer: public gui::RunLoopStep {
         std::shared_ptr<WorldRendererDebugger> debugger = nullptr;
 
     private:
+        /**
+         * World time value; this monotonically increases for every frame.
+         *
+         * The time is in units of days; the range [0, 1) represents one complete day, where 0.5 is
+         * noon, and 0 is midnight at the start of the day.
+         */
+        double time = 0;
+
         // near and far clipping planes
         float zNear = 0.1f;
         float zFar = 850.f;

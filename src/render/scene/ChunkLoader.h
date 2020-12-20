@@ -99,7 +99,7 @@ class ChunkLoader {
         /// minimum change in direction vector to re-evaluate which chunks are visible
         constexpr static const float kDirectionThreshold = 0.02f;
         /// alpha value of the statistics overlay
-        constexpr static const float kOverlayAlpha = 0.42f;
+        constexpr static const float kOverlayAlpha = 0.74f;
 
     private:
         /**

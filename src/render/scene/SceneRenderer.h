@@ -49,9 +49,6 @@ class SceneRenderer: public RenderStep {
         void render(const glm::mat4 &projView, const glm::vec3 &viewDir, const bool shadow = false, const bool hasNormalMatrix = true);
 
     private:
-        void prepareChunk(std::shared_ptr<gfx::RenderProgram>, std::shared_ptr<WorldChunk>, bool);
-
-    private:
         enum ProgramType {
             // drawing of chunks
             kProgramChunkDraw,

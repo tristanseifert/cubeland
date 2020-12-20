@@ -63,6 +63,9 @@ class Lighting : public RenderStep {
         void setUpSkybox(void);
         void renderSkybox(void);
 
+        void setUpSky();
+        void renderSky(WorldRenderer *);
+
         void setUpShadowing(void);
 
         void renderShadowMap(WorldRenderer *);
@@ -85,10 +88,12 @@ class Lighting : public RenderStep {
         std::shared_ptr<gfx::Buffer> vbo = nullptr;
 
     private:
+        // intensity of ambient light
+        float ambientIntensity = 0.05;
+
         // lights
         std::vector<std::shared_ptr<gfx::lights::AbstractLight>> lights;
 
-        std::shared_ptr<gfx::SpotLight> spot = nullptr;
         std::shared_ptr<gfx::DirectionalLight> sun = nullptr;
 
     private:
@@ -101,6 +106,18 @@ class Lighting : public RenderStep {
         std::shared_ptr<gfx::TextureCube> skyboxTexture = nullptr;
 
         bool skyboxEnabled = false;
+
+    private:
+        std::shared_ptr<gfx::ShaderProgram> skyProgram = nullptr;
+
+        bool skyEnabled = true;
+
+        // density of cirrus clouds
+        float skyCloudCirrus = 0.4;
+        // density of cumulus clouds
+        float skyCloudCumulus = 0.8;
+        // number of cumulus cloud drawing layers
+        int skyCumulusLayers = 3;
 
     private:
         // Fog density and color
@@ -127,9 +144,8 @@ class Lighting : public RenderStep {
 
         // constant to multiply directional light by
         float shadowDirectionCoefficient = 2.f;
-
-        // XXX: testing
-        double time = 0;
+        // "darkness" of the shadow
+        float shadowFactor = 1.f;
 
     private:
         void drawDebugWindow();

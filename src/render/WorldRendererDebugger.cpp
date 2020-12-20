@@ -22,6 +22,10 @@ void WorldRendererDebugger::draw() {
         return;
     }
 
+    ImGui::TextUnformatted("Time:");
+    ImGui::SameLine();
+    ImGui::Text("%g", this->renderer->getTime());
+
     if(ImGui::CollapsingHeader("View")) {
         this->drawFovUi();
     }

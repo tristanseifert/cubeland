@@ -16,7 +16,8 @@ Camera::Camera() {
     // this->camera_position = glm::vec3(15.6459, 25.0754, -14.6763);
     // this->camera_front = glm::vec3(-0.99, 0.06, -0.14);
     
-    this->camera_position = glm::vec3(139.045, 69.297, -27.079);
+    // this->camera_position = glm::vec3(139.045, 69.297, -27.079);
+    this->camera_position = glm::vec3(0, 83, 0);
     this->camera_front = glm::vec3(-0.689, -0.022, 0.724);
     this->world_up = glm::vec3(0.0f, 1.0f, 0.0f);
 }

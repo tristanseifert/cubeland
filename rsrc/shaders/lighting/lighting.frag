@@ -87,6 +87,8 @@ uniform mat4 projMatrixInv;
 uniform mat4 viewMatrixInv;
 // Light view matrix: world space -> light space
 uniform mat4 lightSpaceMatrix;
+// contribution of shadow
+uniform float shadowContribution;
 
 float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 sunDirection);
 // Calculates the fog distance, given the depth value.
@@ -119,6 +121,7 @@ void main() {
     vec4 MatProps = texture(gMatProps, TexCoord);
     float Specular = MatProps.g;
     float Shininess = MatProps.r;
+    float SkipFactor = MatProps.b;
 
     // if only the skybox is rendered at a given light, skip lighting
     if(Depth < 1.0) {
@@ -179,7 +182,7 @@ void main() {
         vec4 FragPosLightSpace = lightSpaceMatrix * vec4(FragWorldPos, 1.0f);
         float shadow = ShadowCalculation(FragPosLightSpace, Normal, sunDirection);
 
-        lighting *= (1.0 - shadow);
+        lighting *= 1.0 - clamp(shadow * shadowContribution, 0, 1);
 
 
         // Spot lights
@@ -236,25 +239,25 @@ void main() {
 
 
         // output colour of the fragment
-        FragColour = vec4(finalColor, 1);
+        FragColour = (vec4(finalColor, 1) * (1 - SkipFactor)) + (vec4(Diffuse, 1) * SkipFactor);
     } else {
         // If we don't have anything rendered here, output fog colour
         FragColour = vec4(fogColor, 1);
     }
 
     // DEBUG: Read shadow map
-    /*if(TexCoord.x >= 0.5 && TexCoord.y >= 0.5) {
-            vec2 coord = vec2((TexCoord.x - 0.5) * 2, (TexCoord.y - 0.5) * 2);
+    /* if(TexCoord.x >= 0.5 && TexCoord.y >= 0.5) {
+        vec2 coord = vec2((TexCoord.x - 0.5) * 2, (TexCoord.y - 0.5) * 2);
 
-            float depthValue = texture(gSunShadowMap, coord).r;
-            FragColour = vec4(vec3(depthValue), 1);
+        float depthValue = texture(gSunShadowMap, coord).r;
+        FragColour = vec4(vec3(depthValue), 1);
     }*/
 }
 
 
 // Calculates the fog distance, given the depth value.
 float FogDistanceFromDepth(float depth) {
-	vec4 viewSpace = ViewSpaceFromDepth(depth);
+    vec4 viewSpace = ViewSpaceFromDepth(depth);
     return length(viewSpace);
 }
 
@@ -262,40 +265,39 @@ float FogDistanceFromDepth(float depth) {
 // Perform shadow calculation pls
 float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 sunDirection) {
     // perform perspective divide
-	vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-    // vec3 projCoords = fragPosLightSpace.xyz;
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
 
     // Transform to [0,1] range
     projCoords = projCoords * 0.5 + 0.5;
 
-	// Get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
+    // Get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
     float closestDepth = texture(gSunShadowMap, projCoords.xy).r;
 
-	// Get depth of current fragment from light's perspective
+    // Get depth of current fragment from light's perspective
     float currentDepth = projCoords.z;
 
-	// Calculate shadow bias
-	float bias = max(0.05 * (1.0 - dot(normal, sunDirection)), 0.005);
+    // Calculate shadow bias
+    float bias = max(0.05 * (1.0 - dot(normal, sunDirection)), 0.005);
 
-	// Check whether current frag pos is in shadow
-    // float shadow = (currentDepth - bias) > closestDepth  ? 1.0 : 0.0;
+    // Check whether current frag pos is in shadow
+     // float shadow = (currentDepth - bias) > closestDepth  ? 1.0 : 0.0;
 
-	// PCF with 9 samples to make shadows softer
-	float shadow = 0.0;
-	vec2 texelSize = 1.0 / textureSize(gSunShadowMap, 0);
+    // PCF with 9 samples to make shadows softer
+    float shadow = 0.0;
+    vec2 texelSize = 1.0 / textureSize(gSunShadowMap, 0);
 
-	for(int x = -1; x <= 1; ++x) {
-		for(int y = -1; y <= 1; ++y) {
-		    float pcfDepth = texture(gSunShadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
-		    shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
-		}
-	}
-	shadow /= 9.0;
+    for(int x = -1; x <= 1; ++x) {
+        for(int y = -1; y <= 1; ++y) {
+            float pcfDepth = texture(gSunShadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+            shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+        }
+    }
+    shadow /= 9.0;
 
-	// Ensure that Z value is no larger than 1
+    // Ensure that Z value is no larger than 1
     if(projCoords.z > 1.0) {
-    	shadow = 0.0;
-	}
+        shadow = 0.0;
+    }
 
     return shadow;
 }
@@ -303,36 +305,36 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 sunDirection) 
 
 // Get from depth to view space position
 vec4 ViewSpaceFromDepth(float depth) {
-	float ViewZ = (depth * 2.0) - 1.0;
+    float ViewZ = (depth * 2.0) - 1.0;
 
-	// Get clip space
-	vec4 clipSpacePosition = vec4(TexCoord * 2.0 - 1.0, ViewZ, 1);
+    // Get clip space
+    vec4 clipSpacePosition = vec4(TexCoord * 2.0 - 1.0, ViewZ, 1);
 
-	// Clip space -> View space
-	vec4 viewSpacePosition = projMatrixInv * clipSpacePosition;
+    // Clip space -> View space
+    vec4 viewSpacePosition = projMatrixInv * clipSpacePosition;
 
-	// Perspective division
-	viewSpacePosition /= viewSpacePosition.w;
+    // Perspective division
+    viewSpacePosition /= viewSpacePosition.w;
 
-	// Done
-	return viewSpacePosition;
+    // Done
+    return viewSpacePosition;
 }
 
 // this is supposed to get the world position from the depth buffer
 vec3 WorldPosFromDepth(float depth) {
-	float ViewZ = (depth * 2.0) - 1.0;
+    float ViewZ = (depth * 2.0) - 1.0;
 
-	// Get clip space
-	vec4 clipSpacePosition = vec4(TexCoord * 2.0 - 1.0, ViewZ, 1);
+    // Get clip space
+    vec4 clipSpacePosition = vec4(TexCoord * 2.0 - 1.0, ViewZ, 1);
 
-	// Clip space -> View space
-	vec4 viewSpacePosition = projMatrixInv * clipSpacePosition;
+    // Clip space -> View space
+    vec4 viewSpacePosition = projMatrixInv * clipSpacePosition;
 
-	// Perspective division
-	viewSpacePosition /= viewSpacePosition.w;
+    // Perspective division
+    viewSpacePosition /= viewSpacePosition.w;
 
-	// View space -> World space
-	vec4 worldSpacePosition = viewMatrixInv * viewSpacePosition;
+    // View space -> World space
+    vec4 worldSpacePosition = viewMatrixInv * viewSpacePosition;
 
-	return worldSpacePosition.xyz;
+    return worldSpacePosition.xyz;
 }

@@ -26,6 +26,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 #include <cstdio>
 
@@ -139,8 +140,9 @@ Lighting::Lighting() {
     // set up test lights
     this->setUpTestLights();
 
-    // set up skybox
+    // set up skybox and sky stuff
     this->setUpSkybox();
+    this->setUpSky();
 
     // Set up shadowing-related stuff
     this->setUpShadowing();
@@ -180,6 +182,8 @@ void Lighting::setUpShadowing() {
 
     XASSERT(FrameBuffer::isComplete(), "shadow mapping FBO incomplete");
     FrameBuffer::unbindRW();
+
+    this->showDebugWindow = true;
 }
 
 
@@ -279,38 +283,27 @@ void Lighting::setUpSkybox() {
 }
 
 /**
- * Sets up the default lights for testing.
+ * Sets up the sky renderer.
+ */
+void Lighting::setUpSky() {
+    using namespace gfx;
+
+    // just compile our shader. vertices are squelched from there
+    this->skyProgram = std::make_shared<ShaderProgram>("/lighting/sky.vert", "/lighting/sky.frag");
+    this->skyProgram->link();
+
+}
+
+/**
+ * Sets up the default lights.
  */
 void Lighting::setUpTestLights(void) {
-    // set up a test directional light
+    // emulate sun
     this->sun = std::make_shared<gfx::DirectionalLight>();
     this->sun->setDirection(glm::vec3(1, 0, 0));
     this->sun->setColor(glm::vec3(1, 1, 1));
 
     this->addLight(this->sun);
-
-/*	// set up a test spot light
-    this->spot = std::make_shared<gfx::SpotLight>();
-    this->spot->setInnerCutOff(12.5f);
-    this->spot->setOuterCutOff(17.5f);
-    this->spot->setLinearAttenuation(0.1f);
-    this->spot->setQuadraticAttenuation(0.8f);
-    this->spot->setColor(glm::vec3(1.0f, 0.33f, 0.33f));
-
-    this->addLight(this->spot);*/
-
-    // point lights
-    for(int i = 0; i < 4; i++) {
-        auto light = std::make_shared<gfx::PointLight>();
-
-        light->setPosition(glm::vec3(cubeLightPositions[i]));
-        light->setColor(glm::vec3(cubeLightColors[i]));
-
-        light->setLinearAttenuation(0.7f);
-        light->setQuadraticAttenuation(1.8f);
-
-        this->addLight(light);
-    }
 }
 
 /**
@@ -416,10 +409,10 @@ void Lighting::render(WorldRenderer *renderer) {
     // set viewport
     gl::glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
 
-    // Change direction based off time
-    float time = this->time / 7.5f;
-    float sunAngle = cos(time);
-    this->time += (1.0 / 60.0);
+    // update sun angle based on time-of-day
+    const auto time = renderer->getTime();
+    glm::vec3 sunDir(0, sin(time * M_PI_2), cos(time * M_PI_2));
+    this->sun->setDirection(sunDir);
 
     // use our lighting shader, bind textures and set their locations
     this->program->bind();
@@ -431,14 +424,10 @@ void Lighting::render(WorldRenderer *renderer) {
     this->shadowTex->bind();
 
     // Send ambient light
-    this->program->setUniform1f("ambientLight.Intensity", 0.05f);
+    this->program->setUniform1f("ambientLight.Intensity", this->ambientIntensity);
     this->program->setUniformVec("ambientLight.Colour", glm::vec3(1.0, 1.0, 1.0));
-    // this->sun->setDirection(glm::vec3(sunAngle, 0.f, 0.f));
 
     // send the different types of light
-    /*this->spot->setDirection(this->viewDirection);
-    this->spot->setPosition(this->viewPosition);*/
-
     this->sendLightsToShader();
 
     // send the camera position and inverse view matrix
@@ -453,6 +442,7 @@ void Lighting::render(WorldRenderer *renderer) {
 
     // light space matrix was fucked earlier
     this->program->setUniformMatrix("lightSpaceMatrix", this->shadowViewMatrix);
+    this->program->setUniform1f("shadowContribution", this->shadowFactor);
 
     // send fog properties
     this->program->setUniform1f("fogDensity", this->fogDensity);
@@ -471,9 +461,12 @@ void Lighting::render(WorldRenderer *renderer) {
     this->gDepth->unbind();
     this->shadowTex->unbind();
 
-    // render the skybox
+    // render the skybox and sky
     if(this->skyboxEnabled) {
         this->renderSkybox();
+    }
+    if(this->skyEnabled) {
+        this->renderSky(renderer);
     }
 }
 
@@ -483,7 +476,7 @@ void Lighting::render(WorldRenderer *renderer) {
 void Lighting::renderSkybox(void) {
     using namespace gfx;
     using namespace gl;
-    PROFILE_SCOPE(LightingSkybox);
+    PROFILE_SCOPE(Skybox);
 
     // re-enable depth testing
     glEnable(GL_DEPTH_TEST);
@@ -504,6 +497,36 @@ void Lighting::renderSkybox(void) {
     this->skyboxProgram->setUniform1i("skyboxTex", this->skyboxTexture->unit);
 
     glDrawArrays(GL_TRIANGLES, 0, 36);
+}
+
+/**
+ * Draws the sky itself.
+ */
+void Lighting::renderSky(WorldRenderer *r) {
+    using namespace gfx;
+    using namespace gl;
+    PROFILE_SCOPE(CloudsSky);
+
+    // bind program
+    this->skyProgram->bind();
+
+    glm::mat4 newView = glm::mat4(glm::mat3(this->viewMatrix));
+    this->skyProgram->setUniformMatrix("view", this->viewMatrix);
+    this->skyProgram->setUniformMatrix("projection", this->projectionMatrix);
+    this->skyProgram->setUniform1f("time", r->getTime());
+    this->skyProgram->setUniformVec("sunPosition", this->sun->getDirection());
+    this->skyProgram->setUniform1f("cirrus", this->skyCloudCirrus);
+    this->skyProgram->setUniform1f("cumulus", this->skyCloudCumulus);
+    this->skyProgram->setUniform1i("numCumulus", this->skyCumulusLayers);
+
+    // draw a full screen quad, WITH depth testing, behind everything else
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    // glDepthFunc(GL_LESS);
+
+    this->vao->bind();
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    VertexArray::unbind();
 }
 
 /**
@@ -558,7 +581,7 @@ void Lighting::unbindGBuffer(void) {
  * Adds a light to the list of lights. Each frame, these lights are sent to the GPU.
  */
 void Lighting::addLight(std::shared_ptr<gfx::lights::AbstractLight> light) {
-    this->lights.push_back(light);
+    this->lights.push_back(light);;
 }
 
 /**
@@ -604,7 +627,7 @@ void Lighting::renderShadowMap(WorldRenderer *wr) {
     // Calculate shadow view matrix
     glm::vec3 position = wr->getCamera().getCameraPosition();
     glm::vec3 lightDir = this->sun->getDirection();
-    glm::mat4 depthProjectionMatrix = glm::ortho<float>(-10, 10, -10, 10, zNear, zFar);
+    glm::mat4 depthProjectionMatrix = glm::ortho<float>(-100, 100, -100, 100, zNear, zFar);
 
     glm::vec3 shadowPos = position + (lightDir * 20.f / 2.f);
     glm::mat4 depthViewMatrix = glm::lookAt(shadowPos, -lightDir, glm::vec3(0,1,0));
@@ -621,7 +644,7 @@ void Lighting::renderShadowMap(WorldRenderer *wr) {
     glClear(GL_DEPTH_BUFFER_BIT);
 
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_EQUAL);
+    glDepthFunc(GL_LEQUAL);
 
     // set up culling: prevents peter panning
     glEnable(GL_CULL_FACE);
@@ -655,11 +678,22 @@ void Lighting::drawDebugWindow() {
         goto done;
     }
 
+    // sky
+    ImGui::Text("Sky");
+    ImGui::Separator();
+    ImGui::PushItemWidth(74);
+
+    ImGui::Checkbox("Enabled##sky", &this->skyEnabled);
+
+    ImGui::DragFloat("Cirrus Density", &this->skyCloudCirrus, 0.01, 0, 1);
+    ImGui::DragFloat("Cumulus Density", &this->skyCloudCumulus, 0.01, 0, 1);
+    ImGui::DragInt("Cumulus Layers", &this->skyCumulusLayers, 1, 1);
+
     // skybox
     ImGui::Text("Skybox");
     ImGui::Separator();
 
-    ImGui::Checkbox("Enabled", &this->skyboxEnabled);
+    ImGui::Checkbox("Enabled##skybox", &this->skyboxEnabled);
 
     // fog section
     ImGui::Text("Fog");
@@ -668,13 +702,17 @@ void Lighting::drawDebugWindow() {
     ImGui::DragFloat("Density", &this->fogDensity, 0.02, 0);
     ImGui::DragFloat("Offset", &this->fogOffset, 0.1, 0);
 
+    ImGui::PopItemWidth();
     ImGui::ColorEdit3("Color", &this->fogColor.x);
 
     // shadow section
     ImGui::Text("Shadows");
     ImGui::Separator();
 
-    ImGui::DragFloat("Shadow Coefficient", &this->shadowDirectionCoefficient, 0.02, 0.1, 6);
+    ImGui::PushItemWidth(74);
+    ImGui::DragFloat("Shadow Dir Coefficient", &this->shadowDirectionCoefficient, 0.02, 0.1, 6);
+    
+    ImGui::DragFloat("Shadow Coefficient", &this->shadowFactor, 0.02, 0, 1);
 
     i = std::max(std::min((int) ((log10(this->shadowW) / log10(2)) - 8), 4), 0);
     if(ImGui::BeginCombo("Shadow Map Size", kShadowSizes[i])) {
@@ -702,6 +740,9 @@ void Lighting::drawDebugWindow() {
     ImGui::Text("Lights");
     ImGui::Separator();
 
+    ImGui::DragFloat("Ambient Intensity", &this->ambientIntensity, 0.001, 0);
+
+    ImGui::PopItemWidth();
     this->drawLightsTable();
 
 done:;

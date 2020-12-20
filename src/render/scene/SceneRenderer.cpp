@@ -129,23 +129,6 @@ void SceneRenderer::render(const glm::mat4 &projView, const glm::vec3 &viewDir, 
 }
 
 /**
- * Prepares a chunk for drawing.
- */
-void SceneRenderer::prepareChunk(std::shared_ptr<gfx::RenderProgram> program,
-        std::shared_ptr<WorldChunk> chunk, bool hasNormal) {
-    // TODO: per chunk model matrix
-    glm::mat4 model(1);
-
-    program->setUniformMatrix("model", model);
-
-    if(hasNormal) {
-        glm::mat3 normalMatrix;
-        normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
-        program->setUniformMatrix("normalMatrix", normalMatrix);
-    }
-}
-
-/**
  * Cleans up some state after rendering.
  */
 void SceneRenderer::postRender(WorldRenderer *) {
