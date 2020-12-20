@@ -71,8 +71,17 @@ class AbstractLight {
         }
 
         /// gets the type of this light
-        LightType getType(void) {
+        LightType getType(void) const {
             return this->type;
+        }
+
+        /// sets whether this light is enabled, e.g. whether it's sent to the lighting shader
+        void setEnabled(const bool v) {
+            this->lightEnabled = v;
+        }
+        /// returns whether the light is enabled
+        bool isEnabled() const {
+            return this->lightEnabled;
         }
 
     protected:
@@ -84,6 +93,8 @@ class AbstractLight {
     private:
         glm::vec3 diffuseColor;
         glm::vec3 specularColor;
+
+        bool lightEnabled = true;
 };
 } /* namespace lights */
 } /* namespace gfx */

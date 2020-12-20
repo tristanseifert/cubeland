@@ -22,6 +22,7 @@
 #include <mutils/time/profiler.h>
 #include <glbinding/gl/gl.h>
 #include <glbinding/Binding.h>
+#include <FastNoise/FastNoise.h>
 #include <imgui.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -62,52 +63,6 @@ static const gl::GLfloat kQuadVertices[] = {
      1.0f, -1.0f, 0.0f,		1.0f, 0.0f,
 };
 
-static const gl::GLfloat kSkyboxVertices[] = {
-    // Positions
-    -1.0f,  1.0f, -1.0f,
-    -1.0f, -1.0f, -1.0f,
-     1.0f, -1.0f, -1.0f,
-     1.0f, -1.0f, -1.0f,
-     1.0f,  1.0f, -1.0f,
-    -1.0f,  1.0f, -1.0f,
-
-    -1.0f, -1.0f,  1.0f,
-    -1.0f, -1.0f, -1.0f,
-    -1.0f,  1.0f, -1.0f,
-    -1.0f,  1.0f, -1.0f,
-    -1.0f,  1.0f,  1.0f,
-    -1.0f, -1.0f,  1.0f,
-
-     1.0f, -1.0f, -1.0f,
-     1.0f, -1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f, -1.0f,
-     1.0f, -1.0f, -1.0f,
-
-    -1.0f, -1.0f,  1.0f,
-    -1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f, -1.0f,  1.0f,
-    -1.0f, -1.0f,  1.0f,
-
-    -1.0f,  1.0f, -1.0f,
-     1.0f,  1.0f, -1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-    -1.0f,  1.0f,  1.0f,
-    -1.0f,  1.0f, -1.0f,
-
-    -1.0f, -1.0f, -1.0f,
-    -1.0f, -1.0f,  1.0f,
-     1.0f, -1.0f, -1.0f,
-     1.0f, -1.0f, -1.0f,
-    -1.0f, -1.0f,  1.0f,
-     1.0f, -1.0f,  1.0f
-};
-
-
 /**
  * Initializes the lighting renderer.
  */
@@ -137,14 +92,15 @@ Lighting::Lighting() {
 
     VertexArray::unbind();
 
-    // set up test lights
-    this->setUpTestLights();
+    // create our lights (defaults)
+    this->sun = std::make_shared<gfx::DirectionalLight>();
+    this->sun->setDirection(glm::vec3(1, 0, 0));
+    this->sun->setColor(glm::vec3(1, 1, 1));
 
-    // set up skybox and sky stuff
-    this->setUpSkybox();
+    this->addLight(this->sun);
+
+    // set up some remaining components
     this->setUpSky();
-
-    // Set up shadowing-related stuff
     this->setUpShadowing();
 
     // tell our program which texture units are used
@@ -246,43 +202,6 @@ void Lighting::setUpRenderBuffer() {
 }
 
 /**
- * Initializes skybox-related structures.
- */
-void Lighting::setUpSkybox() {
-    using namespace gfx;
-
-    // Compile skybox shader and set up some vertex data
-    this->skyboxProgram = std::make_shared<ShaderProgram>("/lighting/skybox.vert", "/lighting/skybox.frag");
-    this->skyboxProgram->link();
-
-    vaoSkybox = std::make_shared<VertexArray>();
-    vboSkybox = std::make_shared<Buffer>(Buffer::Array);
-
-    vaoSkybox->bind();
-    vboSkybox->bind();
-
-    vboSkybox->bufferData(sizeof(kSkyboxVertices), (void *) kSkyboxVertices);
-    // index for vertices of skybox
-    vaoSkybox->registerVertexAttribPointer(0, 3, VertexArray::Float, 3 * sizeof(gl::GLfloat), 0);
-
-    VertexArray::unbind();
-
-    // load cubemap texture
-    std::vector<std::string> faces;
-    faces.push_back("/cube/potato/right.jpg");
-    faces.push_back("/cube/potato/left.jpg");
-    faces.push_back("/cube/potato/top.jpg");
-    faces.push_back("/cube/potato/bottom.jpg");
-    faces.push_back("/cube/potato/back.jpg");
-    faces.push_back("/cube/potato/front.jpg");
-
-    this->skyboxTexture = std::make_shared<TextureCube>(0);
-    this->skyboxTexture->setDebugName("SkyCube");
-    this->skyboxTexture->loadFromImages(faces, true);
-    TextureCube::unbind();
-}
-
-/**
  * Sets up the sky renderer.
  */
 void Lighting::setUpSky() {
@@ -292,27 +211,45 @@ void Lighting::setUpSky() {
     this->skyProgram = std::make_shared<ShaderProgram>("/lighting/sky.vert", "/lighting/sky.frag");
     this->skyProgram->link();
 
-}
+    // sky noise texture
+    this->skyNoiseTex = std::make_shared<Texture2D>(0);
+    this->skyNoiseTex->allocateBlank(this->skyNoiseTextureSize, this->skyNoiseTextureSize,
+            Texture2D::RED32F);
+    this->skyNoiseTex->setWrapMode(Texture2D::Repeat, Texture2D::Repeat);
+    this->skyNoiseTex->setDebugName("SkyNoise");
 
+    this->generateSkyNoise();
+}
 /**
- * Sets up the default lights.
+ * Generates the sky noise texture.
  */
-void Lighting::setUpTestLights(void) {
-    // emulate sun
-    this->sun = std::make_shared<gfx::DirectionalLight>();
-    this->sun->setDirection(glm::vec3(1, 0, 0));
-    this->sun->setColor(glm::vec3(1, 1, 1));
+void Lighting::generateSkyNoise() {
+    using namespace gfx;
 
-    this->addLight(this->sun);
+    // set up the noise generator and a temporary buffer
+    // static const char *kNodeTree = "IwAAAIA/PQrXPg4ABgAAAAAAAEAHAAAK16M+";
+    // static const char *kNodeTree="DgAGAAAAAAAAQAcAAArXoz4=";
+    static const char *kNodeTree="CAA=";
+    auto g = FastNoise::NewFromEncodedNodeTree(kNodeTree);
+
+    std::vector<float> data;
+    data.resize(this->skyNoiseTextureSize * this->skyNoiseTextureSize);
+
+    auto range = g->GenTileable2D(data.data(), this->skyNoiseTextureSize, this->skyNoiseTextureSize,
+            this->skyNoiseFrequency, this->skyNoiseSeed);
+
+    // normalize it to [-1, 1] range
+    Logging::trace("Noise range: [{}, {}]", range.min, range.max);
+
+    // transfer it to the texture (fresh allocation _may_ help some drivers)
+    this->skyNoiseTex->allocateBlank(this->skyNoiseTextureSize, this->skyNoiseTextureSize,
+            Texture2D::RED32F);
+    this->skyNoiseTex->bufferSubData(this->skyNoiseTextureSize, this->skyNoiseTextureSize, 0, 0, 
+            Texture2D::RED32F, data.data());
+
+    // clear flagules
+    this->skyNoiseNeedsUpdate = false;
 }
-
-/**
- * Tears down any resources we need to.
- */
-Lighting::~Lighting() {
-
-}
-
 
 
 /**
@@ -321,6 +258,11 @@ Lighting::~Lighting() {
 void Lighting::startOfFrame() {
     if(this->showDebugWindow) {
         this->drawDebugWindow();
+    }
+
+    // perform sky updates
+    if(this->skyEnabled && this->skyNoiseNeedsUpdate) {
+        this->generateSkyNoise();
     }
 }
 
@@ -338,6 +280,8 @@ void Lighting::sendLightsToShader(void) {
 
     // go through each type of light
     for(const auto &light : this->lights) {
+        if(!light->isEnabled()) continue;
+
         switch(light->getType()) {
             case AbstractLight::Directional:
                 light->sendToProgram(numDirectional++, this->program);
@@ -406,13 +350,9 @@ void Lighting::preRender(WorldRenderer *renderer) {
 void Lighting::render(WorldRenderer *renderer) {
     PROFILE_SCOPE(LightingRender);
 
-    // set viewport
+    // prepare for rendering
     gl::glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
-
-    // update sun angle based on time-of-day
-    const auto time = renderer->getTime();
-    glm::vec3 sunDir(0, sin(time * M_PI_2), cos(time * M_PI_2));
-    this->sun->setDirection(sunDir);
+    this->updateSunAngle(renderer);
 
     // use our lighting shader, bind textures and set their locations
     this->program->bind();
@@ -461,44 +401,52 @@ void Lighting::render(WorldRenderer *renderer) {
     this->gDepth->unbind();
     this->shadowTex->unbind();
 
-    // render the skybox and sky
-    if(this->skyboxEnabled) {
-        this->renderSkybox();
-    }
+    // render sky
     if(this->skyEnabled) {
         this->renderSky(renderer);
     }
 }
 
 /**
- * Renders the skybox.
+ * Updates the current sun angle.
  */
-void Lighting::renderSkybox(void) {
-    using namespace gfx;
-    using namespace gl;
-    PROFILE_SCOPE(Skybox);
+void Lighting::updateSunAngle(WorldRenderer *renderer) {
+    bool aboveHorizon = true;
 
-    // re-enable depth testing
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
+    const auto time = renderer->getTime();
+    glm::vec3 sunDir(0, sin(time * M_PI_2), cos(time * M_PI_2));
+    this->sunDirection = sunDir;
 
-    this->skyboxProgram->bind();
+    if(sunDir.y >= 0) {
+        this->sun->setDirection(sunDir);
+        this->sun->setEnabled(true);
+    } else {
+        this->sun->setEnabled(false);
+        aboveHorizon = false;
+    }
 
-    // calculate a new view matrix with translation components removed
-    glm::mat4 newView = glm::mat4(glm::mat3(this->viewMatrix));
+    // with the new sun angle, calculate the fog color (atmosphere color)
+    if(aboveHorizon) {
+        float Br = this->skyAtmosphereCoeff.x;
+        float Bm = this->skyAtmosphereCoeff.y;
+        float g =  this->skyAtmosphereCoeff.z;
 
-    this->skyboxProgram->setUniformMatrix("view", newView);
-    this->skyboxProgram->setUniformMatrix("projection", this->projectionMatrix);
+        const glm::vec3 Kr = Br / glm::pow(this->skyNitrogenCoeff, glm::vec3(4.0));
+        const glm::vec3 Km = Bm / glm::pow(this->skyNitrogenCoeff, glm::vec3(0.84));
 
-    // bind VAO, texture, then draw
-    this->vaoSkybox->bind();
+        const glm::vec3 pos = this->skyFogColorPosition;
+        const float mu = glm::dot(glm::normalize(pos), glm::normalize(this->sunDirection));
 
-    this->skyboxTexture->bind();
-    this->skyboxProgram->setUniform1i("skyboxTex", this->skyboxTexture->unit);
+        glm::vec3 extinction = glm::mix(glm::exp(-glm::exp(-((pos.y + sunDir.y * 4.f) * (glm::exp(-pos.y * 16.f) + 0.1f) / 80.f) / Br) * (glm::exp(-pos.y * 16.f) + 0.1f) * Kr / Br) * glm::exp(-pos.y * exp(-pos.y * 8.f) * 4.f) * glm::exp(-pos.y * 2.f) * 4.f, glm::vec3(1.f - glm::exp(sunDir.y)) * 0.2f, -sunDir.y * 0.2f + 0.5f);
+        glm::vec3 color = 3.f / (8.f * 3.14f) * (1.f + mu * mu) * (Kr + Km * (1.f - g * g) / (2.f + g * g) / glm::pow(1.f + g * g - 2.f * g * mu, 1.5f)) / (Br + Bm) * extinction;
 
-    glDrawArrays(GL_TRIANGLES, 0, 36);
+        this->fogColor = glm::normalize(color);
+    }
+    // sun is below horizon, force a deep black
+    else {
+        this->fogColor = glm::vec3(0.03);
+    }
 }
-
 /**
  * Draws the sky itself.
  */
@@ -514,16 +462,24 @@ void Lighting::renderSky(WorldRenderer *r) {
     this->skyProgram->setUniformMatrix("view", this->viewMatrix);
     this->skyProgram->setUniformMatrix("projection", this->projectionMatrix);
     this->skyProgram->setUniform1f("time", r->getTime());
-    this->skyProgram->setUniformVec("sunPosition", this->sun->getDirection());
-    this->skyProgram->setUniform1f("cirrus", this->skyCloudCirrus);
-    this->skyProgram->setUniform1f("cumulus", this->skyCloudCumulus);
-    this->skyProgram->setUniform1i("numCumulus", this->skyCumulusLayers);
+    this->skyProgram->setUniformVec("sunPosition", this->sunDirection);
+
+    if(this->skyNeedsUpdate) {
+        this->skyProgram->setUniform1f("cirrus", this->skyCloudCirrus);
+        this->skyProgram->setUniform1f("cumulus", this->skyCloudCumulus);
+        this->skyProgram->setUniform1i("numCumulus", this->skyCumulusLayers);
+        this->skyProgram->setUniformVec("cloudVelocities", this->skyCloudVelocities);
+        this->skyProgram->setUniformVec("nitrogen", this->skyNitrogenCoeff);
+        this->skyProgram->setUniformVec("scatterCoeff", this->skyAtmosphereCoeff);
+        // this->skyProgram->setUniform1i("noiseTex", this->skyNoiseTex->unit);
+    }
 
     // draw a full screen quad, WITH depth testing, behind everything else
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
     // glDepthFunc(GL_LESS);
 
+    this->skyNoiseTex->bind();
     this->vao->bind();
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     VertexArray::unbind();
@@ -683,27 +639,60 @@ void Lighting::drawDebugWindow() {
     ImGui::Separator();
     ImGui::PushItemWidth(74);
 
-    ImGui::Checkbox("Enabled##sky", &this->skyEnabled);
+    if(ImGui::Checkbox("Enabled##sky", &this->skyEnabled)) {
+        this->skyNeedsUpdate = true;
+    }
 
-    ImGui::DragFloat("Cirrus Density", &this->skyCloudCirrus, 0.01, 0, 1);
-    ImGui::DragFloat("Cumulus Density", &this->skyCloudCumulus, 0.01, 0, 1);
-    ImGui::DragInt("Cumulus Layers", &this->skyCumulusLayers, 1, 1);
+    if(ImGui::DragFloat("Cirrus Density", &this->skyCloudCirrus, 0.01, 0, 1, "%.4f")) {
+        this->skyNeedsUpdate = true;
+    }
+    if(ImGui::DragFloat("Cumulus Density", &this->skyCloudCumulus, 0.01, 0, 1, "%.4f")) {
+        this->skyNeedsUpdate = true;
+    }
+    if(ImGui::DragFloat2("Cloud Velocity", &this->skyCloudVelocities.x, 0.01, 0)) {
+        this->skyNeedsUpdate = true;
+    }
+    if(ImGui::DragInt("Cumulus Layers", &this->skyCumulusLayers, 1, 1)) {
+        this->skyNeedsUpdate = true;
+    }
 
-    // skybox
-    ImGui::Text("Skybox");
-    ImGui::Separator();
+    ImGui::PushItemWidth(150);
+    if(ImGui::ColorEdit3("Nitrogen Color", &this->skyNitrogenCoeff.x)) {
+        this->skyNeedsUpdate = true;
+    }
+    ImGui::PopItemWidth();
 
-    ImGui::Checkbox("Enabled##skybox", &this->skyboxEnabled);
+    if(ImGui::DragFloat("Rayleigh Coefficient", &this->skyAtmosphereCoeff.x, 0.001, 0, 1, "%.4f")) {
+        this->skyNeedsUpdate = true;
+    }
+    if(ImGui::DragFloat("Mie Coefficient", &this->skyAtmosphereCoeff.y, 0.001, 0, 1, "%.4f")) {
+        this->skyNeedsUpdate = true;
+    }
+    if(ImGui::DragFloat("Mie Scatter Direction", &this->skyAtmosphereCoeff.z, 0.001, 0, 1, "%.4f")) {
+        this->skyNeedsUpdate = true;
+    }
 
-    // fog section
+    if(ImGui::DragFloat("Noise Frequency", &this->skyNoiseFrequency, 0.001, -1, 1, "%.4f")) {
+        this->skyNoiseNeedsUpdate = true;
+    }
+    if(ImGui::DragInt("Noise Seed", &this->skyNoiseSeed)) {
+        this->skyNoiseNeedsUpdate = true;
+    }
+
+    ImGui::PushItemWidth(150);
+    ImGui::DragFloat3("Fog Position", &this->skyFogColorPosition.x, 0.001);
+    ImGui::PopItemWidth();
+
+    // fog
     ImGui::Text("Fog");
     ImGui::Separator();
 
     ImGui::DragFloat("Density", &this->fogDensity, 0.02, 0);
     ImGui::DragFloat("Offset", &this->fogOffset, 0.1, 0);
 
-    ImGui::PopItemWidth();
+    ImGui::PushItemWidth(150);
     ImGui::ColorEdit3("Color", &this->fogColor.x);
+    ImGui::PopItemWidth();
 
     // shadow section
     ImGui::Text("Shadows");
@@ -711,7 +700,7 @@ void Lighting::drawDebugWindow() {
 
     ImGui::PushItemWidth(74);
     ImGui::DragFloat("Shadow Dir Coefficient", &this->shadowDirectionCoefficient, 0.02, 0.1, 6);
-    
+
     ImGui::DragFloat("Shadow Coefficient", &this->shadowFactor, 0.02, 0, 1);
 
     i = std::max(std::min((int) ((log10(this->shadowW) / log10(2)) - 8), 4), 0);

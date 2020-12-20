@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
 
@@ -36,7 +37,6 @@ class Lighting : public RenderStep {
 
     public:
         Lighting();
-        ~Lighting();
 
         void startOfFrame();
         void preRender(WorldRenderer *);
@@ -57,14 +57,12 @@ class Lighting : public RenderStep {
     private:
         void setUpRenderBuffer();
 
-        void setUpTestLights(void);
         void sendLightsToShader(void);
 
-        void setUpSkybox(void);
-        void renderSkybox(void);
-
         void setUpSky();
+        void generateSkyNoise();
         void renderSky(WorldRenderer *);
+        void updateSunAngle(WorldRenderer *);
 
         void setUpShadowing(void);
 
@@ -97,20 +95,13 @@ class Lighting : public RenderStep {
         std::shared_ptr<gfx::DirectionalLight> sun = nullptr;
 
     private:
-        // the skybox is drawn after the lighting pass
-        std::shared_ptr<gfx::VertexArray> vaoSkybox = nullptr;
-        std::shared_ptr<gfx::Buffer> vboSkybox = nullptr;
-
-        std::shared_ptr<gfx::ShaderProgram> skyboxProgram = nullptr;
-
-        std::shared_ptr<gfx::TextureCube> skyboxTexture = nullptr;
-
-        bool skyboxEnabled = false;
-
-    private:
         std::shared_ptr<gfx::ShaderProgram> skyProgram = nullptr;
+        std::shared_ptr<gfx::Texture2D> skyNoiseTex = nullptr;
 
         bool skyEnabled = true;
+
+        // when set, the sky data is re-sent to the shader
+        bool skyNeedsUpdate = true;
 
         // density of cirrus clouds
         float skyCloudCirrus = 0.4;
@@ -118,6 +109,28 @@ class Lighting : public RenderStep {
         float skyCloudCumulus = 0.8;
         // number of cumulus cloud drawing layers
         int skyCumulusLayers = 3;
+        // cloud velocity factors (x = cirrus, y = cumulus)
+        glm::vec2 skyCloudVelocities = glm::vec2(2.74, 1.74);
+
+        // nitrogen scattering coefficients (color)
+        glm::vec3 skyNitrogenCoeff = glm::vec3(0.650, 0.570, 0.475);
+        // atmosphere scattering coefficients (Rayleigh/Mie coeff, Mie scattering dir)
+        glm::vec3 skyAtmosphereCoeff = glm::vec3(0.002, 0.0009, 0.9200);
+
+        // direction of the sun in the sky
+        glm::vec3 sunDirection;
+
+        // when set, we re-generate sky noise and upload it to the noise texture
+        bool skyNoiseNeedsUpdate = true;
+        // size of the noise texture (square)
+        size_t skyNoiseTextureSize = 256;
+        // seed to use for sky noise texture
+        int32_t skyNoiseSeed = 420;
+        // frequency of sky noise
+        float skyNoiseFrequency = 0.016;
+
+        // position to input to the sky color evaluation
+        glm::vec3 skyFogColorPosition = glm::vec3(0, 0.0009, 0.266);
 
     private:
         // Fog density and color

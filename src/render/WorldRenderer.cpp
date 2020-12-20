@@ -75,7 +75,9 @@ void WorldRenderer::willBeginFrame() {
     }
 
     // increment time (XXX: debug testing)
-    this->time += 1./3600.;
+    if(!this->paused) {
+        this->time += 1./3600.;
+    }
 }
 
 /**

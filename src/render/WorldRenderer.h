@@ -73,6 +73,8 @@ class WorldRenderer: public gui::RunLoopStep {
          * noon, and 0 is midnight at the start of the day.
          */
         double time = 0;
+        /// when set, time does NOT advance every frame
+        bool paused = false;
 
         // near and far clipping planes
         float zNear = 0.1f;

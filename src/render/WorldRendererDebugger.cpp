@@ -26,6 +26,14 @@ void WorldRendererDebugger::draw() {
     ImGui::SameLine();
     ImGui::Text("%g", this->renderer->getTime());
 
+    ImGui::Checkbox("Paused", &this->renderer->paused);
+    if(this->renderer->paused) {
+        float time = this->renderer->time;
+        if(ImGui::DragFloat("Time", &time, 0.001, 0)) {
+            this->renderer->time = time;
+        }
+    }
+
     if(ImGui::CollapsingHeader("View")) {
         this->drawFovUi();
     }

@@ -142,12 +142,6 @@ ALIAS cubeland::rsrc_models WHENCE rsrc/models NAMESPACE models)
 
 # textures
 cmrc_add_resource_library(cubeland-rsrc-textures
-    rsrc/textures/cube/potato/top.jpg
-    rsrc/textures/cube/potato/back.jpg
-    rsrc/textures/cube/potato/left.jpg
-    rsrc/textures/cube/potato/front.jpg
-    rsrc/textures/cube/potato/right.jpg
-    rsrc/textures/cube/potato/bottom.jpg
     rsrc/textures/test/empty/whitegreen.png
 ALIAS cubeland::rsrc_textures WHENCE rsrc/textures NAMESPACE textures)
 target_link_libraries(cubeland PRIVATE cubeland::rsrc_textures)
