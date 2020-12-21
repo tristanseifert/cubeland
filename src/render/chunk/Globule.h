@@ -27,6 +27,7 @@ namespace gfx {
 class VertexArray;
 class Buffer;
 class RenderProgram;
+class Texture2D;
 }
 
 namespace render::chunk {
@@ -44,11 +45,13 @@ class Globule {
         void startOfFrame();
         void draw(std::shared_ptr<gfx::RenderProgram> &program);
 
+        static void fillNormalTex(std::shared_ptr<gfx::Texture2D> &tex);
+
     private:
         struct BlockVertex {
             glm::vec3 position;
-            glm::vec3 normal;
             glm::vec2 uv;
+            gl::GLint faceId;
         };
 
         /*

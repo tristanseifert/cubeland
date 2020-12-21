@@ -1,10 +1,3 @@
-/*
- * VertexArray.cpp
- *
- *  Created on: Aug 21, 2015
- *      Author: tristan
- */
-
 #include "VertexArray.h"
 
 #include <iostream>
@@ -20,14 +13,14 @@ namespace gfx {
  * Allocates a vertex array object.
  */
 VertexArray::VertexArray() {
-	glGenVertexArrays(1, &this->vao);
+    glGenVertexArrays(1, &this->vao);
 }
 
 /**
  * Deallocates the VAO.
  */
 VertexArray::~VertexArray() {
-	glDeleteVertexArrays(1, &this->vao);
+    glDeleteVertexArrays(1, &this->vao);
 }
 
 /**
@@ -35,46 +28,46 @@ VertexArray::~VertexArray() {
  * size to the OpenGL analogue.
  */
 GLenum VertexArray::attribTypeGL(VertexAttribType size) {
-	switch(size) {
-		case Byte:
-			return GL_BYTE;
-		case UnsignedByte:
-			return GL_UNSIGNED_BYTE;
-		case Short:
-			return GL_SHORT;
-		case UnsignedShort:
-			return GL_UNSIGNED_SHORT;
-		case Integer:
-			return GL_INT;
-		case UnsignedInteger:
-			return GL_UNSIGNED_INT;
+    switch(size) {
+        case Byte:
+            return GL_BYTE;
+        case UnsignedByte:
+            return GL_UNSIGNED_BYTE;
+        case Short:
+            return GL_SHORT;
+        case UnsignedShort:
+            return GL_UNSIGNED_SHORT;
+        case Integer:
+            return GL_INT;
+        case UnsignedInteger:
+            return GL_UNSIGNED_INT;
 
-		case HalfFloat:
-			return GL_HALF_FLOAT;
-		case Float:
-			return GL_FLOAT;
-		case Double:
-			return GL_DOUBLE;
-		case Fixed:
-			return GL_FIXED;
-	}
+        case HalfFloat:
+            return GL_HALF_FLOAT;
+        case Float:
+            return GL_FLOAT;
+        case Double:
+            return GL_DOUBLE;
+        case Fixed:
+            return GL_FIXED;
+    }
 
-	// we should not get down here
-	return (GLenum) 0;
+    // we should not get down here
+    return (GLenum) 0;
 }
 
 /**
  * Binds the VAO.
  */
 void VertexArray::bind(void) {
-	glBindVertexArray(this->vao);
+    glBindVertexArray(this->vao);
 }
 
 /**
  * Breaks the existing vertex array association.
  */
 void VertexArray::unbind(void) {
-	glBindVertexArray(0);
+    glBindVertexArray(0);
 }
 
 /**
@@ -104,4 +97,22 @@ void VertexArray::registerVertexAttribPointer(GLuint index, GLint size, VertexAt
     }
 }
 
+/**
+ * Same as above, `registerVertexAttribPointer` but integer values are left as-is.
+ */
+void VertexArray::registerVertexAttribPointerInt(GLuint index, GLint size, VertexAttribType type,
+        GLsizei stride, size_t offset, GLuint divisor) {
+    // bind the VAO
+    this->bind();
+
+    // enable the array
+    glEnableVertexAttribArray(index);
+
+    // register the pointer and set divisor if nonzero (which is the default)
+    glVertexAttribIPointer(index, size, attribTypeGL(type), stride, (void *) offset);
+
+    if(divisor) {
+        glVertexAttribDivisor(index, divisor);
+    }
+}
 } /* namespace gfx */

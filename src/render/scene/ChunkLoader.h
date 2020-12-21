@@ -22,6 +22,7 @@
 
 namespace gfx {
 class RenderProgram;
+class Texture2D;
 }
 namespace world {
 struct Chunk;
@@ -102,6 +103,13 @@ class ChunkLoader {
         constexpr static const float kOverlayAlpha = 0.74f;
 
     private:
+        /**
+         * Data texture used to store the globule vertex normal data. This does not change at all
+         * and is the same 4*6 different values for ALL vertices rendered, so we store it in a
+         * texture and index into it in the shader, rather than wasting 12 bytes of vertex data.
+         */
+        std::shared_ptr<gfx::Texture2D> globuleNormalTex = nullptr;
+
         /**
          * Visibility map for chunks, based on current (primary) view direction
          *

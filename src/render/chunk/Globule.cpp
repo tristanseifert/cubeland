@@ -4,6 +4,7 @@
 
 #include "gfx/gl/buffer/Buffer.h"
 #include "gfx/gl/buffer/VertexArray.h"
+#include "gfx/gl/texture/Texture2D.h"
 #include "gfx/model/RenderProgram.h"
 #include "world/chunk/Chunk.h"
 #include "world/chunk/ChunkSlice.h"
@@ -39,10 +40,10 @@ Globule::Globule(WorldChunk *_chunk, const glm::vec3 _pos) : position(_pos), chu
     const size_t kVertexSize = sizeof(BlockVertex);
     this->facesVao->registerVertexAttribPointer(0, 3, VertexArray::Float, kVertexSize,
             0); // vertex position
-    this->facesVao->registerVertexAttribPointer(1, 3, VertexArray::Float, kVertexSize,
-            3 * sizeof(gl::GLfloat)); // normals
-    this->facesVao->registerVertexAttribPointer(2, 2, VertexArray::Float, kVertexSize,
-            6 * sizeof(gl::GLfloat)); // texture coordinate
+    this->facesVao->registerVertexAttribPointer(1, 2, VertexArray::Float, kVertexSize, 
+            offsetof(BlockVertex, uv)); // texture coordinate
+    this->facesVao->registerVertexAttribPointerInt(2, 1, VertexArray::Integer, kVertexSize,
+            offsetof(BlockVertex, faceId)); // face ID
 
     VertexArray::unbind();
 }
@@ -325,12 +326,11 @@ void Globule::insertBlockVertices(const AirMap &am, size_t x, size_t y, size_t z
 
     // is the left edge exposed?
     if(x == 0 || am.current[airMapOff - 1]) {
-        const glm::vec3 kNormal(-1, 0, 0);
         this->vertexData.insert(this->vertexData.end(), {
-            {pos + glm::vec3(0,0,1), kNormal, glm::vec2(0,1)},
-            {pos + glm::vec3(0,1,1), kNormal, glm::vec2(1,1)},
-            {pos + glm::vec3(0,1,0), kNormal, glm::vec2(1,0)},
-            {pos + glm::vec3(0,0,0), kNormal, glm::vec2(0,0)},
+            {pos + glm::vec3(0,0,1), glm::vec2(0,1), 0x00 + 0},
+            {pos + glm::vec3(0,1,1), glm::vec2(1,1), 0x00 + 1},
+            {pos + glm::vec3(0,1,0), glm::vec2(1,0), 0x00 + 2},
+            {pos + glm::vec3(0,0,0), glm::vec2(0,0), 0x00 + 3},
         });
         this->indexData.insert(this->indexData.end(), 
                 {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
@@ -338,12 +338,11 @@ void Globule::insertBlockVertices(const AirMap &am, size_t x, size_t y, size_t z
     }
     // is the right edge exposed?
     if(x == 255 || am.current[airMapOff + 1]) {
-        const glm::vec3 kNormal(1, 0, 0);
         this->vertexData.insert(this->vertexData.end(), {
-            {pos + glm::vec3(1,0,0), kNormal, glm::vec2(0,1)},
-            {pos + glm::vec3(1,1,0), kNormal, glm::vec2(1,1)},
-            {pos + glm::vec3(1,1,1), kNormal, glm::vec2(1,0)},
-            {pos + glm::vec3(1,0,1), kNormal, glm::vec2(0,0)},
+            {pos + glm::vec3(1,0,0), glm::vec2(0,1), 0x10 + 0},
+            {pos + glm::vec3(1,1,0), glm::vec2(1,1), 0x10 + 1},
+            {pos + glm::vec3(1,1,1), glm::vec2(1,0), 0x10 + 2},
+            {pos + glm::vec3(1,0,1), glm::vec2(0,0), 0x10 + 3},
         });
         this->indexData.insert(this->indexData.end(), 
                 {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
@@ -351,12 +350,11 @@ void Globule::insertBlockVertices(const AirMap &am, size_t x, size_t y, size_t z
     }
     // is the bottom exposed?
     if(y == 0 || am.below[airMapOff]) {
-        const glm::vec3 kNormal(0, -1, 0);
         this->vertexData.insert(this->vertexData.end(), {
-            {pos + glm::vec3(0,0,0), kNormal, glm::vec2(0,1)},
-            {pos + glm::vec3(1,0,0), kNormal, glm::vec2(1,1)},
-            {pos + glm::vec3(1,0,1), kNormal, glm::vec2(1,0)},
-            {pos + glm::vec3(0,0,1), kNormal, glm::vec2(0,0)},
+            {pos + glm::vec3(0,0,0), glm::vec2(0,1), 0x20 + 0},
+            {pos + glm::vec3(1,0,0), glm::vec2(1,1), 0x20 + 1},
+            {pos + glm::vec3(1,0,1), glm::vec2(1,0), 0x20 + 2},
+            {pos + glm::vec3(0,0,1), glm::vec2(0,0), 0x20 + 3},
         });
         this->indexData.insert(this->indexData.end(), 
                 {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
@@ -364,12 +362,11 @@ void Globule::insertBlockVertices(const AirMap &am, size_t x, size_t y, size_t z
     }
     // is the top exposed?
     if((y + 1) >= 255 || am.above[airMapOff]) {
-        const glm::vec3 kNormal(0, 1, 0);
         this->vertexData.insert(this->vertexData.end(), {
-            {pos + glm::vec3(0,1,1), kNormal, glm::vec2(0,1)},
-            {pos + glm::vec3(1,1,1), kNormal, glm::vec2(1,1)},
-            {pos + glm::vec3(1,1,0), kNormal, glm::vec2(1,0)},
-            {pos + glm::vec3(0,1,0), kNormal, glm::vec2(0,0)},
+            {pos + glm::vec3(0,1,1), glm::vec2(0,1), 0x30 + 0},
+            {pos + glm::vec3(1,1,1), glm::vec2(1,1), 0x30 + 1},
+            {pos + glm::vec3(1,1,0), glm::vec2(1,0), 0x30 + 2},
+            {pos + glm::vec3(0,1,0), glm::vec2(0,0), 0x30 + 3},
         });
         this->indexData.insert(this->indexData.end(), 
                 {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
@@ -377,12 +374,11 @@ void Globule::insertBlockVertices(const AirMap &am, size_t x, size_t y, size_t z
     }
     // is the z-1 edge exposed?
     if(z == 0 || am.current[airMapOff - 0x100]) {
-        const glm::vec3 kNormal(0, 0, -1);
         this->vertexData.insert(this->vertexData.end(), {
-            {pos + glm::vec3(0,1,0), kNormal, glm::vec2(0,1)},
-            {pos + glm::vec3(1,1,0), kNormal, glm::vec2(1,1)},
-            {pos + glm::vec3(1,0,0), kNormal, glm::vec2(1,0)},
-            {pos + glm::vec3(0,0,0), kNormal, glm::vec2(0,0)},
+            {pos + glm::vec3(0,1,0), glm::vec2(0,1), 0x40 + 0},
+            {pos + glm::vec3(1,1,0), glm::vec2(1,1), 0x40 + 1},
+            {pos + glm::vec3(1,0,0), glm::vec2(1,0), 0x40 + 2},
+            {pos + glm::vec3(0,0,0), glm::vec2(0,0), 0x40 + 3},
         });
         this->indexData.insert(this->indexData.end(), 
                 {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
@@ -390,12 +386,11 @@ void Globule::insertBlockVertices(const AirMap &am, size_t x, size_t y, size_t z
     }
     // is the z+2 edge exposed?
     if(z == 255 || am.current[airMapOff + 0x100]) {
-        const glm::vec3 kNormal(0,0,1);
         this->vertexData.insert(this->vertexData.end(), {
-            {pos + glm::vec3(0,0,1), kNormal, glm::vec2(0,1)},
-            {pos + glm::vec3(1,0,1), kNormal, glm::vec2(1,1)},
-            {pos + glm::vec3(1,1,1), kNormal, glm::vec2(1,0)},
-            {pos + glm::vec3(0,1,1), kNormal, glm::vec2(0,0)},
+            {pos + glm::vec3(0,0,1), glm::vec2(0,1), 0x50 + 0},
+            {pos + glm::vec3(1,0,1), glm::vec2(1,1), 0x50 + 1},
+            {pos + glm::vec3(1,1,1), glm::vec2(1,0), 0x50 + 2},
+            {pos + glm::vec3(0,1,1), glm::vec2(0,0), 0x50 + 3},
         });
         this->indexData.insert(this->indexData.end(), 
                 {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
@@ -422,7 +417,8 @@ void Globule::buildAirMap(world::ChunkSlice *slice, std::bitset<256*256> &b) {
     }
 
     // iterate over every row
-    for(size_t z = std::max((int)this->position.z - 1, 0); z < std::min((int)this->position.z + 65, 256); z++) {
+    for(size_t z = 0; z < 256; z++) {
+    // for(size_t z = std::max((int)this->position.z - 1, 0); z < std::min((int)this->position.z + 65, 256); z++) {
         // ignore empty rows
         const size_t zOff = ((z & 0xFF) << 8);
         auto row = slice->rows[z];
@@ -437,7 +433,8 @@ void Globule::buildAirMap(world::ChunkSlice *slice, std::bitset<256*256> &b) {
 
         // iterate each block in the row to determine if it's air or not
         const auto &airMap = this->exposureIdMaps[row->typeMap];
-        for(size_t x = std::max((int)this->position.x, 0); x < std::min((int)this->position.x + 65, 256); x++) {
+        for(size_t x = 0; x < 256; x++) {
+        // for(size_t x = std::max((int)this->position.x, 0); x < std::min((int)this->position.x + 65, 256); x++) {
             const bool isAir = airMap[row->at(x)];
             b[zOff + x] = isAir;
         }
@@ -480,5 +477,43 @@ void Globule::generateBlockIdMap() {
     }
 
     this->exposureIdMaps = std::move(maps);
+}
+
+/**
+ * Fills the given texture with normal data for all faces a globule may secrete.
+ *
+ * For each face of the cube, we generate 4 vertices; this texture is laid out such that the face
+ * index indexes into the Y coordinate, while the vertex index (0-3) indexes into the X coordinate;
+ * that is to say, the texture is 4x6 in size.
+ *
+ * In the texture, the RGB component encodes the XYZ of the normal. The alpha component is set to
+ * 1, but is not currently used.
+ */
+void Globule::fillNormalTex(std::shared_ptr<gfx::Texture2D> &tex) {
+    using namespace gfx;
+
+    std::vector<glm::vec4> data;
+    data.resize(4 * 6);
+
+    // static normal data indexed by face
+    static const glm::vec3 normals[6] = {
+        glm::vec3(-1, 0, 0),
+        glm::vec3(1, 0, 0),
+        glm::vec3(0, -1, 0),
+        glm::vec3(0, 1, 0),
+        glm::vec3(0, 0, -1),
+        glm::vec3(0, 0, 1),
+    };
+
+    for(size_t y = 0; y < 6; y++) {
+        const size_t yOff = (y * 4);
+        for(size_t x = 0; x < 4; x++) {
+            data[yOff + x] = glm::vec4(normals[y], 1);
+        }
+    }
+
+    // allocate texture data and send it
+    tex->allocateBlank(4, 6, Texture2D::RGBA16F);
+    tex->bufferSubData(4, 6, 0, 0,  Texture2D::RGBA16F, data.data());
 }
 

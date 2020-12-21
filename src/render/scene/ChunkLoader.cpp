@@ -1,9 +1,11 @@
 #include "ChunkLoader.h"
 
 #include "render/chunk/WorldChunk.h"
+#include "render/chunk/Globule.h"
 #include "render/chunk/ChunkWorker.h"
 #include "world/chunk/Chunk.h"
 #include "world/WorldSource.h"
+#include "gfx/gl/texture/Texture2D.h"
 #include "gfx/model/RenderProgram.h"
 #include "io/Format.h"
 #include <Logging.h>
@@ -23,6 +25,13 @@ using namespace render::scene;
  * Initializes the chunk loader.
  */
 ChunkLoader::ChunkLoader() {
+    // allocate the face ID -> normal coordinate texture
+    this->globuleNormalTex = std::make_shared<gfx::Texture2D>(1);
+    this->globuleNormalTex->setUsesLinearFiltering(false);
+    this->globuleNormalTex->setDebugName("ChunkNormalMap");
+
+    chunk::Globule::fillNormalTex(this->globuleNormalTex);
+
     // set up chunk collection
     this->initDisplayChunks();
 }
@@ -420,6 +429,12 @@ void ChunkLoader::loadChunk(const glm::ivec2 position) {
  */
 void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> program, const glm::vec3 &viewDirection) {
     const bool withNormals = program->rendersColor();
+
+    // bind data textures/buffers
+    if(program->rendersColor()) {
+        this->globuleNormalTex->bind();
+        program->setUniform1i("vtxNormalTex", this->globuleNormalTex->unit);
+    }
 
     // draw chunks
     for(auto [pos, info] : this->chunks) {
