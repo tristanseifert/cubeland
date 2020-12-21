@@ -7,6 +7,7 @@ layout (location = 2) in uint faceId;
 out vec3 WorldPos;
 out vec2 TexCoords;
 out vec3 Normal;
+flat out ivec2 BlockInfoPos;
 
 uniform mat4 model;
 uniform mat4 projectionView; // projection * view
@@ -22,14 +23,22 @@ void main() {
     uint face = (faceId & 0xF0U) >> 4;
     uint idx = (faceId & 0x0FU);
 
-    vec2 faceDataUv = vec2(float(idx) / 4.0, float(face) / 6);
-    vec3 normal = texture(vtxNormalTex, faceDataUv).rgb;
+    vec3 normal = texelFetch(vtxNormalTex, ivec2(idx, face), 0).rgb;
+
+    // read the texture coordinates. see block registry docs on how this texture is formatted
+    BlockInfoPos = ivec2(0, blockId);
+
+    ivec2 uvInfoCoords = ivec2((min(2, face) * 2) + idx/2, BlockInfoPos.y);
+
+    if(idx == 0 || idx == 2) { // odd indices are the first two components
+        TexCoords = texelFetch(blockTypeDataTex, uvInfoCoords, 0).st;
+    } else {
+        TexCoords = texelFetch(blockTypeDataTex, uvInfoCoords, 0).pq;
+    }
 
     // Forward the world position and texture coordinates
     vec4 worldPos = model * vec4(position, 1);
     WorldPos = worldPos.xyz;
-    // TexCoords = texCoords;
-    TexCoords = vec2(0, 1);
 
     // Set position of the vertex pls
     gl_Position = projectionView * worldPos;

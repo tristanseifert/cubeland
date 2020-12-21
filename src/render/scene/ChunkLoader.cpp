@@ -4,6 +4,7 @@
 #include "render/chunk/Globule.h"
 #include "render/chunk/ChunkWorker.h"
 #include "world/chunk/Chunk.h"
+#include "world/block/BlockRegistry.h"
 #include "world/WorldSource.h"
 #include "gfx/gl/texture/Texture2D.h"
 #include "gfx/model/RenderProgram.h"
@@ -31,6 +32,21 @@ ChunkLoader::ChunkLoader() {
     this->globuleNormalTex->setDebugName("ChunkNormalMap");
 
     chunk::Globule::fillNormalTex(this->globuleNormalTex);
+
+    // allocate a texture holding block ID info data
+    this->blockInfoTex = std::make_shared<gfx::Texture2D>(2);
+    this->blockInfoTex->setUsesLinearFiltering(false);
+    this->blockInfoTex->setDebugName("ChunkBlockInfo");
+
+    glm::ivec2 dataTexSize;
+    std::vector<glm::vec4> data;
+
+    BlockRegistry::generateBlockData(dataTexSize, data);
+    Logging::debug("Block data texture is {}; have {} elements {}", dataTexSize, data.size(), data[32]);
+
+    // TODO: investigate why a 2 component format does NOT work
+    this->blockInfoTex->allocateBlank(dataTexSize.x, dataTexSize.y, gfx::Texture2D::RGBA16F);
+    this->blockInfoTex->bufferSubData(dataTexSize.x, dataTexSize.y, 0, 0,  gfx::Texture2D::RGBA16F, data.data());
 
     // set up chunk collection
     this->initDisplayChunks();
@@ -432,6 +448,9 @@ void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> program, const glm::v
 
     // bind data textures/buffers
     if(program->rendersColor()) {
+        this->blockInfoTex->bind();
+        program->setUniform1i("blockTypeDataTex", this->blockInfoTex->unit);
+
         this->globuleNormalTex->bind();
         program->setUniform1i("vtxNormalTex", this->globuleNormalTex->unit);
     }

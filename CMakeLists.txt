@@ -91,6 +91,7 @@ add_executable(cubeland
     src/world/WorldSource.cpp
     src/world/debug/WorldDebugger.cpp
     src/world/block/BlockRegistry.cpp
+    src/world/block/BlockDataGenerator.cpp
     src/world/generators/Terrain.cpp
 # resources and other misc stuff
     ${version_file}

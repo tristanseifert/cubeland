@@ -111,6 +111,13 @@ class ChunkLoader {
         std::shared_ptr<gfx::Texture2D> globuleNormalTex = nullptr;
 
         /**
+         * Data texture storing information needed to render each block. The Y position is used to
+         * index by the block id. For the definitions of the X values, see the comments in
+         * world/block/BlockDataGenerator.cpp.
+         */
+        std::shared_ptr<gfx::Texture2D> blockInfoTex = nullptr;
+
+        /**
          * Visibility map for chunks, based on current (primary) view direction
          *
          * This map is periodically updated (and garbage collected) like the loadedChunks and

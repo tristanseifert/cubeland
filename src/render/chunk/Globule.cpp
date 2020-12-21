@@ -318,6 +318,10 @@ nextRow:;
 /**
  * For a visible (e.g. at least one exposed face) block at the given coordinates, insert the
  * necessary vertices to the vertex buffer.
+ *
+ * Face IDs for each vertex are assigned as 0xFV, where F is the face (0 = -Y, 1 = +Y, 2+ = sides)
+ * and V is the vertex index for that face (0-3). This is used to look up per block information
+ * from the block info data texture.
  */
 void Globule::insertBlockVertices(const AirMap &am, const size_t x, const size_t y, const size_t z, const uint16_t blockId) {
     const size_t yOff = (y & 0xFF) << 16;

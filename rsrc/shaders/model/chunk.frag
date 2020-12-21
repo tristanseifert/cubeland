@@ -13,6 +13,10 @@ in vec2 TexCoords;
 in vec3 WorldPos;
 in vec3 Normal;
 
+// info needed to sample the block data texture
+flat in ivec2 BlockInfoPos;
+uniform sampler2D blockTypeDataTex;
+
 // Samplers (for diffuse and specular)
 uniform sampler2D texture_diffuse1;
 
