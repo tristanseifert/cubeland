@@ -14,6 +14,7 @@
 
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
+#include <glm/gtc/type_precision.hpp>
 
 namespace render {
 class WorldChunk;
@@ -48,10 +49,19 @@ class Globule {
         static void fillNormalTex(std::shared_ptr<gfx::Texture2D> &tex);
 
     private:
+        /**
+         * Defines a single vertex stored in the buffer used to render blocks.
+         *
+         * The `blockInfoData` key is divided into several separate components:
+         * - Bits 31..24: Reserved
+         * - Bits 23.. 8: Block ID, to index into block data texture
+         * - Bits  7...4: Face ID (0-5)
+         * - Bits  3...0: Vertex index on face (0-3)
+         */
         struct BlockVertex {
-            glm::vec3 position;
-            glm::vec2 uv;
-            gl::GLint faceId;
+            glm::i16vec3 p;
+            gl::GLushort blockId;
+            gl::GLubyte face;
         };
 
         /*
@@ -68,7 +78,7 @@ class Globule {
 
         void fillBuffer();
         void generateBlockIdMap();
-        void insertBlockVertices(const AirMap &am, size_t x, size_t y, size_t z);
+        void insertBlockVertices(const AirMap &am, const size_t x, const size_t y, const size_t z, const uint16_t blockDataId);
         void buildAirMap(world::ChunkSlice *slice, std::bitset<256*256> &map);
 
     private:
