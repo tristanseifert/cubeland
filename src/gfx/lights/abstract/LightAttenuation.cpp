@@ -1,10 +1,3 @@
-/*
- * LightAttenuation.cpp
- *
- *  Created on: Sep 1, 2015
- *      Author: tristan
- */
-
 #include "LightAttenuation.h"
 
 #include "gfx/gl/program/ShaderProgram.h"
@@ -16,7 +9,8 @@ using namespace gfx::lights;
  * Sets the linear attenuation. This has the largest effect at close range.
  */
 void LightAttenuation::setLinearAttenuation(float attenuation) {
-	this->linearAttenuation = attenuation;
+    this->linearAttenuation = attenuation;
+    this->markDirty();
 }
 
 /**
@@ -24,7 +18,8 @@ void LightAttenuation::setLinearAttenuation(float attenuation) {
  * much larger effect.
  */
 void LightAttenuation::setQuadraticAttenuation(float attenuation) {
-	this->quadraticAttenuation = attenuation;
+    this->quadraticAttenuation = attenuation;
+    this->markDirty();
 }
 
 /**

@@ -22,7 +22,7 @@ class PointLight: public lights::LightPosition,
         public lights::AbstractLight {
     public:
         PointLight();
-        virtual ~PointLight() {};
+        virtual ~PointLight() = default;
 
         void sendToProgram(const int index, std::shared_ptr<ShaderProgram> program);
 };

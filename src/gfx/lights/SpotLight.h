@@ -3,9 +3,6 @@
  *
  * A spot light, which casts light within a circle of a specific radius, as
  * defined in degrees.
- *
- *  Created on: Sep 1, 2015
- *      Author: tristan
  */
 
 #ifndef GFX_LEVEL_PRIMITIVES_LIGHTS_SPOTLIGHT_H_
@@ -25,7 +22,7 @@ class SpotLight: public lights::AbstractLight,
         public lights::LightPosition {
     public:
         SpotLight();
-        virtual ~SpotLight() {};
+        virtual ~SpotLight() = default;
 
         void sendToProgram(const int index, std::shared_ptr<ShaderProgram> program);
 

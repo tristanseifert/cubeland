@@ -1,10 +1,3 @@
-/*
- * LightPosition.cpp
- *
- *  Created on: Sep 1, 2015
- *      Author: tristan
- */
-
 #include "LightPosition.h"
 
 #include "gfx/gl/program/ShaderProgram.h"
@@ -16,18 +9,15 @@ using namespace gfx::lights;
  * Sets up a default world-space position.
  */
 LightPosition::LightPosition() {
-	this->position = glm::vec3(0);
-}
-
-LightPosition::~LightPosition() {
-
+    this->position = glm::vec3(0);
 }
 
 /**
  * Sets the position of the light, in world coordinates.
  */
 void LightPosition::setPosition(glm::vec3 position) {
-	this->position = position;
+    this->position = position;
+    this->markDirty();
 }
 
 /**

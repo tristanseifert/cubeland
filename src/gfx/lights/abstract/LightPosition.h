@@ -1,10 +1,5 @@
 /*
- * LightPosition.h
- *
  * Represents a light that has a position attribute.
- *
- *  Created on: Sep 1, 2015
- *      Author: tristan
  */
 
 #ifndef GFX_LEVEL_PRIMITIVES_LIGHTS_ABSTRACT_LIGHTPOSITION_H_
@@ -28,7 +23,6 @@ class LightPosition {
 
     public:
         LightPosition();
-        virtual ~LightPosition();
 
         void setPosition(glm::vec3 position);
         glm::vec3 getPosition() const {
@@ -37,6 +31,7 @@ class LightPosition {
 
     protected:
         void sendPosition(int i, std::shared_ptr<gfx::ShaderProgram> program, const std::string &array);
+        virtual void markDirty() = 0;
 
     private:
         glm::vec3 position;

@@ -1,10 +1,3 @@
-/*
- * SpotLight.cpp
- *
- *  Created on: Sep 1, 2015
- *      Author: tristan
- */
-
 #include "SpotLight.h"
 
 #include "gfx/gl/program/ShaderProgram.h"
@@ -16,14 +9,14 @@ using namespace gfx;
  * Sets the default light type.
  */
 SpotLight::SpotLight() {
-	this->type = lights::AbstractLight::Spot;
+    this->type = lights::AbstractLight::Spot;
 
-	// set the default cut offs (in degrees)
-	this->innerCutOff = 12.5f;
-	this->outerCutOff = 17.5f;
+    // set the default cut offs (in degrees)
+    this->innerCutOff = 12.5f;
+    this->outerCutOff = 17.5f;
 
-	// default colours
-	this->setColor(glm::vec3(1));
+    // default colours
+    this->setColor(glm::vec3(1));
 }
 
 /**
@@ -32,10 +25,10 @@ SpotLight::SpotLight() {
  * @note Assumes the standard light structures, as defined in `lighting.shader.`
  */
 void SpotLight::sendToProgram(const int i, std::shared_ptr<ShaderProgram> program) {
-	this->sendPosition(i, program, "spotLights");
-	this->sendDirection(i, program, "spotLights");
+    this->sendPosition(i, program, "spotLights");
+    this->sendDirection(i, program, "spotLights");
 
-	this->sendColors(i, program, "spotLights");
+    this->sendColors(i, program, "spotLights");
 
 	// cut-off angles and attenuation
     program->setUniform1f(f("spotLights[{:d}].InnerCutOff", i),
@@ -44,6 +37,8 @@ void SpotLight::sendToProgram(const int i, std::shared_ptr<ShaderProgram> progra
     						glm::cos(glm::radians(this->outerCutOff)));
 
     this->sendAttenuation(i, program, "spotLights");
+
+    this->dirty = false;
 }
 
 /**
@@ -51,12 +46,14 @@ void SpotLight::sendToProgram(const int i, std::shared_ptr<ShaderProgram> progra
  * intensity.
  */
 void SpotLight::setInnerCutOff(float cutoff) {
-	this->innerCutOff = cutoff;
+    this->innerCutOff = cutoff;
+    this->dirty = true;
 }
 
 /**
  * Sets the outer cutoff angle. Outside of this angle, no light is cast.
  */
 void SpotLight::setOuterCutOff(float cutoff) {
-	this->outerCutOff = cutoff;
+    this->outerCutOff = cutoff;
+    this->dirty = true;
 }

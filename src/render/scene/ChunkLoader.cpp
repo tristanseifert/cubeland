@@ -486,7 +486,9 @@ void ChunkLoader::drawOverlay() {
             this->currentlyLoading.size(), this->chunks.size(), this->chunkQueue.size_approx());
 
     // chunk work queue items remaining
-    ImGui::Text("Work Queue: %lu", chunk::ChunkWorker::getPendingItemCount());
+    ImGui::Text("Work Queue: %5lu", chunk::ChunkWorker::getPendingItemCount());
+    ImGui::SameLine();
+    ImGui::Text("Culled: %lu", this->numChunksCulled);
 
     // context menu
     if(ImGui::BeginPopupContextWindow()) {
@@ -516,18 +518,20 @@ void ChunkLoader::drawChunkList() {
 
     // table
     ImVec2 outerSize(0, ImGui::GetTextLineHeightWithSpacing() * 12);
-    if(!ImGui::BeginTable("chonks", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
+    if(!ImGui::BeginTable("chonks", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
         ImGui::End();
         return;
     }
 
     ImGui::TableSetupColumn("Position", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 58);
     ImGui::TableSetupColumn("Ptr");
+    ImGui::TableSetupColumn("Alloc");
     ImGui::TableSetupColumn("Vis", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 28);
     ImGui::TableSetupColumn("Cam", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 26);
     ImGui::TableHeadersRow();
 
     // iterate
+    size_t allocTotal = 0;
     size_t i = 0;
     for(auto &[position, info] : this->chunks) {
         ImGui::TableNextRow();
@@ -540,6 +544,12 @@ void ChunkLoader::drawChunkList() {
         ImGui::Text("%p", info.wc.get());
 
         ImGui::TableNextColumn();
+        const auto alloc = info.wc->chunk->poolAllocSpace();
+        allocTotal += alloc;
+
+        ImGui::Text("%.4g M", (((double) alloc) / 1024. / 1024.));
+
+        ImGui::TableNextColumn();
         ImGui::Text("%s", (this->visibilityMap.contains(position) && this->visibilityMap[position]) ? "Ye" : "No");
 
         ImGui::TableNextColumn();
@@ -549,6 +559,8 @@ void ChunkLoader::drawChunkList() {
         i++;
     }
     ImGui::EndTable();
+
+    ImGui::Text("Total Row Pool Alloc: %g MBytes", ((double) allocTotal) / 1024. / 1024.);
 
     // finish
     ImGui::End();

@@ -581,7 +581,7 @@ void WorldDebugger::drawChunkRows(gui::GameUI *ui) {
     ImGui::SameLine();
 
     auto slice = this->chunk->slices[this->viewerState.currentSlice];
-    ImGui::Text("%p", slice.get());
+    ImGui::Text("%p", slice);
 
     // bail if there is no slice
     if(!slice) {
@@ -600,7 +600,7 @@ void WorldDebugger::drawChunkRows(gui::GameUI *ui) {
     ImGui::SameLine();
 
     auto row = slice->rows[this->viewerState.currentRow];
-    ImGui::Text("%p", row.get());
+    ImGui::Text("%p", row);
 
     if(row) {
         ImGui::TextUnformatted("ID Map: ");
@@ -608,8 +608,8 @@ void WorldDebugger::drawChunkRows(gui::GameUI *ui) {
         ImGui::Text("0x%02x", row->typeMap);
 
         // draw the type of the row and detail about it
-        auto sparse = dynamic_pointer_cast<ChunkSliceRowSparse>(row);
-        auto dense = dynamic_pointer_cast<ChunkSliceRowDense>(row);
+        auto sparse = dynamic_cast<ChunkSliceRowSparse *>(row);
+        auto dense = dynamic_cast<ChunkSliceRowDense *>(row);
 
         ImGui::TextUnformatted("Type: ");
         ImGui::SameLine();
@@ -635,7 +635,7 @@ void WorldDebugger::drawChunkRows(gui::GameUI *ui) {
 /**
  * Draws info for a sparse chunk row.
  */
-void WorldDebugger::drawRowInfo(gui::GameUI *ui, std::shared_ptr<ChunkSliceRowSparse> sparse) {
+void WorldDebugger::drawRowInfo(gui::GameUI *ui, ChunkSliceRowSparse *sparse) {
     // base ID
     ImGui::TextUnformatted("Default Block ID: ");
     ImGui::SameLine();
@@ -651,15 +651,15 @@ void WorldDebugger::drawRowInfo(gui::GameUI *ui, std::shared_ptr<ChunkSliceRowSp
         ImGui::TableHeadersRow();
 
         // draw each row
-        for(const auto [x, value] : sparse->storage) {
+        for(const auto value: sparse->storage) {
             ImGui::TableNextRow();
-            ImGui::PushID(x);
+            ImGui::PushID(value);
 
             ImGui::TableNextColumn();
-            ImGui::Text("%d", x);
+            ImGui::Text("%d", (value & 0xFF00) >> 8);
 
             ImGui::TableNextColumn();
-            ImGui::Text("0x%02x", value);
+            ImGui::Text("0x%02x", value & 0x00FF);
 
             ImGui::PopID();
         }
@@ -671,7 +671,7 @@ void WorldDebugger::drawRowInfo(gui::GameUI *ui, std::shared_ptr<ChunkSliceRowSp
 /**
  * UI for showing a dense row's storage.
  */
-void WorldDebugger::drawRowInfo(gui::GameUI *ui, std::shared_ptr<ChunkSliceRowDense>) {
+void WorldDebugger::drawRowInfo(gui::GameUI *ui, ChunkSliceRowDense *dense) {
     // TODO: view array
 }
 
@@ -833,11 +833,11 @@ void WorldDebugger::fillChunkSolid(std::shared_ptr<Chunk> chunk, size_t yMax) {
 
     // For each Y layer, create a slice
     for(size_t y = 0; y < yMax; y++) {
-        auto slice = std::make_shared<ChunkSlice>();
+        auto slice = new ChunkSlice;
 
         // create a sparse row for each column
         for(size_t z = 0; z < 256; z++) {
-            auto row = std::make_shared<ChunkSliceRowSparse>();
+            auto row = chunk->allocRowSparse();
             row->defaultBlockId = 1;
 
             // this makes a diagonal stripe
@@ -890,12 +890,12 @@ void WorldDebugger::fillChunkSphere(std::shared_ptr<Chunk> chunk, size_t radius)
     this->prepareChunkMaps(chunk);
 
     for(size_t y = 0; y < (radius * 2); y++) {
-        auto slice = std::make_shared<ChunkSlice>();
+        auto slice = new ChunkSlice;
         bool sliceWritten = false;
 
         // create a sparse row for each column
         for(size_t z = 0; z < 256; z++) {
-            auto row = std::make_shared<ChunkSliceRowSparse>();
+            auto row = chunk->allocRowSparse();
             row->defaultBlockId = 0;
             bool written = false;
 
@@ -911,12 +911,16 @@ void WorldDebugger::fillChunkSphere(std::shared_ptr<Chunk> chunk, size_t radius)
             if(written) {
                 slice->rows[z] = row;
                 sliceWritten = true;
+            } else {
+                delete row;
             }
         }
 
         // attach it to the chunk
         if(sliceWritten) {
             chunk->slices[y] = slice;
+        } else {
+            delete slice;
         }
     }
 }

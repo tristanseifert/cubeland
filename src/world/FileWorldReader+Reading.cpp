@@ -192,7 +192,7 @@ void FileWorldReader::loadSlice(SliceState &state, const int sliceId, std::share
     this->deserializeSliceMeta(chunk, y, blockMetaBytes);
 
     // allocate the slice and process each row
-    auto slice = std::make_shared<ChunkSlice>();
+    auto slice = new ChunkSlice;
 
     {
 #ifndef PROFILE_ROW_INNER
@@ -294,12 +294,12 @@ found:;
  * - Using the previosuly selected map, again go over each block and fill it into the chunk slice's
  *   row data.
  */
-void FileWorldReader::processSliceRow(SliceState &state, std::shared_ptr<Chunk> chunk, std::shared_ptr<ChunkSlice> slice, const size_t z) {
+void FileWorldReader::processSliceRow(SliceState &state, std::shared_ptr<Chunk> chunk, ChunkSlice *slice, const size_t z) {
 #ifdef PROFILE_ROW_INNER
     PROFILE_SCOPE(ProcessRow);
 #endif
 
-    std::shared_ptr<ChunkSliceRow> row = nullptr;
+    ChunkSliceRow *row = nullptr;
     uint16_t mostFrequentBlock = 0;
 
     // get pointer to this row's data
@@ -339,14 +339,13 @@ process:;
         }
 
         /*
-         * Select a sparse representation only if there is one single block that accounts for > 75%
-         * of the blocks in this row. The most frequently occurring block will be selected as the
-         * sparse base.
+         * Select a sparse representation if the most frequent block makes up at least the number
+         * of blocks that a sparse chunk can hold.
          */
         bool useSparse = false;
 
         for(auto block : blockIds) {
-            if(blockIdFrequency.count(block) > (256 * .75)) {
+            if(blockIdFrequency.count(block) >= (256 - ChunkSliceRowSparse::kMaxEntries)) {
                 // there can only ever be one block > 75%
                 mostFrequentBlock = block;
                 useSparse = true;
@@ -355,9 +354,9 @@ process:;
         }
 
         if(useSparse) {
-            row = std::make_shared<ChunkSliceRowSparse>();
+            row = chunk->allocRowSparse();
         } else {
-            row = std::make_shared<ChunkSliceRowDense>();
+            row = chunk->allocRowDense();
         }
     }
 
@@ -416,7 +415,7 @@ beach:;
 
         row->typeMap = mapId;
 
-        auto sparse = dynamic_pointer_cast<ChunkSliceRowSparse>(row);
+        auto sparse = dynamic_cast<ChunkSliceRowSparse *>(row);
         if(sparse) {
             sparse->defaultBlockId = state.reverseMaps[mapId].at(mostFrequentBlock);
         }

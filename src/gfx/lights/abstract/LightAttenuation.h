@@ -1,13 +1,7 @@
 /*
- * LightAttenuation.h
- *
  * Represents a light that attenuates over distance, based on a combined linear-
  * quadratic model.
- *
- *  Created on: Sep 1, 2015
- *      Author: tristan
  */
-
 #ifndef GFX_LEVEL_PRIMITIVES_LIGHTS_ABSTRACT_LIGHTATTENUATION_H_
 #define GFX_LEVEL_PRIMITIVES_LIGHTS_ABSTRACT_LIGHTATTENUATION_H_
 
@@ -26,9 +20,6 @@ class LightAttenuation {
     friend class render::Lighting;
 
     public:
-        LightAttenuation() {};
-        virtual ~LightAttenuation() {};
-
         void setLinearAttenuation(float attenuation);
         float getLinearAttenuation(void) {
             return this->linearAttenuation;
@@ -41,6 +32,7 @@ class LightAttenuation {
 
     protected:
         void sendAttenuation(int i, std::shared_ptr<gfx::ShaderProgram> program, const std::string &array);
+        virtual void markDirty() = 0;
 
     private:
         float linearAttenuation = 0.7f;

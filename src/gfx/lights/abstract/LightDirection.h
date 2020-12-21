@@ -1,10 +1,5 @@
 /*
- * LightDirection.h
- *
  * Represents a light that has a direction attribute.
- *
- *  Created on: Sep 1, 2015
- *      Author: tristan
  */
 
 #ifndef GFX_LEVEL_PRIMITIVES_LIGHTS_ABSTRACT_LIGHTDIRECTION_H_
@@ -28,7 +23,6 @@ class LightDirection {
 
     public:
         LightDirection();
-        virtual ~LightDirection() {};
 
         void setDirection(glm::vec3 direction);
         glm::vec3 getDirection() const {
@@ -37,6 +31,7 @@ class LightDirection {
 
     protected:
         void sendDirection(int i, std::shared_ptr<gfx::ShaderProgram> program, const std::string &array);
+        virtual void markDirty() = 0;
 
     private:
         glm::vec3 direction;

@@ -14,7 +14,8 @@
 #include <cstdint>
 #include <array>
 #include <unordered_map>
-
+#include <stdexcept>
+#include <cstdlib>
 #include <uuid.h>
 
 namespace world {
@@ -29,36 +30,80 @@ struct ChunkSliceRow {
     /// return the ID value at the given index
     virtual uint8_t at(int i) = 0;
     virtual void set(int i, uint8_t value) = 0;
+    /// performs any internal housekeeping to prepare the row for rendering
+    virtual void prepare() {};
+
+    virtual ~ChunkSliceRow() = default;
 };
 
 /**
  * Represents a sparse row.
  *
- * These should be used if most of the row is one single type of block.
+ * These should be used if most of the row is one single type of block. The maximum number of block
+ * alternates this can store is 64.
+ *
+ * TODO: investigate why this is broken. Either when storing or reading data, something breaks
+ * pretty badly resulting in corrupted blocks.
  */
 struct ChunkSliceRowSparse: public ChunkSliceRow {
+    /// maximum storage space available in the sparse row
+    constexpr static const size_t kMaxEntries = 64;
+
     /// Block ID to use for all blocks not described by the sparse map
     uint8_t defaultBlockId;
+    /// current amount of slots used in the sparse storage array
+    uint8_t slotsUsed = 0;
 
     /**
      * Mapping of X coordinate to block ID.
      *
-     * The unordered map is usually implemented as a hash map, so accessing it this way should be
-     * reasonably fast. We'll see how it fares with memory...
+     * This array is sorted by X position. Values are encoded as 0xPPVV, where P is the X
+     * coordinate of the block, and V is the actual block ID.
      */
-    std::unordered_map<uint8_t, uint8_t> storage;
+    std::array<uint16_t, kMaxEntries> storage;
 
     /// return the ID value at the given index from the sparse storage, or the default id
     virtual uint8_t at(int i) {
-        if(this->storage.contains(i)) {
-            return this->storage[i];
-        } else {
+        // bail early if no entries in storage
+        if(!this->slotsUsed) {
             return this->defaultBlockId;
         }
+
+        // quickly search the storage array
+        uint16_t key = (i & 0xFF) << 8;
+        void *ptr = ::bsearch(&key, this->storage.data(), this->slotsUsed, sizeof(uint16_t),
+                &ChunkSliceRowSparse::compare);
+
+        if(ptr) {
+            return (*reinterpret_cast<const uint16_t *>(ptr)) & 0x00FF;
+        }
+
+        // not found
+        return this->defaultBlockId;
     }
+    /// if not the same as the default block id, inserts the given value into the sparse storage
     virtual void set(int i, uint8_t value) {
         if(value == this->defaultBlockId) return;
-        this->storage[i & 0xFF] = value;
+        if(this->slotsUsed == storage.size()) {
+            throw std::runtime_error("Row is full");
+        }
+        this->storage[this->slotsUsed++] = ((i & 0xFF) << 8) | value;
+    }
+
+    // ensures the storage is ready for display
+    virtual void prepare() {
+        if(!this->slotsUsed) return;
+        //std::sort(std::begin(this->storage), std::end(this->storage));
+        ::qsort(this->storage.data(), this->storage.size(), sizeof(uint16_t),
+                &ChunkSliceRowSparse::compare);
+    }
+
+    private:
+    // element comparison functions; strips the lower value and takes just the high 8 bits
+    static int compare(const void *_key, const void *_b) {
+        uint16_t key = *((const uint16_t *) _key) & 0xFF00;
+        uint16_t b = *((const uint16_t *) _b) & 0xFF00;
+        return key - b;
     }
 };
 
@@ -91,7 +136,14 @@ struct ChunkSlice {
     /**
      * Row data; points to either a chunk slice row, or null, if no data.
      */
-    std::array<std::shared_ptr<ChunkSliceRow>, 256> rows;
+    std::array<ChunkSliceRow *, 256> rows;
+
+    /**
+     * Ensure the chunk slice is initialized to a null state.
+     */
+    ChunkSlice() {
+        std::fill(std::begin(this->rows), std::end(this->rows), nullptr);
+    }
 };
 
 }

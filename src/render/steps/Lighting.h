@@ -63,6 +63,7 @@ class Lighting : public RenderStep {
         void generateSkyNoise();
         void renderSky(WorldRenderer *);
         void updateSunAngle(WorldRenderer *);
+        void updateMoonAngle(WorldRenderer *);
 
         void setUpShadowing(void);
 
@@ -87,12 +88,25 @@ class Lighting : public RenderStep {
 
     private:
         // intensity of ambient light
-        float ambientIntensity = 0.05;
+        float ambientIntensity = 0.0125;
 
         // lights
         std::vector<std::shared_ptr<gfx::lights::AbstractLight>> lights;
 
+    private:
+        // the sun is modelled as a directional light
         std::shared_ptr<gfx::DirectionalLight> sun = nullptr;
+        // direction of the sun in the sky
+        glm::vec3 sunDirection;
+        // default color for the sun. this is used when the sun is in the upper 85% of its cycle
+        glm::vec3 sunColorNormal = glm::vec3(1, 1, 1);
+
+        // we also have one for the moon
+        std::shared_ptr<gfx::DirectionalLight> moon = nullptr;
+        // direction of the moon
+        glm::vec3 moonDirection;
+        // default color for the moon light
+        glm::vec3 moonColorNormal = glm::vec3(0.1, 0.1, 0.133);
 
     private:
         std::shared_ptr<gfx::ShaderProgram> skyProgram = nullptr;
@@ -117,9 +131,6 @@ class Lighting : public RenderStep {
         // atmosphere scattering coefficients (Rayleigh/Mie coeff, Mie scattering dir)
         glm::vec3 skyAtmosphereCoeff = glm::vec3(0.002, 0.0009, 0.9200);
 
-        // direction of the sun in the sky
-        glm::vec3 sunDirection;
-
         // when set, we re-generate sky noise and upload it to the noise texture
         bool skyNoiseNeedsUpdate = true;
         // size of the noise texture (square)
@@ -131,6 +142,10 @@ class Lighting : public RenderStep {
 
         // position to input to the sky color evaluation
         glm::vec3 skyFogColorPosition = glm::vec3(0, 0.0009, 0.266);
+        // color to use for the fog when the sun is below the horizon
+        glm::vec3 skyNightFogColor = glm::vec3(0.03);
+        // most recently calculated atmosphere color
+        glm::vec3 skyAtmosphereColor;
 
     private:
         // Fog density and color

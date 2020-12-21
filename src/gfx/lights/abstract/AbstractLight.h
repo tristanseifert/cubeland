@@ -84,11 +84,22 @@ class AbstractLight {
             return this->lightEnabled;
         }
 
+        /// returns the dirty flag state
+        bool isDirty() const {
+            return this->dirty;
+        }
+
     protected:
         void sendColors(int i, std::shared_ptr<ShaderProgram> program, const std::string &array);
 
+        virtual void markDirty() {
+            this->dirty = true;
+        }
+
     protected:
         LightType type = AbstractLight::Unknown;
+        // set whenever any light parameters are changed. should be cleared when sent to program
+        bool dirty = true;
 
     private:
         glm::vec3 diffuseColor;

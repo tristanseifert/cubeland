@@ -95,7 +95,7 @@ class FileWorldReader: public WorldReader {
         void deserializeSliceBlocks(std::shared_ptr<Chunk> chunk, const int y, const std::vector<char> &data);
         void deserializeSliceMeta(std::shared_ptr<Chunk> chunk, const int y, const std::vector<char> &data);
 
-        void processSliceRow(SliceState &state, std::shared_ptr<Chunk> chunk, std::shared_ptr<ChunkSlice> slice, const size_t z);
+        void processSliceRow(SliceState &state, std::shared_ptr<Chunk> chunk, ChunkSlice *slice, const size_t z);
 
     // misc metadata functions
     private:

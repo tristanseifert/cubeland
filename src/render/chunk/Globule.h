@@ -66,7 +66,7 @@ class Globule {
         void fillBuffer();
         void generateBlockIdMap();
         void insertBlockVertices(const AirMap &am, size_t x, size_t y, size_t z);
-        void buildAirMap(std::shared_ptr<world::ChunkSlice> slice, std::bitset<256*256> &map);
+        void buildAirMap(world::ChunkSlice *slice, std::bitset<256*256> &map);
 
     private:
         // position of the globule, in block coordinates, relative to the chunk origin

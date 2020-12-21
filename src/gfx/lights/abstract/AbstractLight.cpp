@@ -32,13 +32,15 @@ AbstractLight::~AbstractLight() {
  * Sets the colour used for the diffuse highlights created by this light.
  */
 void AbstractLight::setDiffuseColor(glm::vec3 diffuse) {
-	this->diffuseColor = diffuse;
+    this->diffuseColor = diffuse;
+    this->dirty = true;
 }
 /**
  * Sets the colour used for the specular highlights created by this light.
  */
 void AbstractLight::setSpecularColor(glm::vec3 specular) {
-	this->specularColor = specular;
+    this->specularColor = specular;
+    this->dirty = true;
 }
 
 /**

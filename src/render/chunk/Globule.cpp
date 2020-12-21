@@ -412,7 +412,7 @@ void Globule::insertBlockVertices(const AirMap &am, size_t x, size_t y, size_t z
  * We no longer go through all 256 rows/columns, but instead at least 64, and at most 66; one
  * extra on each end, if possible.
  */
-void Globule::buildAirMap(std::shared_ptr<world::ChunkSlice> slice, std::bitset<256*256> &b) {
+void Globule::buildAirMap(world::ChunkSlice *slice, std::bitset<256*256> &b) {
     PROFILE_SCOPE(BuildAirMap);
 
     // if the slice is empty (e.g. nonexistent,) bail; the entire thing is air

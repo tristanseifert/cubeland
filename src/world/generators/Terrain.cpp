@@ -110,10 +110,10 @@ void Terrain::prepareChunkMeta(std::shared_ptr<Chunk> chunk) {
  * Writes a solid ground floor at y=0.
  */
 void Terrain::fillFloor(std::shared_ptr<Chunk> chunk) {
-    auto slice = std::make_shared<ChunkSlice>();
+    auto slice = new ChunkSlice;
 
     for(size_t z = 0; z < 256; z++) {
-        auto row = std::make_shared<ChunkSliceRowSparse>();
+        auto row = chunk->allocRowSparse();
         row->defaultBlockId = 1;
         row->typeMap = 0;
 
@@ -133,18 +133,39 @@ void Terrain::fillSlice(const std::vector<float> &noise, const size_t y, std::sh
 
     // allocate a slice
     bool written = false;
-    auto slice = std::make_shared<ChunkSlice>();
+    auto slice = new ChunkSlice;
 
     // iterate for each row
     for(size_t z = 0; z < 256; z++) {
         const size_t zOffset = yOffset + (z * 256 * 256);
 
-        // we will want a sparse row
-        auto row = std::make_shared<ChunkSliceRowSparse>();
-        row->defaultBlockId = 0;
-        row->typeMap = 0;
+        // check to see if we want a sparse row by counting the number of filled in blocks
+        size_t numWritten = 0;
+        for(size_t x = 0; x < 256; x++) {
+            const float value = noise[zOffset+x];
 
+            if(value <= this->surfaceLevel) {
+                numWritten++;
+            }
+        }
+        // skip if not a single block is solid
+        if(!numWritten) continue;
+
+        // we will want a sparse row
+        ChunkSliceRow *row = nullptr;
+        bool isSparse = true;
         bool rowWritten = false;
+
+        if(numWritten < ChunkSliceRowSparse::kMaxEntries && false) {
+            auto r = chunk->allocRowSparse();
+            r->defaultBlockId = 0;
+
+            row = r;
+        } else {
+            row = chunk->allocRowDense();
+            isSparse = false;
+        }
+        row->typeMap = 0;
 
         // then, iterate for each column inside it
         for(size_t x = 0; x < 256; x++) {
@@ -154,19 +175,29 @@ void Terrain::fillSlice(const std::vector<float> &noise, const size_t y, std::sh
             if(value <= this->surfaceLevel) {
                 row->set(x, 1);
                 rowWritten = true;
+            } else {
+                if(!isSparse) {
+                    row->set(x, 0);
+                    rowWritten = true;
+                }
             }
         }
 
         // store the row if it was written
         if(rowWritten) {
+            row->prepare();
             slice->rows[z] = row;
             written = true;
+        } else {
+            // TODO: mark row as unused
         }
     }
 
     // add it to the chunk if the slice was written
     if(written) {
         chunk->slices[y] = slice;
+    } else {
+        delete slice;
     }
 }
 

@@ -180,6 +180,8 @@ class ChunkLoader {
         moodycamel::ConcurrentQueue<std::shared_ptr<WorldChunk>> chunkQueue;
         /// max size of the chunk queue
         size_t maxChunkQueueSize = 8;
+        /// number of draw chunks that were culled due to visibility
+        size_t numChunksCulled = 0;
 
         /// chunk position of the chunk we're currently on (e.g. that the camera is on)
         glm::ivec2 centerChunkPos;

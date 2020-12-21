@@ -28,7 +28,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/string_cast.hpp>
-
+#include <glm/gtx/vector_angle.hpp>
 #include <cstdio>
 
 using namespace render;
@@ -94,10 +94,11 @@ Lighting::Lighting() {
 
     // create our lights (defaults)
     this->sun = std::make_shared<gfx::DirectionalLight>();
-    this->sun->setDirection(glm::vec3(1, 0, 0));
-    this->sun->setColor(glm::vec3(1, 1, 1));
-
     this->addLight(this->sun);
+
+    this->moon = std::make_shared<gfx::DirectionalLight>();
+    this->moon->setEnabled(false);
+    this->addLight(this->moon);
 
     // set up some remaining components
     this->setUpSky();
@@ -238,9 +239,6 @@ void Lighting::generateSkyNoise() {
     auto range = g->GenTileable2D(data.data(), this->skyNoiseTextureSize, this->skyNoiseTextureSize,
             this->skyNoiseFrequency, this->skyNoiseSeed);
 
-    // normalize it to [-1, 1] range
-    Logging::trace("Noise range: [{}, {}]", range.min, range.max);
-
     // transfer it to the texture (fresh allocation _may_ help some drivers)
     this->skyNoiseTex->allocateBlank(this->skyNoiseTextureSize, this->skyNoiseTextureSize,
             Texture2D::RED32F);
@@ -280,8 +278,11 @@ void Lighting::sendLightsToShader(void) {
 
     // go through each type of light
     for(const auto &light : this->lights) {
+        // ignore disabled, or lights whose state hasn't changed
         if(!light->isEnabled()) continue;
+        if(!light->isDirty()) continue;
 
+        // send data and increment our per-light counters
         switch(light->getType()) {
             case AbstractLight::Directional:
                 light->sendToProgram(numDirectional++, this->program);
@@ -353,6 +354,7 @@ void Lighting::render(WorldRenderer *renderer) {
     // prepare for rendering
     gl::glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
     this->updateSunAngle(renderer);
+    this->updateMoonAngle(renderer);
 
     // use our lighting shader, bind textures and set their locations
     this->program->bind();
@@ -425,7 +427,37 @@ void Lighting::updateSunAngle(WorldRenderer *renderer) {
         aboveHorizon = false;
     }
 
+    /**
+     * While the sun is rising/setting, we need to slowly increase the intensity of the sun, and
+     * also give it a sort of orange-ish tint. Otherwise, we get a really nasty discontinuity when
+     * the sun goes below the horizon and it's disabled.
+     */
+    if(this->sunDirection.y >= -0.05 && this->sunDirection.y <= 0.15) {
+        const float factor = std::min((this->sunDirection.y+0.05) * (1. / 0.2), 1.);
+        const auto sunColor = glm::mix(glm::vec3(0), this->sunColorNormal, factor);
+        this->sun->setColor(sunColor);
+        this->sun->setEnabled(true);
+    }
+
+    /*
+     * Find the angle between the camera and the sun. If we're facing the sun, we'll be getting a
+     * bunch of whacky bright colors to match the horizon of the rising sun; if we're facing away,
+     * it should stay pretty dark.
+     *
+     * We consider to be facing away from the sun when the angle is greater than 1.9*FoV.
+     */
+    bool needFogMix = false;
+    auto angle = glm::angle(this->viewDirection, this->sunDirection);
+    auto angleDiff = angle - (1.8 * glm::radians(renderer->getFoV()));
+    auto sunMixFactor = std::min(std::max(0., angleDiff), 1.);
+
+    if(this->sunDirection.y <= 0.09) {
+        needFogMix = true;
+        sunMixFactor *= 1 - std::min(this->sunDirection.y * (1. / 0.09), 1.);
+    }
+
     // with the new sun angle, calculate the fog color (atmosphere color)
+    glm::vec3 color;
     if(aboveHorizon) {
         float Br = this->skyAtmosphereCoeff.x;
         float Bm = this->skyAtmosphereCoeff.y;
@@ -437,14 +469,48 @@ void Lighting::updateSunAngle(WorldRenderer *renderer) {
         const glm::vec3 pos = this->skyFogColorPosition;
         const float mu = glm::dot(glm::normalize(pos), glm::normalize(this->sunDirection));
 
-        glm::vec3 extinction = glm::mix(glm::exp(-glm::exp(-((pos.y + sunDir.y * 4.f) * (glm::exp(-pos.y * 16.f) + 0.1f) / 80.f) / Br) * (glm::exp(-pos.y * 16.f) + 0.1f) * Kr / Br) * glm::exp(-pos.y * exp(-pos.y * 8.f) * 4.f) * glm::exp(-pos.y * 2.f) * 4.f, glm::vec3(1.f - glm::exp(sunDir.y)) * 0.2f, -sunDir.y * 0.2f + 0.5f);
-        glm::vec3 color = 3.f / (8.f * 3.14f) * (1.f + mu * mu) * (Kr + Km * (1.f - g * g) / (2.f + g * g) / glm::pow(1.f + g * g - 2.f * g * mu, 1.5f)) / (Br + Bm) * extinction;
+        const glm::vec3 extinction = glm::mix(glm::exp(-glm::exp(-((pos.y + sunDir.y * 4.f) * (glm::exp(-pos.y * 16.f) + 0.1f) / 80.f) / Br) * (glm::exp(-pos.y * 16.f) + 0.1f) * Kr / Br) * glm::exp(-pos.y * exp(-pos.y * 8.f) * 4.f) * glm::exp(-pos.y * 2.f) * 4.f, glm::vec3(1.f - glm::exp(sunDir.y)) * 0.2f, -sunDir.y * 0.2f + 0.5f);
+        const auto out = 3.f / (8.f * 3.14f) * (1.f + mu * mu) * (Kr + Km * (1.f - g * g) / (2.f + g * g) / glm::pow(1.f + g * g - 2.f * g * mu, 1.5f)) / (Br + Bm) * extinction;
 
-        this->fogColor = glm::normalize(color);
+        color = glm::normalize(out);
+        this->skyAtmosphereColor = color;
     }
-    // sun is below horizon, force a deep black
+    // sun is below horizon, fade to deep black
     else {
-        this->fogColor = glm::vec3(0.03);
+        const float factor = abs(sunDir.y * 9.2);
+        color = glm::mix(this->skyAtmosphereColor, this->skyNightFogColor, std::min(factor, 1.f));
+    }
+
+    if(needFogMix) {
+        this->fogColor = glm::mix(color, this->skyNightFogColor, std::min(0.66, sunMixFactor));
+    } else {
+        this->fogColor = color;
+    }
+}
+/**
+ * Updates the moon angle. This is currently just used for the moon light.
+ */
+void Lighting::updateMoonAngle(WorldRenderer *renderer) {
+    bool aboveHorizon = true;
+
+    const auto time = renderer->getTime();
+    glm::vec3 moonDir(0, -sin(time * M_PI_2), -cos(time * M_PI_2));
+    this->moonDirection = moonDir;
+
+    if(moonDir.y >= 0) {
+        this->moon->setDirection(moonDir);
+        this->moon->setEnabled(true);
+    } else {
+        this->moon->setEnabled(false);
+        aboveHorizon = false;
+    }
+
+    // interpolate its color
+    if(this->moonDirection.y >= -0.03 && this->moonDirection.y <= 0.15) {
+        const float factor = std::min((this->moonDirection.y + .03) * (1. / 0.18), 1.);
+        const auto moonColor = glm::mix(glm::vec3(0), this->moonColorNormal, factor);
+        this->moon->setColor(moonColor);
+        this->moon->setEnabled(true);
     }
 }
 /**
@@ -660,6 +726,8 @@ void Lighting::drawDebugWindow() {
     if(ImGui::ColorEdit3("Nitrogen Color", &this->skyNitrogenCoeff.x)) {
         this->skyNeedsUpdate = true;
     }
+
+    ImGui::ColorEdit3("Night Fog", &this->skyNightFogColor.x);
     ImGui::PopItemWidth();
 
     if(ImGui::DragFloat("Rayleigh Coefficient", &this->skyAtmosphereCoeff.x, 0.001, 0, 1, "%.4f")) {
@@ -681,6 +749,7 @@ void Lighting::drawDebugWindow() {
 
     ImGui::PushItemWidth(150);
     ImGui::DragFloat3("Fog Position", &this->skyFogColorPosition.x, 0.001);
+    ImGui::DragFloat3("Sun Direction", &this->sunDirection.x, 0.001);
     ImGui::PopItemWidth();
 
     // fog
@@ -730,6 +799,10 @@ void Lighting::drawDebugWindow() {
     ImGui::Separator();
 
     ImGui::DragFloat("Ambient Intensity", &this->ambientIntensity, 0.001, 0);
+
+    ImGui::PushItemWidth(150);
+    ImGui::ColorEdit3("Sunlight Color", &this->sunColorNormal.x);
+    ImGui::PopItemWidth();
 
     ImGui::PopItemWidth();
     this->drawLightsTable();

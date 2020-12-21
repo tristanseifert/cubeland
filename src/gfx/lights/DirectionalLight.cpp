@@ -1,10 +1,3 @@
-/*
- * DirectionalLight.cpp
- *
- *  Created on: Sep 1, 2015
- *      Author: tristan
- */
-
 #include "DirectionalLight.h"
 
 using namespace gfx;
@@ -13,7 +6,7 @@ using namespace gfx;
  * Sets the default light type.
  */
 DirectionalLight::DirectionalLight() {
-	this->type = lights::AbstractLight::Directional;
+    this->type = lights::AbstractLight::Directional;
 }
 
 /**
@@ -22,6 +15,8 @@ DirectionalLight::DirectionalLight() {
  * @note Assumes the standard light structures, as defined in `lighting.shader.`
  */
 void DirectionalLight::sendToProgram(const int i, std::shared_ptr<ShaderProgram> program) {
-	this->sendDirection(i, program, "directionalLights");
-	this->sendColors(i, program, "directionalLights");
+    this->sendDirection(i, program, "directionalLights");
+    this->sendColors(i, program, "directionalLights");
+
+    this->dirty = false;
 }

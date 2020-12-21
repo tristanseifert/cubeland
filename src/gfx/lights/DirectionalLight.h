@@ -20,9 +20,14 @@ class DirectionalLight: public lights::LightDirection,
         public lights::AbstractLight {
     public:
         DirectionalLight();
-        virtual ~DirectionalLight() {};
+        virtual ~DirectionalLight() = default;
 
         void sendToProgram(const int index, std::shared_ptr<ShaderProgram> program);
+
+    protected:
+        virtual void markDirty() {
+            this->dirty = true;
+        }
 };
 } /* namespace gfx */
 
