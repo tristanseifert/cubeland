@@ -1,6 +1,9 @@
 #include "GameUI.h"
 #include "PreferencesWindow.h"
 
+#include "MetricsDisplay.h"
+#include "io/MetricsManager.h"
+
 #include <Logging.h>
 
 #include <cmrc/cmrc.hpp>
@@ -107,6 +110,12 @@ GameUI::GameUI(SDL_Window *_window, void *context) : window(_window) {
     // initialize the GL drawing layer
     ImGui_ImplSDL2_InitForOpenGL(this->window, context);
     ImGui_ImplOpenGL3_Init(nullptr);
+
+    // create the metrics display
+    auto md = std::make_shared<MetricsDisplay>();
+    this->windows.push_back(md);
+
+    io::MetricsManager::setDisplay(md);
 }
 
 /**
@@ -148,6 +157,10 @@ void GameUI::loadFonts(const double scale) {
  * Releases all resources.
  */
 GameUI::~GameUI() {
+    // ensure all other modules no longer hold refs to our GUI elements
+    io::MetricsManager::setDisplay(nullptr);
+
+    // shut down ImGui
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL2_Shutdown();
 

@@ -8,6 +8,7 @@
 #include "world/WorldSource.h"
 #include "gfx/gl/texture/Texture2D.h"
 #include "gfx/model/RenderProgram.h"
+#include "io/MetricsManager.h"
 #include "io/Format.h"
 #include <Logging.h>
 #include <mutils/time/profiler.h>
@@ -81,8 +82,12 @@ void ChunkLoader::initDisplayChunks() {
  */
 void ChunkLoader::startOfFrame() {
     // prune chunk list every 20 or so frames
-    if((this->numUpdates % 20) == 0) {
+    if(!this->chunkPruneTimer){
         this->pruneLoadedChunksList();
+
+        this->chunkPruneTimer = this->chunkPruneTimerReset;
+    } else {
+        this->chunkPruneTimer--;
     }
 
     // draw the overlay if enabled
@@ -136,8 +141,6 @@ void ChunkLoader::updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirect
 
                 // if x == z == 0, it's the central chunk and we can skip it
                 if(!xOff && !zOff) continue;
-                // skip if not visible
-                if(!this->visibilityMap[chunkPos]) continue;
 
                 // request the chunk
                 this->loadChunk(chunkPos);
@@ -152,7 +155,9 @@ void ChunkLoader::updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirect
 
     // update all chunks
     for(auto [position, info] : this->chunks) {
-        info.wc->frameBegin();
+        if(info.wc) {
+            info.wc->frameBegin();
+        }
     }
 
     this->forceUpdate = false;
@@ -251,6 +256,7 @@ bool ChunkLoader::checkIntersect(const glm::vec3 &org, const glm::vec3 &dirfrac,
  */
 void ChunkLoader::updateDeferredChunks() {
     PROFILE_SCOPE(UpdateDeferredChunks);
+    bool addedDisplayChunk = false;
 
     // get all finished chunks
     LoadChunkInfo pending;
@@ -264,30 +270,21 @@ void ChunkLoader::updateDeferredChunks() {
 
         // contains chunk data?
         if(std::holds_alternative<ChunkPtr>(pending.data)) {
-            auto chunk = std::get<ChunkPtr>(pending.data);
-
-            // Logging::trace("Finished processing for {}: {} (took {:L} µs)", pending.position, (void*) chunk.get(), diffUs);
-
             // skip assigning it to a draw chunk if it is not currently visible
             if(this->visibilityMap.contains(pending.position) && this->visibilityMap[pending.position]) {
-                // update existing chunk
-                if(this->chunks.contains(pending.position)) {
-                    // this->chunks[pending.position].wc->setChunk(chunk);
-                }
-                // otherwise, create a new one
-                else {
-                    auto wc = this->makeWorldChunk();
-                    wc->setChunk(chunk);
-
-                    RenderChunk info;
-                    info.wc = wc;
-
-                    this->chunks[pending.position] = info;
-                }
+                this->addLoadedChunk(pending);
+                addedDisplayChunk = true;
+                this->eagerLoadRateLimit = this->eagerLoadRateLimitReset;
+            }
+            // if it's off screen, and not rendered, deal with it later
+            else if(!this->chunks.contains(pending.position) && 
+                    !this->loadedOffScreenPos.contains(pending.position)) {
+                this->loadedOffScreen.enqueue(pending);
+                this->loadedOffScreenPos.insert(pending.position);
             }
 
             // regardless, store it in the cache
-            this->loadedChunks[pending.position] = chunk;
+            this->loadedChunks[pending.position] = std::get<ChunkPtr>(pending.data);
         }
         // got an error?
         else if(std::holds_alternative<std::exception>(pending.data)) {
@@ -300,6 +297,40 @@ void ChunkLoader::updateDeferredChunks() {
         // regardless, remove it from the "currently loading" list
         this->currentlyLoading.erase(std::remove(this->currentlyLoading.begin(), 
                     this->currentlyLoading.end(), pending.position), this->currentlyLoading.end()); 
+    }
+
+    // if no display chunks were added this frame, create our idle chunk
+    if(!addedDisplayChunk && (!this->eagerLoadRateLimit || !--this->eagerLoadRateLimit)) {
+        if(this->loadedOffScreen.try_dequeue(pending)) {
+            this->addLoadedChunk(pending);
+            this->loadedOffScreenPos.insert(pending.position);
+
+            this->forceUpdate = true;
+            this->eagerLoadRateLimit = this->eagerLoadRateLimitReset;
+        }
+    }
+}
+
+/**
+ * Adds the given chunk to a display chunk so that it can be shown.
+ */
+void ChunkLoader::addLoadedChunk(LoadChunkInfo &pending) {
+    auto chunk = std::get<ChunkPtr>(pending.data);
+
+    // update existing chunk
+    if(this->chunks.contains(pending.position)) {
+        // TODO: what do
+        // this->chunks[pending.position].wc->setChunk(chunk);
+    }
+    // otherwise, create a new one, immediately if it's visible
+    else {
+        auto wc = this->makeWorldChunk();
+        wc->setChunk(chunk);
+
+        RenderChunk info;
+        info.wc = wc;
+
+        this->chunks[pending.position] = info;
     }
 }
 
@@ -347,16 +378,22 @@ void ChunkLoader::pruneLoadedChunksList() {
     // then, the drawing chunks
     {
         PROFILE_SCOPE(DrawChunk);
-        numWorldChunks = std::erase_if(this->chunks, [&](const auto &item) {
-            auto const& [pos, info] = item;
+        std::vector<glm::ivec2> toRemove;
+        for(const auto &[pos, info] : this->chunks) {
             const auto distance = std::max(fabs(pos.x - this->centerChunkPos.x), fabs(pos.y - this->centerChunkPos.y));
-            bool toRemove = (distance > this->chunkRange);
-            if(toRemove && this->chunkQueue.size_approx() < this->maxChunkQueueSize) {
-                info.wc->setChunk(nullptr);
-                this->chunkQueue.enqueue(info.wc);
+            if(distance > this->chunkRange) {
+                if(info.wc) {
+                    info.wc->setChunk(nullptr);
+                    this->chunkQueue.enqueue(info.wc);
+                }
+                toRemove.push_back(pos);
             }
-            return toRemove;
-        });
+        }
+
+        for(const auto &pos : toRemove) {
+            this->chunks.erase(pos);
+        }
+        numWorldChunks = toRemove.size();
     }
 
     // garbage collect the visibility map
@@ -527,6 +564,11 @@ void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> program, const glm::m
             this->drawChunk(program, pos, info, withNormals, projView);
         }
     }
+
+    // update counts
+    if(program->rendersColor()) {
+        io::MetricsManager::submitChunkMetrics(this->loadedChunks.size(), this->chunks.size(), this->numChunksCulled);
+    }
 }
 
 /**
@@ -561,18 +603,20 @@ void ChunkLoader::drawChunk(std::shared_ptr<gfx::RenderProgram> &program, const 
 
     }
 
-    // discard if all 4 edges at y=0 and y=255 are out of the view.
+    // discard if all edges at y=0 and y=255 (and in between) are out of the view.
     {
         PROFILE_SCOPE(CheckFustrum);
 
-        for(size_t i = 0; i <= 2; i++) {
-            size_t y = i * (Chunk::kMaxY/2);
+        const size_t numPoints = 4;
 
-            for(size_t j = 0; j <= 2; j++) {
-                size_t z = j * 128;
+        for(size_t i = 0; i <= numPoints; i++) {
+            size_t y = i * (Chunk::kMaxY/numPoints);
 
-                for(size_t k = 0; k <= 2; k++) {
-                    size_t x = k * 128;
+            for(size_t j = 0; j <= numPoints; j++) {
+                size_t z = j * (256 / numPoints);
+
+                for(size_t k = 0; k <= numPoints; k++) {
+                    size_t x = k * (256 / numPoints);
 
                     const glm::vec3 chunkOrigin((pos.x * 256.), 0, (pos.y * 256.));
                     const auto point = glm::vec4(chunkOrigin, 0) + glm::vec4(x, y, z, 1);
@@ -583,8 +627,8 @@ void ChunkLoader::drawChunk(std::shared_ptr<gfx::RenderProgram> &program, const 
                     const auto screenPoint = glm::vec2(screenPos);
 
                     // check if within viewport
-                    if(glm::all(glm::lessThanEqual(glm::vec2(-1.,-1.), screenPoint)) &&
-                       glm::all(glm::greaterThanEqual(glm::vec2(1.,1.), screenPoint))) {
+                    if(glm::all(glm::lessThanEqual(glm::vec2(-1.125,-1.125), screenPoint)) &&
+                       glm::all(glm::greaterThanEqual(glm::vec2(1.125,1.125), screenPoint))) {
                         goto draw;
                     }
                 }
@@ -592,7 +636,7 @@ void ChunkLoader::drawChunk(std::shared_ptr<gfx::RenderProgram> &program, const 
         }
     }
 
-    // if we get here, all edges were out of the view
+    // if we get here, all tested points were out of the view
     goto cull;
 
 draw:;
@@ -642,7 +686,7 @@ void ChunkLoader::drawOverlay() {
     ImVec2 window_pos = ImVec2((corner & 1) ? io.DisplaySize.x - DISTANCE : DISTANCE, (corner & 2) ? io.DisplaySize.y - DISTANCE : DISTANCE);
     ImVec2 window_pos_pivot = ImVec2((corner & 1) ? 1.0f : 0.0f, (corner & 2) ? 1.0f : 0.0f);
 
-    ImGui::SetNextWindowSize(ImVec2(230, 0));
+    ImGui::SetNextWindowSize(ImVec2(250, 0));
     ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
 
     ImGui::SetNextWindowBgAlpha(kOverlayAlpha);
@@ -663,6 +707,8 @@ void ChunkLoader::drawOverlay() {
     ImGui::Text("Work Queue: %5lu", chunk::ChunkWorker::getPendingItemCount());
     ImGui::SameLine();
     ImGui::Text("Culled: %lu", this->numChunksCulled);
+
+    ImGui::Text("Offscreen Draw Pend: %lu", this->loadedOffScreen.size_approx());
 
     // context menu
     if(ImGui::BeginPopupContextWindow()) {

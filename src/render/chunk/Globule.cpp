@@ -198,6 +198,7 @@ void Globule::fillBuffer() {
     }
 
     // update the exposure ID maps
+    if(!this->chunk || !this->chunk->chunk) return;
     if(this->exposureIdMaps.size() != c->sliceIdMaps.size()) {
         this->generateBlockIdMap();
     }
@@ -214,6 +215,7 @@ void Globule::fillBuffer() {
         const size_t yOffset = static_cast<size_t>(y - this->position.y) * (64 * 64);
 
         // bail if needing to exit
+        if(!this->chunk || !this->chunk->chunk) return;
         if(this->abortWork) return;
 
         // if there's no blocks at this Y level, check the next one

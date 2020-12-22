@@ -38,6 +38,7 @@ add_executable(cubeland
     src/io/ConfigManager.cpp
     src/io/PrefsManager.cpp
     src/io/PathHelper.cpp
+    src/io/MetricsManager.cpp
 # utilities
     src/util/LZ4.cpp
 # UI
@@ -45,6 +46,7 @@ add_executable(cubeland
     src/gui/GameUI.cpp
     src/gui/PreferencesWindow.cpp
     src/gui/Loaders.cpp
+    src/gui/MetricsDisplay.cpp
 # input
     src/input/InputManager.cpp
 # GL wrappers
@@ -225,14 +227,19 @@ target_link_libraries(cubeland PRIVATE dearimgui)
 add_library(dearimgui_ext OBJECT
     # file browser dialog
     libs/ImGuiFileDialog/ImGuiFileDialog/ImGuiFileDialog.cpp
+    # Metrics display
+    src/3rdparty/metricsgui/metrics_gui.cpp
+    src/3rdparty/metricsgui/ProggyTiny.cpp
 )
 
 target_include_directories(dearimgui_ext PRIVATE src/gui/imgui)
 target_include_directories(dearimgui_ext PRIVATE libs/imgui)
+target_include_directories(dearimgui_ext PRIVATE src/3rdparty/metricsgui)
 
 target_link_libraries(cubeland PRIVATE dearimgui_ext)
 
 target_include_directories(cubeland PRIVATE libs/ImGuiFileDialog)
+target_include_directories(cubeland PRIVATE src/3rdparty)
 
 # GLM
 #find_package(glm REQUIRED)

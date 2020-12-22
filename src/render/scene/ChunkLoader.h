@@ -92,6 +92,7 @@ class ChunkLoader {
                 const glm::vec3 &rt);
 
         void updateDeferredChunks();
+        void addLoadedChunk(LoadChunkInfo &pending);
         void pruneLoadedChunksList();
 
         void updateDrawOrder();
@@ -139,6 +140,30 @@ class ChunkLoader {
         std::unordered_map<glm::ivec2, bool> visibilityMap;
         /// Max distance an entry in the visibility map can be from the current position
         size_t visibilityReleaseDistance = 4;
+
+        /**
+         * Chunks that were loaded, but aren't visible are pushed here. We'll handle them when we
+         * are idle (no visible chunks to deal with,) or it's been long enough.
+         */
+        moodycamel::ConcurrentQueue<LoadChunkInfo> loadedOffScreen;
+        /**
+         * Positions of all off-screen loaded chunks are put on this set; this prevents submission
+         * of duplicate chunks from gumming it up.
+         */
+        std::unordered_set<glm::ivec2> loadedOffScreenPos;
+        /**
+         * Rate limiting counter for loading off-screen chunks; this counter must be decremented to
+         * zero before a new chunk will be loaded.
+         *
+         * Every time an off-screen chunk is loaded, it's reset.
+         */
+        size_t eagerLoadRateLimit = 0;
+
+#ifdef NDEBUG
+        size_t eagerLoadRateLimitReset = 15;
+#else
+        size_t eagerLoadRateLimitReset = 30;
+#endif
 
         /**
          * Whenever a chunk load request has completed, info is pushed onto this queue. Each trip
@@ -213,6 +238,11 @@ class ChunkLoader {
         size_t maxChunkQueueSize = 8;
         /// number of draw chunks that were culled due to visibility
         size_t numChunksCulled = 0;
+
+        /// rate limiting timer for chunk list pruning
+        size_t chunkPruneTimer = 0;
+        /// reset value for the chunk prune timer
+        size_t chunkPruneTimerReset = 30;
 
         /// chunk position of the chunk we're currently on (e.g. that the camera is on)
         glm::ivec2 centerChunkPos;

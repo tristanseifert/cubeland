@@ -97,5 +97,7 @@ void main() {
 
     // dither the output a little to reduce noise
     color.rgb += noise(pos * 1000) * 0.01;
-    FragColor = vec4(color, 1);
+
+    FragColor = vec4(pow(1.0 - exp(-1.3 * color.rgb), vec3(1.3)), 1);
+    // FragColor = vec4(color, 1);
 }

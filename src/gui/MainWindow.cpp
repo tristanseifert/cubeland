@@ -2,6 +2,7 @@
 #include "GameUI.h"
 #include "render/WorldRenderer.h"
 
+#include "io/MetricsManager.h"
 #include "io/PrefsManager.h"
 
 #include <Logging.h>
@@ -12,6 +13,7 @@
 #include <SDL.h>
 
 #include <iterator>
+#include <chrono>
 
 using namespace gl;
 using namespace gui;
@@ -207,6 +209,8 @@ int MainWindow::run() {
     while(this->running) {
         // start the FPS counting
         MUtils::Profiler::NewFrame();
+        auto frameStart = std::chrono::high_resolution_clock::now();
+
         this->startFrameFpsUpdate();
 
         // handle events
@@ -247,6 +251,10 @@ int MainWindow::run() {
                 render->willEndFrame();
             }
         }
+
+        auto frameEnd = std::chrono::high_resolution_clock::now();
+        auto diffUs = std::chrono::duration_cast<std::chrono::microseconds>(frameEnd - frameStart).count();
+        io::MetricsManager::submitFrameTime(diffUs / 1000. / 1000.);
 
         this->endFrameFpsUpdate();
         {
