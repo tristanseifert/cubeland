@@ -14,14 +14,11 @@ MetricsDisplay::MetricsDisplay() {
     this->mFrameTime = new MetricsGuiMetric("Frame Time", "s", MetricsGuiMetric::USE_SI_UNIT_PREFIX);
     this->mFrameTime->mSelected = true;
 
-    // chunks loaded/displayed/culled
-    this->mDataChunks = new MetricsGuiMetric("Data Chunks", "chunks", 0);
-    this->mDisplayChunks = new MetricsGuiMetric("Display Chunks", "chunks", 0);
-    this->mDisplayCulled = new MetricsGuiMetric("Culled Chunks", "chunks", 0);
-
     // set up the actual drawing stuff
     this->gOverlay = new MetricsGuiPlot();
     this->gOverlay->mShowAverage = true;
+    this->gOverlay->mShowLegendAverage = true;
+
     this->gOverlay->AddMetric(this->mFrameTime);
 
     this->gList = new MetricsGuiPlot();
@@ -29,9 +26,6 @@ MetricsDisplay::MetricsDisplay() {
     this->gList->mInlinePlotRowCount = 3;
 
     this->gList->AddMetric(this->mFrameTime);
-    this->gList->AddMetric(this->mDataChunks);
-    this->gList->AddMetric(this->mDisplayChunks);
-    this->gList->AddMetric(this->mDisplayCulled);
 }
 /**
  * Cleans up the metrics display.
@@ -41,9 +35,6 @@ MetricsDisplay::~MetricsDisplay() {
     delete this->gList;
 
     delete this->mFrameTime;
-    delete this->mDataChunks;
-    delete this->mDisplayChunks;
-    delete this->mDisplayCulled;
 }
 
 /**
@@ -70,7 +61,7 @@ void MetricsDisplay::draw(GameUI *ui) {
  */
 void MetricsDisplay::drawMetricsWindow(GameUI *ui) {
     // start window
-    if(!ImGui::Begin("Metrics", &this->showMetrics)) {
+    if(!ImGui::Begin("Señor Metrics", &this->showMetrics)) {
         return;
     }
 

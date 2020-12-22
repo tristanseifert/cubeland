@@ -61,7 +61,9 @@ SceneRenderer::~SceneRenderer() {
  */
 void SceneRenderer::startOfFrame() {
     this->chunkLoader->startOfFrame();
-    this->chunkLoader->updateChunks(this->viewPosition, this->viewDirection);
+
+    this->projView = this->projectionMatrix * this->viewMatrix;
+    this->chunkLoader->updateChunks(this->viewPosition, this->viewDirection, this->projView);
 }
 
 /**
@@ -91,8 +93,7 @@ void SceneRenderer::preRender(WorldRenderer *world) {
 void SceneRenderer::render(WorldRenderer *renderer) {
     gl::glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
 
-    glm::mat4 projView = this->projectionMatrix * this->viewMatrix;
-    this->render(projView, this->viewDirection, false, true);
+    this->render(this->projView, this->viewDirection, false, true);
 
     // draw the highlights
     /*{

@@ -8,6 +8,7 @@
 #include "world/WorldSource.h"
 #include "gfx/gl/texture/Texture2D.h"
 #include "gfx/model/RenderProgram.h"
+#include "util/Frustum.h"
 #include "io/MetricsManager.h"
 #include "io/Format.h"
 #include <Logging.h>
@@ -17,6 +18,7 @@
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/gtx/vector_angle.hpp>
 #include <imgui.h>
+#include <metricsgui/metrics_gui.h>
 
 #include <algorithm>
 
@@ -43,7 +45,6 @@ ChunkLoader::ChunkLoader() {
     std::vector<glm::vec4> data;
 
     BlockRegistry::generateBlockData(dataTexSize, data);
-    Logging::debug("Block data texture is {}; have {} elements {}", dataTexSize, data.size(), data[32]);
 
     // TODO: investigate why a 2 component format does NOT work
     this->blockInfoTex->allocateBlank(dataTexSize.x, dataTexSize.y, gfx::Texture2D::RGBA16F);
@@ -51,6 +52,79 @@ ChunkLoader::ChunkLoader() {
 
     // set up chunk collection
     this->initDisplayChunks();
+
+    // allocator metrics
+    this->mAllocBytes = new MetricsGuiMetric("Allocated Memory", "B", MetricsGuiMetric::USE_SI_UNIT_PREFIX);
+    this->mAllocSparse = new MetricsGuiMetric("Sparse Alloc", "segments", 0);
+    this->mAllocDense = new MetricsGuiMetric("Dense Alloc", "segments", 0);
+
+    this->mAllocPlot = new MetricsGuiPlot;
+    this->mAllocPlot->mInlinePlotRowCount = 3;
+    this->mAllocPlot->mShowInlineGraphs = true;
+    this->mAllocPlot->mShowAverage = true;
+    this->mAllocPlot->mShowLegendUnits = false;
+
+    this->mAllocPlot->AddMetric(this->mAllocBytes);
+    this->mAllocPlot->AddMetric(this->mAllocSparse);
+    this->mAllocPlot->AddMetric(this->mAllocDense);
+
+    // set up data chunk metrics
+    this->mDataChunkLoadTime = new MetricsGuiMetric("Load Time", "s", MetricsGuiMetric::USE_SI_UNIT_PREFIX);
+    this->mDataChunks = new MetricsGuiMetric("Cached", "chunks", 0);
+    this->mDataChunksLoading = new MetricsGuiMetric("Loading", "chunks", 0);
+    this->mDataChunksPending = new MetricsGuiMetric("Pending Process", "chunks", 0);
+    this->mDataChunksDealloc = new MetricsGuiMetric("Pending Dealloc", "chunks", 0);
+
+    this->mDataChunkPlot = new MetricsGuiPlot;
+    this->mDataChunkPlot->mInlinePlotRowCount = 3;
+    this->mDataChunkPlot->mShowInlineGraphs = true;
+    this->mDataChunkPlot->mShowAverage = true;
+    this->mDataChunkPlot->mShowLegendUnits = false;
+
+    this->mDataChunkPlot->AddMetric(this->mDataChunkLoadTime);
+    this->mDataChunkPlot->AddMetric(this->mDataChunks);
+    this->mDataChunkPlot->AddMetric(this->mDataChunksLoading);
+    this->mDataChunkPlot->AddMetric(this->mDataChunksPending);
+    this->mDataChunkPlot->AddMetric(this->mDataChunksDealloc);
+
+    // set up the display chunk metrics
+    this->mDisplayChunks = new MetricsGuiMetric("Allocated", "chunks", 0);
+    this->mDisplayCulled = new MetricsGuiMetric("Culled", "chunks", 0);
+    this->mDisplayEager = new MetricsGuiMetric("Eager Load Pending", "chunks", 0);
+    this->mDisplayCached = new MetricsGuiMetric("Obj Cached", "chunks", 0);
+
+    this->mDisplayChunkPlot = new MetricsGuiPlot;
+    this->mDisplayChunkPlot->mInlinePlotRowCount = 3;
+    this->mDisplayChunkPlot->mShowInlineGraphs = true;
+    this->mDisplayChunkPlot->mShowAverage = true;
+    this->mDisplayChunkPlot->mShowLegendUnits = false;
+
+    this->mDisplayChunkPlot->AddMetric(this->mDisplayChunks);
+    this->mDisplayChunkPlot->AddMetric(this->mDisplayCulled);
+    this->mDisplayChunkPlot->AddMetric(this->mDisplayEager);
+    this->mDisplayChunkPlot->AddMetric(this->mDisplayCached);
+}
+
+/**
+ * Cleans up all the resources of the chunk loader.
+ */
+ChunkLoader::~ChunkLoader() {
+    delete this->mAllocPlot;
+    delete this->mDataChunkPlot;
+    delete this->mDisplayChunkPlot;
+
+    delete this->mAllocBytes;
+    delete this->mAllocDense;
+    delete this->mAllocSparse;
+    delete this->mDataChunkLoadTime;
+    delete this->mDataChunks;
+    delete this->mDataChunksLoading;
+    delete this->mDataChunksPending;
+    delete this->mDataChunksDealloc;
+    delete this->mDisplayChunks;
+    delete this->mDisplayCulled;
+    delete this->mDisplayEager;
+    delete this->mDisplayCached;
 }
 
 /**
@@ -97,17 +171,21 @@ void ChunkLoader::startOfFrame() {
     if(this->showsChunkList) {
         this->drawChunkList();
     }
+    if(this->showsMetrics) {
+        this->drawChunkMetrics();
+    }
 }
 
 /**
  * Called at the start of a frame, this checks to see if we need to load any additional chunks as
  * the player moves.
  */
-void ChunkLoader::updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirection) {
+void ChunkLoader::updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirection, const glm::mat4 &projView) {
     bool visibilityChanged = this->forceUpdate;
-    bool needsDrawOrderUpdate = this->forceUpdate;
+    bool needsDrawOrderUpdate = false;
 
     // perform any deferred chunk loading/unloading
+    this->updateVisible(pos, projView);
     this->updateDeferredChunks();
 
     // update which chunks are visible at the moment only if the direction changed enough
@@ -115,8 +193,7 @@ void ChunkLoader::updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirect
     if(!glm::all(glm::epsilonEqual(dirDelta, glm::vec3(0), kDirectionThreshold))) {
         this->lastDirection = viewDirection;
 
-        visibilityChanged = this->updateVisible(pos);
-        needsDrawOrderUpdate = true;
+        visibilityChanged = true;
     }
 
     // if position update was significant, update both it AND the visibility map
@@ -124,10 +201,7 @@ void ChunkLoader::updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirect
     if(!glm::all(glm::epsilonEqual(delta, glm::vec3(0), kMoveThreshold))) {
         this->lastPos = pos;
 
-        if(!visibilityChanged) {
-            visibilityChanged = this->updateVisible(pos);
-        }
-        needsDrawOrderUpdate = true;
+        visibilityChanged = true;
     }
 
     // handle the current central chunk
@@ -165,30 +239,15 @@ void ChunkLoader::updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirect
 }
 
 /**
- * Updates the visibility map from the current camera perspective.
- *
- * Note that this not only straight ahead direction for the camera is tried, but also ones offset
- * by ±(1/2)FoV. This will certainly catch some extra chunks, but definitely make sure all chunks
- * at the edge of the view are marked as visible.
+ * Updates the visibility map from the current camera perspective using frustum culling.
  */
-bool ChunkLoader::updateVisible(const glm::vec3 &cameraPos) {
+void ChunkLoader::updateVisible(const glm::vec3 &cameraPos, const glm::mat4 &projView) {
     PROFILE_SCOPE(UpdateVisibleChunks);
 
-    // precalculate the direction vectors
-    std::vector<glm::vec3> dirfracs;
+    // createa frustum
+    util::Frustum frust(projView);
 
-    dirfracs.emplace_back(1.f/(this->lastDirection.x+FLT_MIN), 1.f/(this->lastDirection.y+FLT_MIN),
-            1.f/(this->lastDirection.z+FLT_MIN));
-
-    if(this->fov > 0) {
-        glm::vec3 left = glm::rotate(this->lastDirection, -glm::radians(this->fov/1.66f), glm::vec3(1,0,1));
-        dirfracs.emplace_back(1.f/(left.x+FLT_MIN), 1.f/(left.y+FLT_MIN), 1.f/(left.z+FLT_MIN));
-
-        glm::vec3 right = glm::rotate(this->lastDirection, glm::radians(this->fov/1.66f), glm::vec3(1,0,1));
-        dirfracs.emplace_back(1.f/(right.x+FLT_MIN), 1.f/(right.y+FLT_MIN), 1.f/(right.z+FLT_MIN));
-    }
-
-    // check each in-bounds chunk
+    // cheack each chunk
     const glm::vec2 centerChunk = glm::vec2(cameraPos.x/256., cameraPos.z/256.) * glm::vec2(256., 256.);
 
     for(int xOff = -this->chunkRange; xOff <= (int)this->chunkRange; xOff++) {
@@ -197,22 +256,11 @@ bool ChunkLoader::updateVisible(const glm::vec3 &cameraPos) {
             const glm::vec2 chunkPos = centerChunk + glm::vec2(xOff * 256., zOff * 256.);
             const glm::vec3 lb(chunkPos.x, 0, chunkPos.y), rt(chunkPos.x+256., 256, chunkPos.y+256.);
 
-            // check for intersection
-            bool intersects = false;
-            for(const auto &dirfrac : dirfracs) {
-                intersects = this->checkIntersect(cameraPos, dirfrac, lb, rt);
-                if(intersects) goto beach;
-            }
-
-beach:;
+            const bool intersects = frust.isBoxVisible(lb, rt);
             const auto key = this->centerChunkPos + glm::ivec2(xOff, zOff);
             this->visibilityMap.insert_or_assign(key, intersects);
-            // Logging::trace("Check visibility of chunk {} (off ({}, {})) bounds {} {} -> {}", chunkPos, xOff, zOff, lb, rt, intersects);
         }
     }
-
-    // TODO: determine if anything actually did change
-    return true;
 }
 
 /**
@@ -258,6 +306,9 @@ void ChunkLoader::updateDeferredChunks() {
     PROFILE_SCOPE(UpdateDeferredChunks);
     bool addedDisplayChunk = false;
 
+    // get stats on the size of the loaded chunks queue
+    this->mDataChunksPending->AddNewValue(this->loaded.size_approx());
+
     // get all finished chunks
     LoadChunkInfo pending;
     while(this->loaded.try_dequeue(pending)) {
@@ -268,12 +319,16 @@ void ChunkLoader::updateDeferredChunks() {
         const auto diff = now - pending.queuedAt;
         const auto diffUs = duration_cast<microseconds>(diff).count();
 
+        this->mDataChunkLoadTime->AddNewValue(diffUs / 1000. / 1000.);
+
         // contains chunk data?
         if(std::holds_alternative<ChunkPtr>(pending.data)) {
             // skip assigning it to a draw chunk if it is not currently visible
             if(this->visibilityMap.contains(pending.position) && this->visibilityMap[pending.position]) {
                 this->addLoadedChunk(pending);
                 addedDisplayChunk = true;
+
+                // reset the eager loading timer
                 this->eagerLoadRateLimit = this->eagerLoadRateLimitReset;
             }
             // if it's off screen, and not rendered, deal with it later
@@ -283,7 +338,7 @@ void ChunkLoader::updateDeferredChunks() {
                 this->loadedOffScreenPos.insert(pending.position);
             }
 
-            // regardless, store it in the cache
+            // regardless, store the chunk in the cache
             this->loadedChunks[pending.position] = std::get<ChunkPtr>(pending.data);
         }
         // got an error?
@@ -299,7 +354,7 @@ void ChunkLoader::updateDeferredChunks() {
                     this->currentlyLoading.end(), pending.position), this->currentlyLoading.end()); 
     }
 
-    // if no display chunks were added this frame, create our idle chunk
+    // if no display chunks were added this frame, create our idle chunk if timer permits
     if(!addedDisplayChunk && (!this->eagerLoadRateLimit || !--this->eagerLoadRateLimit)) {
         if(this->loadedOffScreen.try_dequeue(pending)) {
             this->addLoadedChunk(pending);
@@ -309,6 +364,9 @@ void ChunkLoader::updateDeferredChunks() {
             this->eagerLoadRateLimit = this->eagerLoadRateLimitReset;
         }
     }
+
+
+    this->mDisplayEager->AddNewValue(this->loadedOffScreen.size_approx());
 }
 
 /**
@@ -342,6 +400,7 @@ std::shared_ptr<render::WorldChunk> ChunkLoader::makeWorldChunk() {
 
     // get one from the queue if possible
     if(this->chunkQueue.try_dequeue(chunk)) {
+        this->mDisplayCached->AddNewValue(this->chunkQueue.size_approx());
         return chunk;
     }
 
@@ -372,6 +431,7 @@ void ChunkLoader::pruneLoadedChunksList() {
             return toRemove;
         });
 
+        this->mDataChunksDealloc->AddNewValue(this->chunksToDealloc.size());
         this->chunksToDeallocLock.unlock();
     }
 
@@ -384,6 +444,8 @@ void ChunkLoader::pruneLoadedChunksList() {
             if(distance > this->chunkRange) {
                 if(info.wc) {
                     info.wc->setChunk(nullptr);
+
+                    // TODO: check we won't overfill the queue lol
                     this->chunkQueue.enqueue(info.wc);
                 }
                 toRemove.push_back(pos);
@@ -394,6 +456,8 @@ void ChunkLoader::pruneLoadedChunksList() {
             this->chunks.erase(pos);
         }
         numWorldChunks = toRemove.size();
+
+        this->mDisplayCached->AddNewValue(this->chunkQueue.size_approx());
     }
 
     // garbage collect the visibility map
@@ -549,25 +613,33 @@ void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> program, const glm::m
         program->setUniform1i("vtxNormalTex", this->globuleNormalTex->unit);
 
         this->numChunksCulled = 0;
+        this->lastProjView = projView;
     }
+
+    // set up frustum for culling
+    util::Frustum frust(projView);
 
     // use the draw order if we have one
     if(!this->drawOrder.empty()) {
         for(const auto &pos : this->drawOrder) {
             const auto &info = this->chunks[pos];
-            this->drawChunk(program, pos, info, withNormals, projView);
+            this->drawChunk(program, pos, info, withNormals, frust);
         }
     }
     // otherwise, draw them in iteration order
     else {
         for(auto [pos, info] : this->chunks) {
-            this->drawChunk(program, pos, info, withNormals, projView);
+            this->drawChunk(program, pos, info, withNormals, frust);
         }
     }
 
     // update counts
     if(program->rendersColor()) {
-        io::MetricsManager::submitChunkMetrics(this->loadedChunks.size(), this->chunks.size(), this->numChunksCulled);
+        this->mDataChunks->AddNewValue(this->loadedChunks.size());
+        this->mDataChunksLoading->AddNewValue(this->currentlyLoading.size());
+
+        this->mDisplayChunks->AddNewValue(this->chunks.size()); 
+        this->mDisplayCulled->AddNewValue(this->numChunksCulled);
     }
 }
 
@@ -575,7 +647,8 @@ void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> program, const glm::m
  * Draws a single chunk.
  */
 void ChunkLoader::drawChunk(std::shared_ptr<gfx::RenderProgram> &program, const glm::ivec2 &pos,
-        const RenderChunk &info, const bool withNormals, const glm::mat4 &projView, const bool cull) {
+        const RenderChunk &info, const bool withNormals, const util::Frustum &frustum,
+        const bool cull) {
     // ignore chunks without any data or if they're invisible
     if(!info.wc || !info.wc->chunk) return;
     else if(!info.cameraVisible) return;
@@ -592,47 +665,19 @@ void ChunkLoader::drawChunk(std::shared_ptr<gfx::RenderProgram> &program, const 
     if(pos == this->centerChunkPos) {
         goto draw;
     }
-    // also skip ahead if it's marked as visible in the info
-    if(this->visibilityMap[pos]) {
-        goto draw;
-    }
 
-    // dicard if we know very quickly it's at least 1 chunk away _and_ behind us
-    {
-        PROFILE_SCOPE(CheckAngle);
-
-    }
-
-    // discard if all edges at y=0 and y=255 (and in between) are out of the view.
+    // check the frustum
     {
         PROFILE_SCOPE(CheckFustrum);
 
-        const size_t numPoints = 4;
+        // build the lower and upper edges
+        const glm::vec3 chunkOrigin((pos.x * 256.), 0, (pos.y * 256.));
 
-        for(size_t i = 0; i <= numPoints; i++) {
-            size_t y = i * (Chunk::kMaxY/numPoints);
+        const auto min = chunkOrigin, max = chunkOrigin + glm::vec3(256.);
+        const bool intersects = frustum.isBoxVisible(min, max);
 
-            for(size_t j = 0; j <= numPoints; j++) {
-                size_t z = j * (256 / numPoints);
-
-                for(size_t k = 0; k <= numPoints; k++) {
-                    size_t x = k * (256 / numPoints);
-
-                    const glm::vec3 chunkOrigin((pos.x * 256.), 0, (pos.y * 256.));
-                    const auto point = glm::vec4(chunkOrigin, 0) + glm::vec4(x, y, z, 1);
-
-                    const glm::vec4 worldPos = model * point;
-                    const auto clipPos = projView * worldPos;
-                    const auto screenPos = glm::vec3(clipPos) / clipPos.w;
-                    const auto screenPoint = glm::vec2(screenPos);
-
-                    // check if within viewport
-                    if(glm::all(glm::lessThanEqual(glm::vec2(-1.125,-1.125), screenPoint)) &&
-                       glm::all(glm::greaterThanEqual(glm::vec2(1.125,1.125), screenPoint))) {
-                        goto draw;
-                    }
-                }
-            }
+        if(intersects) {
+            goto draw;
         }
     }
 
@@ -712,9 +757,8 @@ void ChunkLoader::drawOverlay() {
 
     // context menu
     if(ImGui::BeginPopupContextWindow()) {
-        if(ImGui::MenuItem("Show Draw Chunk List", nullptr, &this->showsChunkList)) {
-            // nothing
-        }
+        ImGui::MenuItem("Show Draw Chunk List", nullptr, &this->showsChunkList);
+        ImGui::MenuItem("Show Chunk Metrics", nullptr, &this->showsMetrics);
 
         ImGui::Separator();
         if(this->showsOverlay && ImGui::MenuItem("Close Overlay")) {
@@ -798,3 +842,53 @@ void ChunkLoader::drawChunkList() {
     ImGui::End();
 }
 
+/**
+ * Draws the chunk metrics window.
+ */
+void ChunkLoader::drawChunkMetrics() {
+    // start window
+    if(!ImGui::Begin("Chunks Metrics", &this->showsChunkList)) {
+        return;
+    }
+
+    // calculate the alloc totals
+    size_t allocTotal = 0, allocDense = 0, allocSparse = 0;
+    for(auto &[position, info] : this->chunks) {
+        // skip chunks that have become deallocated
+        if(!info.wc || !info.wc->chunk) continue;
+
+        // alloc totals
+        allocTotal += info.wc->chunk->poolAllocSpace();
+
+        // per type totals
+        allocDense += info.wc->chunk->poolDense.storage.size();
+        allocSparse += info.wc->chunk->poolSparse.storage.size();
+    }
+
+    this->mAllocBytes->AddNewValue(allocTotal);
+    this->mAllocDense->AddNewValue(allocDense);
+    this->mAllocSparse->AddNewValue(allocSparse);
+
+    // update the axes for each
+    this->mAllocPlot->UpdateAxes();
+    this->mDataChunkPlot->UpdateAxes();
+    this->mDisplayChunkPlot->UpdateAxes();
+
+    // allocator
+    if(ImGui::CollapsingHeader("Data Memory")) {
+        this->mAllocPlot->DrawList();
+    }
+
+    // data chunks
+    if(ImGui::CollapsingHeader("Data Chunks")) {
+        this->mDataChunkPlot->DrawList();
+    }
+
+    // display chunks
+    if(ImGui::CollapsingHeader("Display Chunks")) {
+        this->mDisplayChunkPlot->DrawList();
+    }
+
+    // finish
+    ImGui::End();
+}

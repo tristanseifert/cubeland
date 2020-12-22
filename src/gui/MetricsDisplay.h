@@ -37,9 +37,6 @@ class MetricsDisplay: public GameWindow {
         // metric and plot for frame times
         MetricsGuiMetric *mFrameTime = nullptr;
 
-        // metrics for chunks
-        MetricsGuiMetric *mDataChunks, *mDisplayChunks, *mDisplayCulled;
-
         // plot for the overlay
         MetricsGuiPlot *gOverlay = nullptr;
 

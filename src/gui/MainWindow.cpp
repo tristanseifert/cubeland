@@ -2,6 +2,7 @@
 #include "GameUI.h"
 #include "render/WorldRenderer.h"
 
+#include "io/Format.h"
 #include "io/MetricsManager.h"
 #include "io/PrefsManager.h"
 
@@ -14,9 +15,22 @@
 
 #include <iterator>
 #include <chrono>
+#include <string>
+#include <sstream>
+#include <list>
+#include <unordered_set>
 
 using namespace gl;
 using namespace gui;
+
+/**
+ * List of required OpenGL extensions
+ */
+static const std::list<std::string> kRequiredExtensions = {
+    // occlusion queries and conditional rendering are used to cull chunks
+    "GL_ARB_occlusion_query2",
+    // "GL_NV_conditional_render" // part of core since OpenGL 3.0
+};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /**
@@ -73,6 +87,32 @@ void MainWindow::initGLLibs() {
         XASSERT(error == GL_NO_ERROR, "GL error: {}", error);
     });
 
+    // check available extensions
+    GLint numExtensions = 0;
+    glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
+
+    std::unordered_set<std::string> extensions;
+    extensions.reserve(numExtensions);
+
+    for(size_t i = 0; i < numExtensions; i++) {
+        const auto name = glGetStringi(GL_EXTENSIONS, i);
+        extensions.emplace((char *) name);
+    }
+
+    for(const auto &name : kRequiredExtensions) {
+        if(!extensions.contains(name)) {
+            std::stringstream s;
+            std::copy(std::begin(extensions), std::end(extensions), 
+                    std::ostream_iterator<std::string>(s, ","));
+
+            Logging::error("Missing required extension {}; available: {}", name, s.str());
+
+            const auto body = f("A required OpenGL extension ({}) is missing. Update your graphics drivers and ensure they support at least OpenGL 4.1.", name);
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "OpenGL Error", body.c_str(), nullptr);
+
+            exit(-1);
+        }
+    }
 }
 
 /**
@@ -86,13 +126,14 @@ void MainWindow::configGLContext() {
                           (this->glDebug ? SDL_GL_CONTEXT_DEBUG_FLAG : 0);
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, ctxFlags);
 
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0); // no depth required
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1); // require hardware acceleration
 }
 
 /**

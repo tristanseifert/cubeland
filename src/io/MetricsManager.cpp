@@ -13,9 +13,4 @@ void MetricsManager::submitFrameTime(float time) {
     gDisplay->mFrameTime->AddNewValue(time);
 }
 
-void MetricsManager::submitChunkMetrics(size_t numData, size_t numDisplay, size_t numCulled) {
-    gDisplay->mDataChunks->AddNewValue(numData);
-    gDisplay->mDisplayChunks->AddNewValue(numDisplay);
-    gDisplay->mDisplayCulled->AddNewValue(numCulled);
-}
 

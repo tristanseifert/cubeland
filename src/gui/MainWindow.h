@@ -47,7 +47,7 @@ class MainWindow {
 
     private:
         // when set, GL debugging flags are enabled
-        bool glDebug = true;
+        bool glDebug = false;
 
         // main window handle and its associated OpenGL context
         SDL_Window *win = nullptr;

@@ -61,6 +61,7 @@ add_executable(cubeland
     src/gfx/gl/buffer/PixelBuffer.cpp
     src/gfx/gl/buffer/RenderBuffer.cpp
     src/gfx/gl/buffer/VertexArray.cpp
+    src/gfx/gl/query/OcclusionQuery.cpp
 # model loading
 #    src/gfx/model/Mesh.cpp
 #    src/gfx/model/Model.cpp

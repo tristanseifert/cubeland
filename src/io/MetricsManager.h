@@ -21,9 +21,6 @@ class MetricsManager {
         /// Submits the given frame time to the metrics display.
         static void submitFrameTime(float time);
 
-        /// submits chunk drawing metrics
-        static void submitChunkMetrics(size_t numData, size_t numDisplay, size_t numCulled);
-
     private:
         static std::shared_ptr<gui::MetricsDisplay> gDisplay;
 };

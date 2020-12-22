@@ -67,6 +67,9 @@ class SceneRenderer: public RenderStep {
         }
 
     private:
+        /// projection/view matrix for the main view
+        glm::mat4 projView;
+
         /// chunk loader responsible for getting world data into the game
         std::shared_ptr<scene::ChunkLoader> chunkLoader = nullptr;
         /// the chunks we're rendering as part of the world

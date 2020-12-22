@@ -16,10 +16,17 @@
 #include <variant>
 
 #include <concurrentqueue.h>
+#include <glm/mat4x4.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/gtx/hash.hpp>
 
+class MetricsGuiMetric;
+class MetricsGuiPlot;
+
+namespace util {
+class Frustum;
+}
 namespace gfx {
 class RenderProgram;
 class Texture2D;
@@ -36,11 +43,12 @@ namespace render::scene {
 class ChunkLoader {
     public:
         ChunkLoader();
+        ~ChunkLoader();
 
         void setSource(std::shared_ptr<world::WorldSource> source);
 
         void startOfFrame();
-        void updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirection);
+        void updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirection, const glm::mat4 &projView);
         void draw(std::shared_ptr<gfx::RenderProgram> program, const glm::mat4 &projView, const glm::vec3 &viewDirection);
 
         void setFoV(const float fov) {
@@ -87,7 +95,7 @@ class ChunkLoader {
     private:
         void initDisplayChunks();
 
-        bool updateVisible(const glm::vec3 &cameraPos);
+        void updateVisible(const glm::vec3 &cameraPos, const glm::mat4 &projView);
         bool checkIntersect(const glm::vec3 &origin, const glm::vec3 &dirfrac, const glm::vec3 &lb,
                 const glm::vec3 &rt);
 
@@ -101,7 +109,7 @@ class ChunkLoader {
         void loadChunk(const glm::ivec2 position);
 
         void drawChunk(std::shared_ptr<gfx::RenderProgram> &program, const glm::ivec2 &pos,
-                const RenderChunk &info, const bool withNormals, const glm::mat4 &projView,
+                const RenderChunk &info, const bool withNormals, const util::Frustum &frustum,
                 const bool cull = true);
         void prepareChunk(std::shared_ptr<gfx::RenderProgram> program, 
                 std::shared_ptr<WorldChunk> chunk, bool hasNormal, glm::mat4 &model);
@@ -110,6 +118,7 @@ class ChunkLoader {
 
         void drawOverlay();
         void drawChunkList();
+        void drawChunkMetrics();
 
     private:
         /**
@@ -250,6 +259,8 @@ class ChunkLoader {
         glm::vec3 lastPos = glm::vec3(0);
         /// most recent primary camera direction
         glm::vec3 lastDirection = glm::vec3(2, 2, 2);
+        /// most recently used projection/view matrix
+        glm::mat4 lastProjView = glm::mat4(1);
         /// most recently used FoV
         float fov = 70.;
 
@@ -259,10 +270,22 @@ class ChunkLoader {
         /// set to force an update of all chunk position data
         bool forceUpdate = true;
 
+        // data chunk allocation metrics
+        MetricsGuiMetric *mAllocBytes, *mAllocDense, *mAllocSparse;
+        MetricsGuiPlot *mAllocPlot;
+        // various metrics for data chunks
+        MetricsGuiMetric *mDataChunkLoadTime, *mDataChunks, *mDataChunksLoading, *mDataChunksPending, *mDataChunksDealloc;
+        MetricsGuiPlot *mDataChunkPlot;
+        // various metrics for display chunks
+        MetricsGuiMetric *mDisplayChunks, *mDisplayCulled, *mDisplayEager, *mDisplayCached;
+        MetricsGuiPlot *mDisplayChunkPlot;
+
         /// when set, the debug overlay is shown
         bool showsOverlay = true;
         /// when set, the visible chunks list is shown
         bool showsChunkList = false;
+        /// when set, the chunk display metrics are shown
+        bool showsMetrics = false;
 };
 }
 
