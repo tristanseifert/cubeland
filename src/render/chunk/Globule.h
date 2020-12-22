@@ -51,17 +51,12 @@ class Globule {
     private:
         /**
          * Defines a single vertex stored in the buffer used to render blocks.
-         *
-         * The `blockInfoData` key is divided into several separate components:
-         * - Bits 31..24: Reserved
-         * - Bits 23.. 8: Block ID, to index into block data texture
-         * - Bits  7...4: Face ID (0-5)
-         * - Bits  3...0: Vertex index on face (0-3)
          */
         struct BlockVertex {
             glm::i16vec3 p;
             gl::GLushort blockId;
             gl::GLubyte face;
+            gl::GLubyte vertexId;
         };
 
         /*

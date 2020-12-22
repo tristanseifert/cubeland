@@ -140,7 +140,7 @@ WorldChunk::WorldChunk() {
     }
 
     // lastly, load the placeholder texture
-    this->placeholderTex = std::make_shared<Texture2D>(6);
+    this->placeholderTex = std::make_shared<Texture2D>(7);
     this->placeholderTex->loadFromImage("/test/empty/whitegreen.png");
 }
 

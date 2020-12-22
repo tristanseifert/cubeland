@@ -45,11 +45,11 @@ void BlockDataGenerator::generate(glm::ivec2 &size, std::vector<glm::vec4> &out)
     for(size_t i = 0; i < 1; i++) {
         this->writeBlockInfo(out, (i + 1), nullptr);
 
-        std::stringstream yen;
+/*        std::stringstream yen;
         for(size_t x = 0; x < 16; x++) {
             yen << f("{} ", out[((i+1) * kDataColumns) + x]);
         }
-        Logging::debug("Row data {}: {}", (i + 1), yen.str());
+        Logging::debug("Row data {}: {}", (i + 1), yen.str());*/
     }
 }
 

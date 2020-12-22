@@ -3,6 +3,7 @@
 layout (location = 0) in ivec3 position;
 layout (location = 1) in uint blockId;
 layout (location = 2) in uint faceId;
+layout (location = 3) in uint vertexId;
 
 out vec3 WorldPos;
 out vec2 TexCoords;
@@ -20,17 +21,14 @@ uniform sampler2D blockTypeDataTex;
 
 void main() {
     // sample the normal texture, and the per block type data texture
-    uint face = (faceId & 0xF0U) >> 4;
-    uint idx = (faceId & 0x0FU);
-
-    vec3 normal = texelFetch(vtxNormalTex, ivec2(idx, face), 0).rgb;
+    vec3 normal = texelFetch(vtxNormalTex, ivec2(0, faceId), 0).rgb;
 
     // read the texture coordinates. see block registry docs on how this texture is formatted
     BlockInfoPos = ivec2(0, blockId);
 
-    ivec2 uvInfoCoords = ivec2((min(2, face) * 2) + idx/2, BlockInfoPos.y);
+    ivec2 uvInfoCoords = ivec2((min(2, faceId) * 2) + vertexId/2, BlockInfoPos.y);
 
-    if(idx == 0 || idx == 2) { // odd indices are the first two components
+    if(vertexId == 0 || vertexId == 2) { // odd indices are the first two components
         TexCoords = texelFetch(blockTypeDataTex, uvInfoCoords, 0).st;
     } else {
         TexCoords = texelFetch(blockTypeDataTex, uvInfoCoords, 0).pq;

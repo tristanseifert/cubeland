@@ -27,6 +27,10 @@
 #include <glm/vec2.hpp>
 #include <uuid.h>
 
+namespace render::scene {
+class ChunkLoader;
+}
+
 namespace world {
 
 struct ChunkSlice;
@@ -65,8 +69,9 @@ struct ChunkRowBlockTypeMap {
  * Describes a single chunk, including all blocks and their metadata.
  */
 struct Chunk {
+    friend class render::scene::ChunkLoader;
+
     /// Block coordinate (chunk relative); these are 8 bit to save space
-    // using BlockCoord = std::tuple<uint8_t, uint8_t, uint8_t>;
     /// Packed block coordinate is in the format 0x00YYZZXX.
     using BlockCoord = uint32_t;
 
@@ -147,6 +152,8 @@ struct Chunk {
          * Information for a particular pool
          */
         template<typename T> struct Pool {
+            friend class render::scene::ChunkLoader;
+
             /// number of elements in each storage block
             constexpr static size_t kPoolNumElements = 256;
 

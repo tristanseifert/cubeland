@@ -27,14 +27,14 @@ using namespace render::scene;
  */
 ChunkLoader::ChunkLoader() {
     // allocate the face ID -> normal coordinate texture
-    this->globuleNormalTex = std::make_shared<gfx::Texture2D>(1);
+    this->globuleNormalTex = std::make_shared<gfx::Texture2D>(4);
     this->globuleNormalTex->setUsesLinearFiltering(false);
     this->globuleNormalTex->setDebugName("ChunkNormalMap");
 
     chunk::Globule::fillNormalTex(this->globuleNormalTex);
 
     // allocate a texture holding block ID info data
-    this->blockInfoTex = std::make_shared<gfx::Texture2D>(2);
+    this->blockInfoTex = std::make_shared<gfx::Texture2D>(5);
     this->blockInfoTex->setUsesLinearFiltering(false);
     this->blockInfoTex->setDebugName("ChunkBlockInfo");
 
@@ -99,7 +99,8 @@ void ChunkLoader::startOfFrame() {
  * the player moves.
  */
 void ChunkLoader::updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirection) {
-    bool visibilityChanged = false;
+    bool visibilityChanged = this->forceUpdate;
+    bool needsDrawOrderUpdate = this->forceUpdate;
 
     // perform any deferred chunk loading/unloading
     this->updateDeferredChunks();
@@ -110,6 +111,7 @@ void ChunkLoader::updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirect
         this->lastDirection = viewDirection;
 
         visibilityChanged = this->updateVisible(pos);
+        needsDrawOrderUpdate = true;
     }
 
     // if position update was significant, update both it AND the visibility map
@@ -120,10 +122,13 @@ void ChunkLoader::updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirect
         if(!visibilityChanged) {
             visibilityChanged = this->updateVisible(pos);
         }
+        needsDrawOrderUpdate = true;
     }
 
     // handle the current central chunk
     if(this->updateCenterChunk(delta, pos) || visibilityChanged) {
+        needsDrawOrderUpdate = true;
+
         // recalculate all the surrounding chunks
         for(int xOff = -this->chunkRange; xOff <= (int)this->chunkRange; xOff++) {
             for(int zOff = -this->chunkRange; zOff <= (int)this->chunkRange; zOff++) {
@@ -140,12 +145,17 @@ void ChunkLoader::updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirect
         }
     }
 
-noLoad:;
+    // update draw order if needed
+    if(needsDrawOrderUpdate) {
+        this->updateDrawOrder();
+    }
+
     // update all chunks
     for(auto [position, info] : this->chunks) {
         info.wc->frameBegin();
     }
 
+    this->forceUpdate = false;
     this->numUpdates++;
 }
 
@@ -157,6 +167,8 @@ noLoad:;
  * at the edge of the view are marked as visible.
  */
 bool ChunkLoader::updateVisible(const glm::vec3 &cameraPos) {
+    PROFILE_SCOPE(UpdateVisibleChunks);
+
     // precalculate the direction vectors
     std::vector<glm::vec3> dirfracs;
 
@@ -374,6 +386,51 @@ void ChunkLoader::pruneLoadedChunksList() {
 }
 
 /**
+ * Updates the draw order of the chunks.
+ *
+ * Chunks are ordered by their distance from the current position.
+ */
+void ChunkLoader::updateDrawOrder() {
+    PROFILE_SCOPE(UpdateDrawOrder);
+
+    std::vector<std::pair<glm::ivec2, float>> drawOrder;
+    drawOrder.reserve(this->chunks.size());
+
+    // build a distance map for all chunks
+    {
+        PROFILE_SCOPE(BuildDistMap);
+
+        for(const auto &[pos, info] : this->chunks) {
+            glm::vec3 chunkOrigin(128. + (pos.x * 256.), 128., 128. + (pos.y * 256.));
+
+            const auto dist = glm::distance(this->lastPos, chunkOrigin);
+            drawOrder.emplace_back(pos, dist);
+        }
+    }
+
+    // sort it
+    {
+        PROFILE_SCOPE(SortMap);
+
+        std::sort(std::begin(drawOrder), std::end(drawOrder), [](const auto &l, const auto &r) {
+            return (l.second < r.second);
+        });
+    }
+
+    // get just the first element and we've got the new map
+    {
+        PROFILE_SCOPE(ConvertMap);
+        this->drawOrder.clear();
+
+        int i = 0;
+        for(const auto &[pos, dist] : drawOrder) {
+            this->chunks[pos].drawOrder = i++;
+            this->drawOrder.push_back(pos);
+        }
+    }
+}
+
+/**
  * Loads a new chunk for the central area.
  *
  * @return Whether the center chunk changed.
@@ -443,7 +500,7 @@ void ChunkLoader::loadChunk(const glm::ivec2 position) {
 /**
  * Draws all of the chunks currently loaded.
  */
-void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> program, const glm::vec3 &viewDirection) {
+void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> program, const glm::mat4 &projView, const glm::vec3 &viewDirection) {
     const bool withNormals = program->rendersColor();
 
     // bind data textures/buffers
@@ -453,29 +510,112 @@ void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> program, const glm::v
 
         this->globuleNormalTex->bind();
         program->setUniform1i("vtxNormalTex", this->globuleNormalTex->unit);
+
+        this->numChunksCulled = 0;
     }
 
-    // draw chunks
-    for(auto [pos, info] : this->chunks) {
-        // ignore chunks without any data or if they're invisible
-        if(!info.wc || !info.wc->chunk) continue;
-        else if(!info.cameraVisible) continue;
-
-        // otherwise, draw them
-        this->prepareChunk(program, info.wc, withNormals);
-        info.wc->draw(program);
+    // use the draw order if we have one
+    if(!this->drawOrder.empty()) {
+        for(const auto &pos : this->drawOrder) {
+            const auto &info = this->chunks[pos];
+            this->drawChunk(program, pos, info, withNormals, projView);
+        }
     }
+    // otherwise, draw them in iteration order
+    else {
+        for(auto [pos, info] : this->chunks) {
+            this->drawChunk(program, pos, info, withNormals, projView);
+        }
+    }
+}
+
+/**
+ * Draws a single chunk.
+ */
+void ChunkLoader::drawChunk(std::shared_ptr<gfx::RenderProgram> &program, const glm::ivec2 &pos,
+        const RenderChunk &info, const bool withNormals, const glm::mat4 &projView, const bool cull) {
+    // ignore chunks without any data or if they're invisible
+    if(!info.wc || !info.wc->chunk) return;
+    else if(!info.cameraVisible) return;
+
+    // get the model matrix
+    glm::mat4 model(1);
+    this->prepareChunk(program, info.wc, withNormals, model);
+
+    // skip if not culling
+    if(!cull) {
+        goto draw;
+    }
+    // skip ahead if it's the current chunk
+    if(pos == this->centerChunkPos) {
+        goto draw;
+    }
+    // also skip ahead if it's marked as visible in the info
+    if(this->visibilityMap[pos]) {
+        goto draw;
+    }
+
+    // dicard if we know very quickly it's at least 1 chunk away _and_ behind us
+    {
+        PROFILE_SCOPE(CheckAngle);
+
+    }
+
+    // discard if all 4 edges at y=0 and y=255 are out of the view.
+    {
+        PROFILE_SCOPE(CheckFustrum);
+
+        for(size_t i = 0; i <= 2; i++) {
+            size_t y = i * (Chunk::kMaxY/2);
+
+            for(size_t j = 0; j <= 2; j++) {
+                size_t z = j * 128;
+
+                for(size_t k = 0; k <= 2; k++) {
+                    size_t x = k * 128;
+
+                    const glm::vec3 chunkOrigin((pos.x * 256.), 0, (pos.y * 256.));
+                    const auto point = glm::vec4(chunkOrigin, 0) + glm::vec4(x, y, z, 1);
+
+                    const glm::vec4 worldPos = model * point;
+                    const auto clipPos = projView * worldPos;
+                    const auto screenPos = glm::vec3(clipPos) / clipPos.w;
+                    const auto screenPoint = glm::vec2(screenPos);
+
+                    // check if within viewport
+                    if(glm::all(glm::lessThanEqual(glm::vec2(-1.,-1.), screenPoint)) &&
+                       glm::all(glm::greaterThanEqual(glm::vec2(1.,1.), screenPoint))) {
+                        goto draw;
+                    }
+                }
+            }
+        }
+    }
+
+    // if we get here, all edges were out of the view
+    goto cull;
+
+draw:;
+    // otherwise, draw them
+    info.wc->draw(program);
+    return;
+
+cull:;
+    // do not draw anything
+    if(withNormals) {
+        this->numChunksCulled++;
+    }
+    return;
 }
 
 /**
  * Prepares a chunk for drawing.
  */
 void ChunkLoader::prepareChunk(std::shared_ptr<gfx::RenderProgram> program,
-        std::shared_ptr<WorldChunk> chunk, bool hasNormal) {
+        std::shared_ptr<WorldChunk> chunk, bool hasNormal, glm::mat4 &model) {
     auto &c = chunk->chunk;
 
     // translate based on the chunk's origin
-    glm::mat4 model(1);
     model = glm::translate(model, glm::vec3(c->worldPos.x * 256, 0, c->worldPos.y * 256));
 
     program->setUniformMatrix("model", model);
@@ -552,7 +692,7 @@ void ChunkLoader::drawChunkList() {
 
     // table
     ImVec2 outerSize(0, ImGui::GetTextLineHeightWithSpacing() * 12);
-    if(!ImGui::BeginTable("chonks", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
+    if(!ImGui::BeginTable("chonks", 6, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
         ImGui::End();
         return;
     }
@@ -560,6 +700,7 @@ void ChunkLoader::drawChunkList() {
     ImGui::TableSetupColumn("Position", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 58);
     ImGui::TableSetupColumn("Ptr");
     ImGui::TableSetupColumn("Alloc");
+    ImGui::TableSetupColumn("Ord", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 28);
     ImGui::TableSetupColumn("Vis", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 28);
     ImGui::TableSetupColumn("Cam", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 26);
     ImGui::TableHeadersRow();
@@ -581,7 +722,18 @@ void ChunkLoader::drawChunkList() {
         const auto alloc = info.wc->chunk->poolAllocSpace();
         allocTotal += alloc;
 
+        const auto denseAlloc = info.wc->chunk->poolDense.storage.size();
+        const auto sparseAlloc = info.wc->chunk->poolSparse.storage.size();
+
         ImGui::Text("%.4g M", (((double) alloc) / 1024. / 1024.));
+        if(ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Pool alloc: %lu bytes\nDense pool: %lu (%lu bytes)\nSparse pool: %lu (%lu bytes)", 
+                    alloc, denseAlloc, denseAlloc * sizeof(Chunk::Pool<ChunkSliceRowDense>::Storage), 
+                    sparseAlloc, sparseAlloc * sizeof(Chunk::Pool<ChunkSliceRowSparse>::Storage));
+        }
+
+        ImGui::TableNextColumn();
+        ImGui::Text("%d", info.drawOrder);
 
         ImGui::TableNextColumn();
         ImGui::Text("%s", (this->visibilityMap.contains(position) && this->visibilityMap[position]) ? "Ye" : "No");

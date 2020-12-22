@@ -124,7 +124,7 @@ void SceneRenderer::render(const glm::mat4 &projView, const glm::vec3 &viewDir, 
         program->bind();
         program->setUniformMatrix("projectionView", projView);
 
-        this->chunkLoader->draw(program, viewDir);
+        this->chunkLoader->draw(program, projView, viewDir);
     }
 }
 

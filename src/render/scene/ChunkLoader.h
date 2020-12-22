@@ -41,31 +41,19 @@ class ChunkLoader {
 
         void startOfFrame();
         void updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirection);
-        void draw(std::shared_ptr<gfx::RenderProgram> program, const glm::vec3 &viewDirection);
+        void draw(std::shared_ptr<gfx::RenderProgram> program, const glm::mat4 &projView, const glm::vec3 &viewDirection);
 
         void setFoV(const float fov) {
             this->fov = fov;
         }
 
     private:
-        void initDisplayChunks();
-
-        bool updateVisible(const glm::vec3 &cameraPos);
-        bool checkIntersect(const glm::vec3 &origin, const glm::vec3 &dirfrac, const glm::vec3 &lb, const glm::vec3 &rt);
-
-        void updateDeferredChunks();
-        void pruneLoadedChunksList();
-
-        bool updateCenterChunk(const glm::vec3 &delta, const glm::vec3 &camera);
-        void loadChunk(const glm::ivec2 position);
-
-        void prepareChunk(std::shared_ptr<gfx::RenderProgram> program, 
-                std::shared_ptr<WorldChunk> chunk, bool hasNormal);
-
-        std::shared_ptr<WorldChunk> makeWorldChunk();
-
-        void drawOverlay();
-        void drawChunkList();
+        /// minimum amount of movement required before we do any sort of processing
+        constexpr static const float kMoveThreshold = 0.1f;
+        /// minimum change in direction vector to re-evaluate which chunks are visible
+        constexpr static const float kDirectionThreshold = 0.02f;
+        /// alpha value of the statistics overlay
+        constexpr static const float kOverlayAlpha = 0.74f;
 
     private:
         using DeferredChunk = std::future<std::shared_ptr<world::Chunk>>;
@@ -88,6 +76,8 @@ class ChunkLoader {
 
         // info describing a chunk that's rendering
         struct RenderChunk {
+            // order in which the chunks are to be drawn
+            int drawOrder = -1;
             // is the chunk visible from the current camera view?
             bool cameraVisible = true;
             // actual chunk to render
@@ -95,12 +85,30 @@ class ChunkLoader {
         };
 
     private:
-        /// minimum amount of movement required before we do any sort of processing
-        constexpr static const float kMoveThreshold = 0.1f;
-        /// minimum change in direction vector to re-evaluate which chunks are visible
-        constexpr static const float kDirectionThreshold = 0.02f;
-        /// alpha value of the statistics overlay
-        constexpr static const float kOverlayAlpha = 0.74f;
+        void initDisplayChunks();
+
+        bool updateVisible(const glm::vec3 &cameraPos);
+        bool checkIntersect(const glm::vec3 &origin, const glm::vec3 &dirfrac, const glm::vec3 &lb,
+                const glm::vec3 &rt);
+
+        void updateDeferredChunks();
+        void pruneLoadedChunksList();
+
+        void updateDrawOrder();
+
+        bool updateCenterChunk(const glm::vec3 &delta, const glm::vec3 &camera);
+        void loadChunk(const glm::ivec2 position);
+
+        void drawChunk(std::shared_ptr<gfx::RenderProgram> &program, const glm::ivec2 &pos,
+                const RenderChunk &info, const bool withNormals, const glm::mat4 &projView,
+                const bool cull = true);
+        void prepareChunk(std::shared_ptr<gfx::RenderProgram> program, 
+                std::shared_ptr<WorldChunk> chunk, bool hasNormal, glm::mat4 &model);
+
+        std::shared_ptr<WorldChunk> makeWorldChunk();
+
+        void drawOverlay();
+        void drawChunkList();
 
     private:
         /**
@@ -178,6 +186,14 @@ class ChunkLoader {
         std::shared_ptr<world::WorldSource> source;
 
         /**
+         * Order in which chunks should be drawn.
+         *
+         * Chunks are sorted from near to far, so that further away chunks don't waste time drawing
+         * pixels that get overwritten by closer chunks. If this vector is empty, no particular
+         * draw order is used.
+         */
+        std::vector<glm::ivec2> drawOrder;
+        /**
          * These are the actual rendering chunks used to convert the in-memory world data to meshes
          * that are displayed.
          *
@@ -209,6 +225,9 @@ class ChunkLoader {
 
         /// number of times updateChunks() has been called
         size_t numUpdates = 0;
+
+        /// set to force an update of all chunk position data
+        bool forceUpdate = true;
 
         /// when set, the debug overlay is shown
         bool showsOverlay = true;
