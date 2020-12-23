@@ -62,6 +62,8 @@ class ChunkLoader {
         constexpr static const float kDirectionThreshold = 0.02f;
         /// alpha value of the statistics overlay
         constexpr static const float kOverlayAlpha = 0.74f;
+        /// bias value to add to the distance of all culled chunks when determining draw order
+        constexpr static const float kCulledChunkDrawOrderDistanceBias = 42069;
 
     private:
         using DeferredChunk = std::future<std::shared_ptr<world::Chunk>>;
@@ -69,6 +71,8 @@ class ChunkLoader {
 
         // info describing a chunk that's finished processing
         struct LoadChunkInfo {
+            // if set, the chunk is already loaded but became visible
+            bool isFake = false;
             // time at which this chunk was queued
             std::chrono::high_resolution_clock::time_point queuedAt;
             // chunk's position (in chunk coordinates)
@@ -126,14 +130,20 @@ class ChunkLoader {
          * and is the same 4*6 different values for ALL vertices rendered, so we store it in a
          * texture and index into it in the shader, rather than wasting 12 bytes of vertex data.
          */
-        std::shared_ptr<gfx::Texture2D> globuleNormalTex = nullptr;
+        gfx::Texture2D *globuleNormalTex = nullptr;
 
         /**
          * Data texture storing information needed to render each block. The Y position is used to
          * index by the block id. For the definitions of the X values, see the comments in
          * world/block/BlockDataGenerator.cpp.
          */
-        std::shared_ptr<gfx::Texture2D> blockInfoTex = nullptr;
+        gfx::Texture2D *blockInfoTex = nullptr;
+
+        /**
+         * All textures registered by blocks are combined into one texture atlas for performance
+         * reasons; this texture holds this atlas.
+         */
+        gfx::Texture2D *blockAtlasTex = nullptr;
 
         /**
          * Visibility map for chunks, based on current (primary) view direction

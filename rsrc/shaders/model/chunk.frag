@@ -18,14 +18,14 @@ flat in ivec2 BlockInfoPos;
 uniform sampler2D blockTypeDataTex;
 
 // Samplers (for diffuse and specular)
-uniform sampler2D texture_diffuse1;
+uniform sampler2D blockTexAtlas;
 
 void main() {
     // Store the per-fragment normals
     gNormal = vec4(normalize(Normal), 1);
 
     // sample textures
-    vec3 diffuse = texture(texture_diffuse1, TexCoords).rgb;
+    vec3 diffuse = texture(blockTexAtlas, TexCoords).rgb;
 
     // Store material properties
     gDiffuse = vec4(diffuse, 1);

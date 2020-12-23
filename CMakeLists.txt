@@ -41,6 +41,7 @@ add_executable(cubeland
     src/io/MetricsManager.cpp
 # utilities
     src/util/LZ4.cpp
+    src/util/CPUID.cpp
 # UI
     src/gui/MainWindow.cpp
     src/gui/GameUI.cpp
@@ -99,6 +100,9 @@ add_executable(cubeland
 # resources and other misc stuff
     ${version_file}
 )
+
+# optimize to have at least AVX
+SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -mavx")
 
 # platform-specific stuff
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")

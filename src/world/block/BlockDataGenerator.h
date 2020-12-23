@@ -1,6 +1,8 @@
 #ifndef WORLD_BLOCK_BLOCKDATAGENERATOR_H
 #define WORLD_BLOCK_BLOCKDATAGENERATOR_H
 
+#include "BlockRegistry.h"
+
 #include <vector>
 #include <cstddef>
 #include <array>
@@ -9,7 +11,6 @@
 #include <glm/vec4.hpp>
 
 namespace world {
-class BlockRegistry;
 class Block;
 
 class BlockDataGenerator {
@@ -28,11 +29,21 @@ class BlockDataGenerator {
         static const std::array<glm::vec2, 4> kFaceUv;
 
     private:
+        void buildAtlasLayout();
+
         void writeBlockInfo(std::vector<glm::vec4> &out, const size_t y, const std::shared_ptr<Block> &block);
 
     private:
         /// this is our data source for all block data
         BlockRegistry *registry = nullptr;
+
+        /// mapping of texture id -> bounding rect in the texture atlas
+        std::unordered_map<BlockRegistry::TextureId, glm::ivec4> atlasLayout;
+        /// size of the texture atlas
+        glm::ivec2 atlasSize;
+
+        /// when set, the texture atlas is generated as 16-bit float rather than 8-bit unsigned
+        bool makeFloatAtlas = true;
 };
 }
 

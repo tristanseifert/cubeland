@@ -134,9 +134,6 @@ class WorldChunk: public Drawable {
         std::shared_ptr<gfx::VertexArray> placeholderVao = nullptr;
         std::shared_ptr<gfx::Buffer> vbo = nullptr;
 
-        // empty placeholder texture
-        std::shared_ptr<gfx::Texture2D> placeholderTex = nullptr;
-
         // debugger for this world chunk
         std::shared_ptr<chunk::WorldChunkDebugger> debugger = nullptr;
         // when set, all chunks are drown in wireframe mode rather than solid

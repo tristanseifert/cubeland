@@ -40,6 +40,12 @@ BlockRegistry::~BlockRegistry() {
 }
 
 
+/**
+ * Generates the texture atlas for block textures.
+ */
+void BlockRegistry::generateBlockTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out) {
+    gShared->dataGen->buildTextureAtlas(size, out);
+}
 
 /**
  * Generates the block info texture data.

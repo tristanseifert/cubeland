@@ -46,7 +46,7 @@ class Globule {
         void startOfFrame();
         void draw(std::shared_ptr<gfx::RenderProgram> &program);
 
-        static void fillNormalTex(std::shared_ptr<gfx::Texture2D> &tex);
+        static void fillNormalTex(gfx::Texture2D *tex);
 
     private:
         /**

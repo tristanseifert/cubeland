@@ -30,25 +30,41 @@ using namespace render::scene;
  */
 ChunkLoader::ChunkLoader() {
     // allocate the face ID -> normal coordinate texture
-    this->globuleNormalTex = std::make_shared<gfx::Texture2D>(4);
+    this->globuleNormalTex = new gfx::Texture2D(0);
     this->globuleNormalTex->setUsesLinearFiltering(false);
     this->globuleNormalTex->setDebugName("ChunkNormalMap");
 
     chunk::Globule::fillNormalTex(this->globuleNormalTex);
 
     // allocate a texture holding block ID info data
-    this->blockInfoTex = std::make_shared<gfx::Texture2D>(5);
+    this->blockInfoTex = new gfx::Texture2D(1);
     this->blockInfoTex->setUsesLinearFiltering(false);
     this->blockInfoTex->setDebugName("ChunkBlockInfo");
 
-    glm::ivec2 dataTexSize;
-    std::vector<glm::vec4> data;
+    {
+        glm::ivec2 dataTexSize;
+        std::vector<glm::vec4> data;
 
-    BlockRegistry::generateBlockData(dataTexSize, data);
+        BlockRegistry::generateBlockData(dataTexSize, data);
 
-    // TODO: investigate why a 2 component format does NOT work
-    this->blockInfoTex->allocateBlank(dataTexSize.x, dataTexSize.y, gfx::Texture2D::RGBA16F);
-    this->blockInfoTex->bufferSubData(dataTexSize.x, dataTexSize.y, 0, 0,  gfx::Texture2D::RGBA16F, data.data());
+        // TODO: investigate why a 2 component format does NOT work
+        this->blockInfoTex->allocateBlank(dataTexSize.x, dataTexSize.y, gfx::Texture2D::RGBA16F);
+        this->blockInfoTex->bufferSubData(dataTexSize.x, dataTexSize.y, 0, 0,  gfx::Texture2D::RGBA16F, data.data());
+    }
+
+    // allocate the block texture atlas
+    this->blockAtlasTex = new gfx::Texture2D(2);
+    this->blockAtlasTex->setDebugName("ChunkBlockAtlas");
+
+    {
+        glm::ivec2 atlasSize;
+        std::vector<std::byte> data;
+
+        BlockRegistry::generateBlockTextureAtlas(atlasSize, data);
+
+        this->blockAtlasTex->allocateBlank(atlasSize.x, atlasSize.y, gfx::Texture2D::RGBA16F);
+        this->blockAtlasTex->bufferSubData(atlasSize.x, atlasSize.y, 0, 0,  gfx::Texture2D::RGBA16F, data.data());
+    }
 
     // set up chunk collection
     this->initDisplayChunks();
@@ -125,6 +141,10 @@ ChunkLoader::~ChunkLoader() {
     delete this->mDisplayCulled;
     delete this->mDisplayEager;
     delete this->mDisplayCached;
+
+    delete this->globuleNormalTex;
+    delete this->blockInfoTex;
+    delete this->blockAtlasTex;
 }
 
 /**
@@ -306,6 +326,8 @@ void ChunkLoader::updateDeferredChunks() {
     PROFILE_SCOPE(UpdateDeferredChunks);
     bool addedDisplayChunk = false;
 
+    std::vector<std::pair<LoadChunkInfo, float>> toDisplay;
+
     // get stats on the size of the loaded chunks queue
     this->mDataChunksPending->AddNewValue(this->loaded.size_approx());
 
@@ -319,17 +341,20 @@ void ChunkLoader::updateDeferredChunks() {
         const auto diff = now - pending.queuedAt;
         const auto diffUs = duration_cast<microseconds>(diff).count();
 
-        this->mDataChunkLoadTime->AddNewValue(diffUs / 1000. / 1000.);
+        if(!pending.isFake) {
+            this->mDataChunkLoadTime->AddNewValue(diffUs / 1000. / 1000.);
+        }
 
         // contains chunk data?
         if(std::holds_alternative<ChunkPtr>(pending.data)) {
             // skip assigning it to a draw chunk if it is not currently visible
             if(this->visibilityMap.contains(pending.position) && this->visibilityMap[pending.position]) {
-                this->addLoadedChunk(pending);
-                addedDisplayChunk = true;
+                // calculate distance and store it
+                glm::vec3 chunkOrigin(128. + (pending.position.x * 256.), 128.,
+                        128. + (pending.position.y * 256.));
+                auto dist = glm::distance(this->lastPos, chunkOrigin);
 
-                // reset the eager loading timer
-                this->eagerLoadRateLimit = this->eagerLoadRateLimitReset;
+                toDisplay.emplace_back(pending, dist);
             }
             // if it's off screen, and not rendered, deal with it later
             else if(!this->chunks.contains(pending.position) && 
@@ -354,9 +379,41 @@ void ChunkLoader::updateDeferredChunks() {
                     this->currentlyLoading.end(), pending.position), this->currentlyLoading.end()); 
     }
 
+    // sort all chunks to display by distance, then create in increasing distance order
+    if(!toDisplay.empty()) {
+        std::sort(std::begin(toDisplay), std::end(toDisplay), [](const auto &l, const auto &r) {
+            return (l.second < r.second);
+        });
+
+        // iterate over them to create; this will be in INCREASING distance from us
+        for(auto &pair : toDisplay) {
+            this->addLoadedChunk(pair.first);
+        }
+
+        // reset the eager loading timer
+        if(this->eagerLoadRateLimit < this->eagerLoadRateLimitReset) {
+            this->eagerLoadRateLimit = this->eagerLoadRateLimitReset;
+        } else {
+            this->eagerLoadRateLimit += this->eagerLoadRateLimitReset;
+            this->eagerLoadRateLimit = std::min(this->eagerLoadRateLimit, 5 * this->eagerLoadRateLimitReset);
+        }
+
+        addedDisplayChunk = true;
+    }
+
     // if no display chunks were added this frame, create our idle chunk if timer permits
     if(!addedDisplayChunk && (!this->eagerLoadRateLimit || !--this->eagerLoadRateLimit)) {
+again:;
         if(this->loadedOffScreen.try_dequeue(pending)) {
+            // if this chunk is _way_ off screen, ignore it and check another one
+            glm::vec3 chunkOrigin(128. + (pending.position.x * 256.), 128.,
+                    128. + (pending.position.y * 256.));
+            const auto dist = glm::distance(chunkOrigin, this->lastPos);
+            if(dist > (this->chunkRange * 256. * 1.5)) {
+                goto again;
+            }
+
+            // otherwise, process it
             this->addLoadedChunk(pending);
             this->loadedOffScreenPos.insert(pending.position);
 
@@ -503,8 +560,13 @@ void ChunkLoader::updateDrawOrder() {
 
         for(const auto &[pos, info] : this->chunks) {
             glm::vec3 chunkOrigin(128. + (pos.x * 256.), 128., 128. + (pos.y * 256.));
+            auto dist = glm::distance(this->lastPos, chunkOrigin);
 
-            const auto dist = glm::distance(this->lastPos, chunkOrigin);
+            // apply bias if the chunk is not visible
+            if(this->visibilityMap.contains(pos) && !this->visibilityMap[pos]) {
+                dist += kCulledChunkDrawOrderDistanceBias;
+            }
+
             drawOrder.emplace_back(pos, dist);
         }
     }
@@ -565,6 +627,7 @@ void ChunkLoader::loadChunk(const glm::ivec2 position) {
     // if the chunk is not visible, but we've loaded it, pretend it has just finished loading
     else if(this->loadedChunks.contains(position)) {
         LoadChunkInfo info;
+        info.isFake = true;
         info.position = position;
         info.data = this->loadedChunks[position];
         this->loaded.enqueue(std::move(info));
@@ -611,6 +674,9 @@ void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> program, const glm::m
 
         this->globuleNormalTex->bind();
         program->setUniform1i("vtxNormalTex", this->globuleNormalTex->unit);
+
+        this->blockAtlasTex->bind();
+        program->setUniform1i("blockTexAtlas", this->blockAtlasTex->unit);
 
         this->numChunksCulled = 0;
         this->lastProjView = projView;
@@ -753,7 +819,8 @@ void ChunkLoader::drawOverlay() {
     ImGui::SameLine();
     ImGui::Text("Culled: %lu", this->numChunksCulled);
 
-    ImGui::Text("Offscreen Draw Pend: %lu", this->loadedOffScreen.size_approx());
+    ImGui::Text("Offscreen Draw Pend: %lu (%lu ticks)", this->loadedOffScreen.size_approx(),
+            this->eagerLoadRateLimit);
 
     // context menu
     if(ImGui::BeginPopupContextWindow()) {

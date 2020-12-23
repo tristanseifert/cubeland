@@ -502,7 +502,7 @@ void Globule::generateBlockIdMap() {
  * In the texture, the RGB component encodes the XYZ of the normal. The alpha component is set to
  * 1, but is not currently used.
  */
-void Globule::fillNormalTex(std::shared_ptr<gfx::Texture2D> &tex) {
+void Globule::fillNormalTex(gfx::Texture2D *tex) {
     using namespace gfx;
 
     std::vector<glm::vec4> data;

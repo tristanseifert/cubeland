@@ -138,10 +138,6 @@ WorldChunk::WorldChunk() {
             }
         }
     }
-
-    // lastly, load the placeholder texture
-    this->placeholderTex = std::make_shared<Texture2D>(7);
-    this->placeholderTex->loadFromImage("/test/empty/whitegreen.png");
 }
 
 /**
@@ -180,10 +176,6 @@ void WorldChunk::draw(std::shared_ptr<gfx::RenderProgram> program) {
 
     // set up for rendering
     program->bind();
-    if(program->rendersColor()) {
-        this->placeholderTex->bind();
-        program->setUniform1i("texture_diffuse1", this->placeholderTex->unit);
-    }
 
     // a chunk was loaded; try to draw each globule
     if(this->chunk) {
