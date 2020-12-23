@@ -20,13 +20,14 @@ uniform sampler2D vtxNormalTex;
 uniform sampler2D blockTypeDataTex;
 
 void main() {
-    // sample the normal texture, and the per block type data texture
-    vec3 normal = texelFetch(vtxNormalTex, ivec2(0, faceId), 0).rgb;
+    // sample normals
+    vec3 normal = texelFetch(vtxNormalTex, ivec2(vertexId, faceId), 0).rgb;
 
     // read the texture coordinates. see block registry docs on how this texture is formatted
     BlockInfoPos = ivec2(0, blockId);
 
-    ivec2 uvInfoCoords = ivec2((min(2, faceId) * 2) + vertexId/2, BlockInfoPos.y);
+    uint faceTexId = min(2, faceId);
+    ivec2 uvInfoCoords = ivec2((faceTexId * 2) + vertexId/2, BlockInfoPos.y);
 
     if(vertexId == 0 || vertexId == 2) { // odd indices are the first two components
         TexCoords = texelFetch(blockTypeDataTex, uvInfoCoords, 0).st;

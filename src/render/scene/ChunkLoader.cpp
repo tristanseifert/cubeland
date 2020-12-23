@@ -36,8 +36,21 @@ ChunkLoader::ChunkLoader() {
 
     chunk::Globule::fillNormalTex(this->globuleNormalTex);
 
+    // allocate the block texture atlas
+    this->blockAtlasTex = new gfx::Texture2D(1);
+    this->blockAtlasTex->setDebugName("ChunkBlockAtlas");
+
+    {
+        glm::ivec2 atlasSize;
+        std::vector<std::byte> data;
+
+        BlockRegistry::generateBlockTextureAtlas(atlasSize, data);
+
+        this->blockAtlasTex->allocateBlank(atlasSize.x, atlasSize.y, gfx::Texture2D::RGBA16F);
+        this->blockAtlasTex->bufferSubData(atlasSize.x, atlasSize.y, 0, 0,  gfx::Texture2D::RGBA16F, data.data());
+    }
     // allocate a texture holding block ID info data
-    this->blockInfoTex = new gfx::Texture2D(1);
+    this->blockInfoTex = new gfx::Texture2D(2);
     this->blockInfoTex->setUsesLinearFiltering(false);
     this->blockInfoTex->setDebugName("ChunkBlockInfo");
 
@@ -52,19 +65,6 @@ ChunkLoader::ChunkLoader() {
         this->blockInfoTex->bufferSubData(dataTexSize.x, dataTexSize.y, 0, 0,  gfx::Texture2D::RGBA16F, data.data());
     }
 
-    // allocate the block texture atlas
-    this->blockAtlasTex = new gfx::Texture2D(2);
-    this->blockAtlasTex->setDebugName("ChunkBlockAtlas");
-
-    {
-        glm::ivec2 atlasSize;
-        std::vector<std::byte> data;
-
-        BlockRegistry::generateBlockTextureAtlas(atlasSize, data);
-
-        this->blockAtlasTex->allocateBlank(atlasSize.x, atlasSize.y, gfx::Texture2D::RGBA16F);
-        this->blockAtlasTex->bufferSubData(atlasSize.x, atlasSize.y, 0, 0,  gfx::Texture2D::RGBA16F, data.data());
-    }
 
     // set up chunk collection
     this->initDisplayChunks();

@@ -29,6 +29,6 @@ void main() {
 
     // Store material properties
     gDiffuse = vec4(diffuse, 1);
-    gMatSpec = vec4(0.33, 0.25, 0, 1);
+    gMatSpec = vec4(0.66, 0, 0, 1);
 }
 

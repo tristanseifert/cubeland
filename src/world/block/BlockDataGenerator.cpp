@@ -10,6 +10,7 @@
 #include <vector>
 #include <sstream>
 #include <stdexcept>
+#include <mutex>
 
 using namespace world;
 
@@ -26,10 +27,21 @@ const std::array<glm::vec2, 4> BlockDataGenerator::kFaceUv = {
 
 
 /**
+ * Forces the atlas to be repacked.
+ */
+void BlockDataGenerator::repackAtlas() {
+    std::lock_guard<std::mutex> lg(this->registry->texturesLock);
+    this->buildAtlasLayout();
+}
+
+/**
  * Lays out the textures of all blocks into the texture atlas.
  */
 void BlockDataGenerator::buildTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out) {
     Logging::debug("Texture atlas format: RGBA{}", this->makeFloatAtlas ? "16F" : "8");
+
+    // get texture lock
+    std::lock_guard<std::mutex> lg(this->registry->texturesLock);
 
     // build atlas layout if needed
     if(this->atlasLayout.empty()) {
@@ -100,6 +112,8 @@ void BlockDataGenerator::buildTextureAtlas(glm::ivec2 &size, std::vector<std::by
  *
  * To optimize this algorithm, a vector indicating the index of the first "free" pixel on each
  * line is kept. This gets updated as we go.
+ *
+ * @note We assume the texture iteration lock is held already when entering this function.
  */
 void BlockDataGenerator::buildAtlasLayout() {
     // remove existing and set the initial size
@@ -219,19 +233,38 @@ dispensary:;
     this->atlasSize = size;
 }
 
+/**
+ * Gets the bounding rect, in UV coordinates, for a particular texture in the texture atlas.
+ *
+ * The rect is in the (top left, bottom right) format. It is converted from the (top left, size)
+ * format the atlas represents textures as internallly.
+ */
+glm::vec4 BlockDataGenerator::uvBoundsForTexture(BlockRegistry::TextureId id) {
+    if(!id) {
+        return glm::vec4(0);
+    }
+
+    const auto bounds = this->atlasLayout.at(id);
+    const auto topLeft = glm::vec2(bounds.x, bounds.y);
+    const auto size = glm::vec2(bounds.z, bounds.w);
+
+    return glm::vec4(topLeft, topLeft + size) / glm::vec4(this->atlasSize, this->atlasSize);
+}
+
 
 
 /**
- * Builds the block data texture in the provided buffer.
+ * Builds the block appearance data texture in the provided buffer.
  *
- * This texture has a row for each block type; each row, in turn, currently has 16 columns
+ * This texture has a row for each appearance type; each row, in turn, currently has 16 columns
  * assigned to it. These are laid out as follows:
- * -  0...1: Top face texture coordinates
- * -  2...3: Bottom face exture coordinates
+ * -  0...1: Bottom face texture coordinates
+ * -  2...3: Top face exture coordinates
  * -  4...5: Side faces texture coordinates
+ * -      6: Material properties (x = specular, y = shininess)
  *
- * Note that we leave the first row devoid of all data. Block IDs start at 1, with air having the
- * "unofficial" ID of 0 even though it's not actually a block.
+ * Note that we leave the first row devoid of all data. Appearance IDs start at 1, with air having
+ * the "unofficial" ID of 0 even though it's not actually a block.
  */
 void BlockDataGenerator::generate(glm::ivec2 &size, std::vector<glm::vec4> &out) {
     // determine required space and reserve it
@@ -239,27 +272,38 @@ void BlockDataGenerator::generate(glm::ivec2 &size, std::vector<glm::vec4> &out)
     out.resize(size.x * size.y, glm::vec4(0));
 
     // fill in data for each block
-    for(size_t i = 0; i < 1; i++) {
-        this->writeBlockInfo(out, (i + 1), nullptr);
+    std::lock_guard<std::mutex> lg(this->registry->appearancesLock);
 
-/*        std::stringstream yen;
-        for(size_t x = 0; x < 16; x++) {
-            yen << f("{} ", out[((i+1) * kDataColumns) + x]);
-        }
-        Logging::debug("Row data {}: {}", (i + 1), yen.str());*/
+    size_t y = 1;
+    for(const auto &[id, appearance] : this->registry->appearances) {
+        this->writeBlockInfo(out, y, appearance);
+        y++;
     }
 }
 
 /**
  * Writes block data for a the given block.
  */
-void BlockDataGenerator::writeBlockInfo(std::vector<glm::vec4> &out, const size_t y, const std::shared_ptr<Block> &block) {
+void BlockDataGenerator::writeBlockInfo(std::vector<glm::vec4> &out, const size_t y, const BlockRegistry::BlockAppearanceType &appearance) {
     size_t off = (y * kDataColumns);
+    glm::vec4 texUv;
 
-    // write the texture coordinates. these are packed two to a 4-component vector
-    for(size_t face = 0; face < 3; face++) {
-        out[off + (face * 2) + 0] = glm::vec4(kFaceUv[0], kFaceUv[1]);
-        out[off + (face * 2) + 1] = glm::vec4(kFaceUv[2], kFaceUv[3]);
-    }
+    // UV for the bottom face
+    texUv = this->uvBoundsForTexture(appearance.texBottom);
+    out[off + 0] = glm::vec4(texUv.x, texUv.w, texUv.z, texUv.w);
+    out[off + 1] = glm::vec4(texUv.z, texUv.y, texUv.x, texUv.y);
+
+    // UV coords for top face
+    texUv = this->uvBoundsForTexture(appearance.texTop);
+    out[off + 2] = glm::vec4(texUv.x, texUv.w, texUv.z, texUv.w);
+    out[off + 3] = glm::vec4(texUv.z, texUv.y, texUv.x, texUv.y);
+
+    // UV coords for sides
+    texUv = this->uvBoundsForTexture(appearance.texSide);
+    out[off + 4] = glm::vec4(texUv.x, texUv.w, texUv.z, texUv.w);
+    out[off + 5] = glm::vec4(texUv.z, texUv.y, texUv.x, texUv.y);
+
+    // material props
+    out[off + 6] = glm::vec4(0.33, 0, 0, 0);
 }
 

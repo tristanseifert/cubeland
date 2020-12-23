@@ -172,6 +172,8 @@ void WorldChunk::frameBegin() {
  * air (e.g. ones that could be visible) are in it.
  */
 void WorldChunk::draw(std::shared_ptr<gfx::RenderProgram> program) {
+    PROFILE_SCOPE(ChunkDraw);
+
     using namespace gl;
 
     // set up for rendering

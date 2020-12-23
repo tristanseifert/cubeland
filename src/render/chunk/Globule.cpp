@@ -9,6 +9,7 @@
 #include "world/chunk/Chunk.h"
 #include "world/chunk/ChunkSlice.h"
 #include "world/block/BlockRegistry.h"
+#include "world/block/Block.h"
 
 #include <Logging.h>
 #include <mutils/time/profiler.h>
@@ -203,6 +204,32 @@ void Globule::fillBuffer() {
         this->generateBlockIdMap();
     }
 
+    // get the chunk pos
+    const auto chunkPos = glm::ivec3(this->chunk->chunk->worldPos.x * 256, 0, 
+            this->chunk->chunk->worldPos.y * 256);
+
+    // convert the 8 bit -> UUID maps to 8 bit -> block instance maps
+    std::vector<std::array<std::shared_ptr<Block>, 256>> blockPtrMaps;
+    blockPtrMaps.reserve(c->sliceIdMaps.size());
+
+    {
+        PROFILE_SCOPE(BuildBlockPtrMap);
+        for(const auto &map : c->sliceIdMaps) {
+            std::array<std::shared_ptr<Block>, 256> list;
+
+            for(size_t i = 0; i < list.size(); i++) {
+                const auto &id = map.idMap[i];
+                if(BlockRegistry::isAirBlock(id)) {
+                    continue;
+                }
+
+                list[i] = BlockRegistry::getBlock(id);
+            }
+
+            blockPtrMaps.push_back(list);
+        }
+    }
+
     // initial air map filling
     AirMap am;
     am.below.reset();
@@ -238,6 +265,7 @@ void Globule::fillBuffer() {
 
             // process each block in this row
             const auto &map = c->sliceIdMaps[row->typeMap];
+            const auto &blockMap = blockPtrMaps[row->typeMap];
 
             for(size_t x = this->position.x; x < (this->position.x + 64); x++) {
                 bool visible = false;
@@ -273,24 +301,28 @@ void Globule::fillBuffer() {
     writeResult:;
                 }
 
-                // skip blocks to not draw (e.g. air)
-                uint8_t temp = row->at(x);
-                const auto &id = map.idMap[temp];
-                if(BlockRegistry::isAirBlock(id)) {
-                    continue;
-                }
-                numTotal++;
-
                 // skip block if not exposed
                 if(!visible) {
                     numCulled++;
                     continue;
                 }
 
-                // TODO: determine block data ID
+                // skip blocks to not draw (e.g. air)
+                uint8_t temp = row->at(x);
+                auto &block = blockMap[temp];
+                const auto &id = map.idMap[temp];
+
+                if(!block || BlockRegistry::isAirBlock(id)) {
+                    continue;
+                }
+                numTotal++;
+
+                // determine block data ID
+                const auto worldPos = glm::ivec3(x, y, z) + chunkPos;
+                uint16_t type = block->getBlockId(worldPos);
 
                 // append the vertices for this block
-                this->insertBlockVertices(am, x, y, z, 0);
+                this->insertBlockVertices(am, x, y, z, type);
             }
         }
 

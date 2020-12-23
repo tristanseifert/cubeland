@@ -23,7 +23,11 @@ class BlockDataGenerator {
 
     public:
         void buildTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
+        void repackAtlas();
+
         void generate(glm::ivec2 &size, std::vector<glm::vec4> &out);
+
+        glm::vec4 uvBoundsForTexture(BlockRegistry::TextureId id);
 
     private:
         static const std::array<glm::vec2, 4> kFaceUv;
@@ -31,7 +35,7 @@ class BlockDataGenerator {
     private:
         void buildAtlasLayout();
 
-        void writeBlockInfo(std::vector<glm::vec4> &out, const size_t y, const std::shared_ptr<Block> &block);
+        void writeBlockInfo(std::vector<glm::vec4> &out, const size_t y, const BlockRegistry::BlockAppearanceType &block);
 
     private:
         /// this is our data source for all block data

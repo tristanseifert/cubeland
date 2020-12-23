@@ -16,6 +16,8 @@
 #include <unordered_map>
 #include <stdexcept>
 #include <cstdlib>
+#include <algorithm>
+
 #include <uuid.h>
 
 namespace world {
@@ -28,8 +30,9 @@ struct ChunkSliceRow {
     uint8_t typeMap = 0;
 
     /// return the ID value at the given index
-    virtual uint8_t at(int i) = 0;
-    virtual void set(int i, uint8_t value) = 0;
+    virtual uint8_t at(const int i) = 0;
+    virtual void set(const int i, const uint8_t value) = 0;
+    virtual bool containsType(const uint8_t value) = 0;
     /// performs any internal housekeeping to prepare the row for rendering
     virtual void prepare() {};
 
@@ -63,7 +66,7 @@ struct ChunkSliceRowSparse: public ChunkSliceRow {
     std::array<uint16_t, kMaxEntries> storage;
 
     /// return the ID value at the given index from the sparse storage, or the default id
-    virtual uint8_t at(int i) {
+    virtual uint8_t at(const int i) {
         // bail early if no entries in storage
         if(!this->slotsUsed) {
             return this->defaultBlockId;
@@ -82,12 +85,22 @@ struct ChunkSliceRowSparse: public ChunkSliceRow {
         return this->defaultBlockId;
     }
     /// if not the same as the default block id, inserts the given value into the sparse storage
-    virtual void set(int i, uint8_t value) {
+    virtual void set(const int i, const uint8_t value) {
         if(value == this->defaultBlockId) return;
         if(this->slotsUsed == storage.size()) {
             throw std::runtime_error("Row is full");
         }
         this->storage[this->slotsUsed++] = ((i & 0xFF) << 8) | value;
+    }
+    virtual bool containsType(const uint8_t type) {
+        // check if that's the default id
+        if(this->defaultBlockId == type) return true;
+        // iterate through the sparse storage
+        if(!this->slotsUsed) return false;
+        return std::find_if(std::begin(this->storage), std::begin(this->storage) + this->slotsUsed, 
+                [type](const uint16_t value){
+                return (value & 0x00FF) == type;
+            }) != std::end(this->storage);
     }
 
     // ensures the storage is ready for display
@@ -117,11 +130,16 @@ struct ChunkSliceRowDense: public ChunkSliceRow {
     std::array<uint8_t, 256> storage;
 
     /// return the ID value at the given index directly from storage
-    virtual uint8_t at(int i) {
+    virtual uint8_t at(const int i) {
         return this->storage[i];
     }
-    virtual void set(int i, uint8_t value) {
+    virtual void set(const int i, const uint8_t value) {
         this->storage[i] = value;
+    }
+
+    virtual bool containsType(const uint8_t type) {
+        return std::find(std::begin(this->storage), std::end(this->storage), type) 
+            != std::end(this->storage);
     }
 };
 

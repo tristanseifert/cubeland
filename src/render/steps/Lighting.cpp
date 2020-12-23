@@ -422,6 +422,8 @@ void Lighting::updateSunAngle(WorldRenderer *renderer) {
     if(sunDir.y >= 0) {
         this->sun->setDirection(sunDir);
         this->sun->setEnabled(true);
+
+        this->ambientIntensity = std::min(0.74, std::max(1.33 * sunDir.y, 0.1));
     } else {
         this->sun->setEnabled(false);
         aboveHorizon = false;
@@ -432,8 +434,8 @@ void Lighting::updateSunAngle(WorldRenderer *renderer) {
      * also give it a sort of orange-ish tint. Otherwise, we get a really nasty discontinuity when
      * the sun goes below the horizon and it's disabled.
      */
-    if(this->sunDirection.y >= -0.10 && this->sunDirection.y <= 0.15) {
-        const float factor = std::min((this->sunDirection.y+0.10) * (1. / 0.25), 1.);
+    if(sunDir.y >= -0.10 && sunDir.y <= 0.15) {
+        const float factor = std::min((sunDir.y+0.10) * (1. / 0.25), 1.);
         const auto sunColor = glm::mix(glm::vec3(0), this->sunColorNormal, factor);
         this->sun->setColor(sunColor);
         this->sun->setEnabled(true);
@@ -503,6 +505,8 @@ void Lighting::updateMoonAngle(WorldRenderer *renderer) {
     if(moonDir.y >= 0) {
         this->moon->setDirection(moonDir);
         this->moon->setEnabled(true);
+
+        this->ambientIntensity = std::min(0.2, std::max(0.3 * moonDir.y, 0.1));
     } else {
         this->moon->setEnabled(false);
         aboveHorizon = false;

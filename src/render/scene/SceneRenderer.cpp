@@ -30,6 +30,7 @@ using namespace render::scene;
 SceneRenderer::SceneRenderer() {
     // force initialization of some stuff
     world::BlockRegistry::init();
+    world::RegisterBuiltinBlocks();
     chunk::ChunkWorker::init();
 
     // set up the shaders for the color and shadow programs
