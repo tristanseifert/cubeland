@@ -69,9 +69,9 @@ class Block {
         /// Whether this block type is interested in chunk load/unload notifications
         virtual const bool wantsChunkLoadNotifications() const { return false; }
         /// A chunk has started to be loaded
-        virtual void chunkWasLoaded(std::shared_ptr<Chunk> &chunk) {};
+        virtual void chunkWasLoaded(std::shared_ptr<Chunk> chunk) {};
         /// A chunk is about to be unloaded
-        virtual void chunkWillUnload(std::shared_ptr<Chunk> &chunk) {};
+        virtual void chunkWillUnload(std::shared_ptr<Chunk> chunk) {};
 
     protected:
         /// Unique identifier for the block

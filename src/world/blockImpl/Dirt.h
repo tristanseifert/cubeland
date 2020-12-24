@@ -15,9 +15,13 @@ class Dirt: public Block {
 
     public:
         uint16_t getBlockId(const glm::ivec3 &pos, const BlockFlags flags) override;
+        const bool wantsChunkLoadNotifications() const override;
+
+        void chunkWasLoaded(std::shared_ptr<Chunk> chunk) override;
+        void chunkWillUnload(std::shared_ptr<Chunk> chunk) override;
 
     private:
-        static std::shared_ptr<Dirt> gShared;
+        static Dirt *gShared;
 
         /// textures
         BlockRegistry::TextureId normalTextures[3];

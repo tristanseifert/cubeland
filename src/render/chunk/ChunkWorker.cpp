@@ -1,5 +1,7 @@
 #include "ChunkWorker.h"
 
+#include "util/ThreadPool.h"
+
 #include "io/PrefsManager.h"
 #include "io/Format.h"
 #include <Logging.h>
@@ -24,49 +26,23 @@ ChunkWorker::ChunkWorker() {
     this->numWorkers = io::PrefsManager::getUnsigned("chunk.drawWorkThreads", fallback);
     Logging::debug("Using {} chunk workers", this->numWorkers);
 
-    // start workers
-    this->workerRun = true;
-
-    for(size_t i = 0; i < this->numWorkers; i++) {
-        auto worker = std::make_unique<std::thread>(&ChunkWorker::workerMain, this, i);
-        this->workers.push_back(std::move(worker));
-    }
-
-    // once the workers are started, allow accepting requests
-    this->acceptRequests = true;
+    // create workers
+    this->startWorkers(this->numWorkers);
 }
 
 /**
  * When deallocating, make sure the thread pool is shut down cleanly
  */
 ChunkWorker::~ChunkWorker() {
-    // set stop flag and queue nThreads+1 NOPs
-    this->acceptRequests = false;
-    this->workerRun = false;
-
     for(size_t i = 0; i < this->numWorkers+1; i++) {
         this->pushNop();
     }
-
-    // wait for all threads to join
-    for(auto &thread : this->workers) {
-        thread->join();
-    }
 }
 
-
 /**
- * Main loop for the worker thread
+ * Sets the thread's names.
  */
-void ChunkWorker::workerMain(size_t i) {
-    // perform some setup
+void ChunkWorker::workerThreadStarted(const size_t i) {
     const auto threadName = f("ChunkWorker {}", i+1);
     MUtils::Profiler::NameThread(threadName.c_str());
-
-    // main loop; dequeue work items
-    WorkItem item;
-    while(this->workerRun) {
-        this->workQueue.wait_dequeue(item);
-        item();
-    }
 }

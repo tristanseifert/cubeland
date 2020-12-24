@@ -209,7 +209,7 @@ void ChunkLoader::startOfFrame() {
  */
 void ChunkLoader::updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirection, const glm::mat4 &projView) {
     bool visibilityChanged = this->forceUpdate;
-    bool needsDrawOrderUpdate = false;
+    bool needsDrawOrderUpdate = this->forceLookAtUpdate;
 
     // perform any deferred chunk loading/unloading
     this->updateVisible(pos, projView);
@@ -253,6 +253,10 @@ void ChunkLoader::updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirect
     if(needsDrawOrderUpdate) {
         this->updateDrawOrder();
     }
+    if(needsDrawOrderUpdate || this->forceLookAtUpdate) {
+        this->updateLookAt();
+        this->forceLookAtUpdate = false;
+    }
 
     // update all chunks
     for(auto [position, info] : this->chunks) {
@@ -289,6 +293,37 @@ void ChunkLoader::updateVisible(const glm::vec3 &cameraPos, const glm::mat4 &pro
         }
     }
 }
+
+/**
+ * Updates the "look at" chunk. This is determined by casting a ray from the camera's current
+ * position and direction and seeing with which chunk it intersects, if any. We iterate them in
+ * draw order in hopes of speeding things up.
+ *
+ * Note that this is limited to currently loaded display chunks.
+ */
+void ChunkLoader::updateLookAt() {
+    PROFILE_SCOPE(UpdateLookAt);
+
+    // calculate ray
+    glm::vec3 dirfrac = glm::vec3(1., 1., 1.) / this->lastDirection;
+
+    // iterate all visible chunks
+    for(const auto chunkPos : this->drawOrder) {
+        // build the min and max corners of the chunk
+        glm::vec2 worldOrigin(chunkPos.x * 256., chunkPos.y * 256.);
+        glm::vec3 min(worldOrigin.x, 0, worldOrigin.y);
+        glm::vec3 max = min + glm::vec3(255, 255, 255);
+
+        if(this->checkIntersect(this->lastPos, dirfrac, min, max)) {
+            this->lookAtChunk = chunkPos;
+            return;
+        }
+    }
+
+    // if we get down here, not looking at any chonks
+    this->lookAtChunk.reset();
+}
+
 
 /**
  * Checks whether the given direction (in this case, an inverse direction vector) intersects the
@@ -453,6 +488,10 @@ void ChunkLoader::addLoadedChunk(LoadChunkInfo &pending) {
         info.wc = wc;
 
         this->chunks[pending.position] = info;
+        this->forceLookAtUpdate = true;
+
+        // invoke block handlers
+        BlockRegistry::notifyChunkLoaded(chunk);
     }
 }
 
@@ -545,6 +584,12 @@ void ChunkLoader::pruneLoadedChunksList() {
         auto future = render::chunk::ChunkWorker::pushWork([&] {
             PROFILE_SCOPE(DeallocChunks);
             LOCK_GUARD(this->chunksToDeallocLock, DeallocChunksList);
+
+            // invoke unload handler
+            for(auto &chunk : this->chunksToDealloc) {
+                BlockRegistry::notifyChunkWillUnload(chunk);
+            }
+
             this->chunksToDealloc.clear();
         });
     }
@@ -816,6 +861,13 @@ void ChunkLoader::drawOverlay() {
     ImGui::Text("Chunk: %d, %d", this->centerChunkPos.x, this->centerChunkPos.y);
     ImGui::SameLine();
     ImGui::Text("Camera: %.1f, %.1f, %.1f", this->lastPos.x, this->lastPos.y, this->lastPos.z);
+
+    // look at chunk
+    if(this->lookAtChunk) {
+        ImGui::Text("LookAt: %d, %d", this->lookAtChunk->x, this->lookAtChunk->y);
+    } else {
+        ImGui::TextUnformatted("LookAt: (null)");
+    }
 
     // active chunks (data and drawing)
     ImGui::Text("Count: %lu data (%lu pend), %lu draw (%lu cache)", this->loadedChunks.size(),

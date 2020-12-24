@@ -2,14 +2,22 @@
 #include "Block.h"
 #include "BlockDataGenerator.h"
 
+#include "util/ThreadPool.h"
+
 #include <Logging.h>
 
 #include <array>
+#include <future>
+#include <vector>
 
 using namespace world;
 
+/// shared thread pool
+using WorkItem = std::function<void(void)>;
+static util::ThreadPool<WorkItem> gBlockCallbackQueue(4);
+
 /// shared block registry instance
-std::shared_ptr<BlockRegistry> BlockRegistry::gShared = nullptr;
+BlockRegistry *BlockRegistry::gShared = nullptr;
 
 /*
  * Constant block IDs
@@ -21,7 +29,7 @@ const uuids::uuid BlockRegistry::kAirBlockId = uuids::uuid::from_string("714a92e
  */
 void BlockRegistry::init() {
     XASSERT(!gShared, "Cannot re-initialize block registry");
-    gShared = std::make_unique<BlockRegistry>();
+    gShared = new BlockRegistry;
 }
 
 /**
@@ -46,11 +54,13 @@ BlockRegistry::~BlockRegistry() {
  *
  * Note that blocks are not designed to be de-registered later, unlike other things.
  */
-void BlockRegistry::registerBlock(const uuids::uuid &id, std::shared_ptr<Block> block) {
+void BlockRegistry::registerBlock(const uuids::uuid &id, Block *block) {
     // ensure block is not duplicate or invalid
     XASSERT(block && !block->getId().is_nil(), "Invalid block");
     XASSERT(!gShared->blocks.contains(id), "Duplicate block registrations are not allowed! (offending id: {})",
             uuids::to_string(id));
+
+    const auto blockId = block->getId();
 
     // build info struct
     BlockInfo info;
@@ -58,14 +68,13 @@ void BlockRegistry::registerBlock(const uuids::uuid &id, std::shared_ptr<Block> 
 
     // save it
     std::lock_guard<std::mutex> lg(gShared->blocksLock);
-
-    gShared->blocks[block->getId()] = info;
+    gShared->blocks[blockId] = info;
 }
 
 /**
  * Returns a block by id.
  */
-std::shared_ptr<Block> &BlockRegistry::getBlock(const uuids::uuid &id) {
+Block *BlockRegistry::getBlock(const uuids::uuid &id) {
     std::lock_guard<std::mutex> lg(gShared->blocksLock);
     return gShared->blocks[id].block;
 }
@@ -157,5 +166,53 @@ void BlockRegistry::generateBlockTextureAtlas(glm::ivec2 &size, std::vector<std:
  */
 void BlockRegistry::generateBlockData(glm::ivec2 &size, std::vector<glm::vec4> &out) {
     gShared->dataGen->generate(size, out);
+}
+
+
+
+/**
+ * Invokes all registered block's "chunk loaded" handlers.
+ */
+void BlockRegistry::notifyChunkLoaded(std::shared_ptr<Chunk> &ptr) {
+    std::lock_guard<std::mutex> lg(gShared->blocksLock);
+    std::vector<std::future<void>> futures;
+
+    for(auto &[id, info] : gShared->blocks) {
+        if(info.block && info.block->wantsChunkLoadNotifications()) {
+            Block *block = info.block;
+            futures.push_back(gBlockCallbackQueue.queueWorkItem([=] {
+                block->chunkWasLoaded(ptr);
+            }));
+        }
+    }
+
+    // wait for all callbacks to complete
+    for(auto &future : futures) {
+        future.get();
+    }}
+
+/**
+ * Notifies all blocks that a chunk was unloaded.
+ *
+ * Callbacks are invoked on a background queue, but serialized so that they are all complete once
+ * this method returns.
+ */
+void BlockRegistry::notifyChunkWillUnload(std::shared_ptr<Chunk> &ptr) {
+    std::lock_guard<std::mutex> lg(gShared->blocksLock);
+    std::vector<std::future<void>> futures;
+
+    for(auto &[id, info] : gShared->blocks) {
+        if(info.block && info.block->wantsChunkLoadNotifications()) {
+            Block *block = info.block;
+            futures.push_back(gBlockCallbackQueue.queueWorkItem([=] {
+                block->chunkWillUnload(ptr);
+            }));
+        }
+    }
+
+    // wait for all callbacks to complete
+    for(auto &future : futures) {
+        future.get();
+    }
 }
 

@@ -17,6 +17,7 @@
 #include <glm/vec4.hpp>
 
 namespace world {
+struct Chunk;
 class Block;
 class BlockDataGenerator;
 
@@ -38,7 +39,7 @@ class BlockRegistry {
         static void init();
         /// Releases the shared handle to the block registry
         static void shutdown() {
-            gShared = nullptr;
+            delete gShared;
         }
 
         /// Determines whether the given block id is for an air block.
@@ -52,9 +53,14 @@ class BlockRegistry {
         }
 
         /// Registers a primary block responsible for handling the given UUID
-        static void registerBlock(const uuids::uuid &id, std::shared_ptr<Block> block);
+        static void registerBlock(const uuids::uuid &id, Block *block);
         /// Gets a handle to a registered block instance
-        static std::shared_ptr<Block> &getBlock(const uuids::uuid &id);
+        static Block *getBlock(const uuids::uuid &id);
+
+        /// Notifies all interested blocks that a chunk has loaded.
+        static void notifyChunkLoaded(std::shared_ptr<Chunk> &ptr);
+        /// Notifies all interested blocks that a chunk is about to be unloaded.
+        static void notifyChunkWillUnload(std::shared_ptr<Chunk> &ptr);
 
         /// Registers a texture
         static TextureId registerTexture(const glm::ivec2 size, const std::function<void(std::vector<float> &)> &fillFunc);
@@ -100,7 +106,7 @@ class BlockRegistry {
         /// Block implementation wrapper
         struct BlockInfo {
             /// block data structure; defines its behavior and how it appears
-            std::shared_ptr<Block> block;
+            Block *block;
         };
 
         /// Info for rendering a block
@@ -110,7 +116,7 @@ class BlockRegistry {
         };
 
     private:
-        static std::shared_ptr<BlockRegistry> gShared;
+        static BlockRegistry *gShared;
 
     private:
         /// all registered blocks. key is block UUID

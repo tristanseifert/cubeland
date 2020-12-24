@@ -209,13 +209,13 @@ void Globule::fillBuffer() {
             this->chunk->chunk->worldPos.y * 256);
 
     // convert the 8 bit -> UUID maps to 8 bit -> block instance maps
-    std::vector<std::array<std::shared_ptr<Block>, 256>> blockPtrMaps;
+    std::vector<std::array<Block *, 256>> blockPtrMaps;
     blockPtrMaps.reserve(c->sliceIdMaps.size());
 
     {
         PROFILE_SCOPE(BuildBlockPtrMap);
         for(const auto &map : c->sliceIdMaps) {
-            std::array<std::shared_ptr<Block>, 256> list;
+            std::array<Block *, 256> list;
 
             for(size_t i = 0; i < list.size(); i++) {
                 const auto &id = map.idMap[i];

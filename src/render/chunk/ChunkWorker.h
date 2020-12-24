@@ -5,6 +5,8 @@
 #ifndef RENDER_CHUNK_CHUNKWORKER_H
 #define RENDER_CHUNK_CHUNKWORKER_H
 
+#include "util/ThreadPool.h"
+
 #include <memory>
 #include <atomic>
 #include <thread>
@@ -15,7 +17,8 @@
 #include <blockingconcurrentqueue.h>
 
 namespace render::chunk {
-class ChunkWorker {
+using WorkItem = std::function<void(void)>;
+class ChunkWorker: public util::ThreadPool<WorkItem> {
     public:
         // you should not call these
         ChunkWorker();
@@ -28,33 +31,18 @@ class ChunkWorker {
         }*/
 
         /// Pushes a work request with a more substantive return type
-        template<class F, class... Args>
-        static auto pushWork(F&& f, Args&&... args) 
-        -> std::future<typename std::invoke_result<F, Args...>::type> {
-            // build a task from the function invocation
-            using return_type = typename std::invoke_result<F, Args...>::type;
-            auto task = std::make_shared< std::packaged_task<return_type()> >(
-                std::bind(std::forward<F>(f), std::forward<Args>(args)...)
-            );
-
-            // get future
-            std::future<return_type> fut = task->get_future();
-
-            // insert to queue
-            if(!gShared->acceptRequests) {
-                throw std::runtime_error("work queue not accepting requests");
-            }
-            gShared->workQueue.enqueue([task](){ (*task)(); });
-
-            return fut;
+        template <typename ...Params>
+        static auto pushWork(Params&&... params) 
+        -> std::future<void> {
+            return gShared->queueWorkItem(std::forward<Params>(params)...);
         }
         /// number of pending work items
         static size_t getPendingItemCount() {
-            return gShared->workQueue.size_approx();
+            return gShared->numPending();
         }
         /// whether we can have more than one work thread
         static bool hasMultipleWorkers() {
-            return (gShared->numWorkers > 1);
+            return gShared->getNumWorkers() > 1;
         }
 
         /// Forces initialization of the chunk worker threads
@@ -72,25 +60,12 @@ class ChunkWorker {
             this->workQueue.enqueue([&] {});
         }
 
-        void workerMain(size_t i);
+        void workerThreadStarted(const size_t i) override;
 
     private:
         static std::shared_ptr<ChunkWorker> gShared;
 
     private:
-        using WorkItem = std::function<void(void)>;
-
-        /// number of worker threads to create
-        size_t numWorkers;
-        /// worker thread processes requests as long as this is set
-        std::atomic_bool workerRun;
-        /// worker threads
-        std::vector<std::unique_ptr<std::thread>> workers;
-        /// work requests sent to the thread
-        moodycamel::BlockingConcurrentQueue<WorkItem> workQueue;
-
-        /// when set, we accept work items
-        std::atomic_bool acceptRequests;
 };
 }
 

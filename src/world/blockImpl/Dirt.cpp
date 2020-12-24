@@ -1,18 +1,22 @@
 #include "Dirt.h"
 
+#include "world/chunk/Chunk.h"
 #include "world/block/TextureLoader.h"
 #include "world/block/BlockRegistry.h"
 
+#include "io/Format.h"
+#include <Logging.h>
+
 using namespace world::blocks;
 
-std::shared_ptr<Dirt> Dirt::gShared = nullptr;
+Dirt *Dirt::gShared = nullptr;
 
 /**
  * Registers the dirt block type.
  */
 void Dirt::Register() {
-    gShared = std::make_shared<Dirt>();
-    BlockRegistry::registerBlock(gShared->getId(), std::dynamic_pointer_cast<Block>(gShared));
+    gShared = new Dirt;
+    BlockRegistry::registerBlock(gShared->getId(), dynamic_cast<Block *>(gShared));
 }
 
 /**
@@ -56,5 +60,20 @@ uint16_t Dirt::getBlockId(const glm::ivec3 &pos, const BlockFlags flags) {
     else {
         return this->noGrassAppearance;
     }
+}
+
+/**
+ * We want to get chunk load notifications
+ */
+const bool Dirt::wantsChunkLoadNotifications() const {
+    return true;
+}
+
+void Dirt::chunkWasLoaded(std::shared_ptr<Chunk> chunk) {
+    Logging::trace("Loaded: {}", chunk->worldPos);
+}
+
+void Dirt::chunkWillUnload(std::shared_ptr<Chunk> chunk) {
+    Logging::trace("Unloaded: {}", chunk->worldPos);
 }
 

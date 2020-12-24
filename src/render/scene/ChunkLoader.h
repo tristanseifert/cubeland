@@ -14,6 +14,7 @@
 #include <mutex>
 #include <chrono>
 #include <variant>
+#include <optional>
 
 #include <concurrentqueue.h>
 #include <glm/mat4x4.hpp>
@@ -108,6 +109,7 @@ class ChunkLoader {
         void pruneLoadedChunksList();
 
         void updateDrawOrder();
+        void updateLookAt();
 
         bool updateCenterChunk(const glm::vec3 &delta, const glm::vec3 &camera);
         void loadChunk(const glm::ivec2 position);
@@ -265,6 +267,8 @@ class ChunkLoader {
 
         /// chunk position of the chunk we're currently on (e.g. that the camera is on)
         glm::ivec2 centerChunkPos;
+        /// chunk pos we're looking at, if any
+        std::optional<glm::ivec2> lookAtChunk;
         /// most recent camera position
         glm::vec3 lastPos = glm::vec3(0);
         /// most recent primary camera direction
@@ -277,6 +281,8 @@ class ChunkLoader {
         /// number of times updateChunks() has been called
         size_t numUpdates = 0;
 
+        /// set to force updating the chunk look-at pos
+        bool forceLookAtUpdate = false;
         /// set to force an update of all chunk position data
         bool forceUpdate = true;
 
