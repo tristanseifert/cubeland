@@ -7,6 +7,7 @@
 #include "steps/FXAA.h"
 #include "steps/Lighting.h"
 #include "steps/HDR.h"
+#include "steps/SSAO.h"
 
 #include "gfx/gl/buffer/FrameBuffer.h"
 
@@ -33,6 +34,9 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win) {
 
     this->steps.push_back(scnRnd);
 
+    auto ssao = std::make_shared<SSAO>();
+    this->steps.push_back(ssao);
+
     this->lighting = std::make_shared<Lighting>();
     this->steps.push_back(this->lighting);
 
@@ -44,9 +48,15 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win) {
 
     // Set up some shared buffers
     this->lighting->setSceneRenderer(scnRnd);
+    this->lighting->setOcclusionTex(ssao->occlusionBlurTex);
 
     this->hdr->setDepthBuffer(this->lighting->gDepth);
     this->hdr->setOutputFBO(this->fxaa->getFXAABuffer());
+
+    ssao->setDepthTex(this->lighting->gDepth);
+    ssao->setNormalTex(this->lighting->gNormal);
+
+    this->debugger = std::make_shared<WorldRendererDebugger>(this);
 }
 /**
  * Releases all of our render resources.

@@ -87,6 +87,7 @@ add_executable(cubeland
     src/render/steps/Lighting.cpp
     src/render/steps/HDR.cpp
     src/render/steps/FXAA.cpp
+    src/render/steps/SSAO.cpp
 # world handling (IO/basic behaviors)
     src/world/FileWorldReader.cpp
     src/world/FileWorldReader+SQLite.cpp

@@ -103,6 +103,14 @@ void FrameBuffer::attachTexture2D(std::shared_ptr<Texture2D> tex, AttachmentType
     GLenum type = FrameBuffer::glAttachmentType(attachment);
     glFramebufferTexture2D(GL_FRAMEBUFFER, type, GL_TEXTURE_2D, tex->texture, 0);
 }
+void FrameBuffer::attachTexture2D(Texture2D *tex, AttachmentType attachment) {
+    // bind buffer
+    bindRW();
+
+    // attach texture
+    GLenum type = FrameBuffer::glAttachmentType(attachment);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, type, GL_TEXTURE_2D, tex->texture, 0);
+}
 
 /**
  * Attaches the specified texture to the framebuffer.

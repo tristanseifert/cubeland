@@ -18,10 +18,15 @@ uniform sampler2D gDepth;
 
 uniform sampler2D gSunShadowMap;
 
+uniform sampler2D gOcclusion;
+
 // Fog properties
 uniform vec3 fogColor; // = vec3(0.5, 0.5, 0.5);
 uniform float fogDensity; // = 0.05;
 uniform float fogOffset;
+
+// ambient occlusion factor
+uniform float ssaoFactor = 1;
 
 // Ambient light
 struct AmbientLight {
@@ -126,7 +131,8 @@ void main() {
     // if only the skybox is rendered at a given light, skip lighting
     if(Depth < 1.0) {
         // Ambient lighting
-        vec3 ambient = Diffuse * ambientLight.Intensity;
+        float AmbientOcclusion = texture(gOcclusion, TexCoord).r;
+        vec3 ambient = Diffuse * ambientLight.Intensity * mix(1, AmbientOcclusion, ssaoFactor);
         vec3 lighting = vec3(0, 0, 0);
 
         // Directional lights

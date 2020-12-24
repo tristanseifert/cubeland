@@ -364,6 +364,9 @@ void Lighting::render(WorldRenderer *renderer) {
     this->gMatProps->bind();
     this->gDepth->bind();
     this->shadowTex->bind();
+    this->occlusionTex->bind();
+
+    this->program->setUniform1i("gOcclusion", this->occlusionTex->unit);
 
     // Send ambient light
     this->program->setUniform1f("ambientLight.Intensity", this->ambientIntensity);
@@ -385,6 +388,7 @@ void Lighting::render(WorldRenderer *renderer) {
     // light space matrix was fucked earlier
     this->program->setUniformMatrix("lightSpaceMatrix", this->shadowViewMatrix);
     this->program->setUniform1f("shadowContribution", this->shadowFactor);
+    this->program->setUniform1f("ssaoFactor", this->ssaoFactor);
 
     // send fog properties
     this->program->setUniform1f("fogDensity", this->fogDensity);
@@ -402,6 +406,7 @@ void Lighting::render(WorldRenderer *renderer) {
     this->gMatProps->unbind();
     this->gDepth->unbind();
     this->shadowTex->unbind();
+    this->occlusionTex->unbind();
 
     // render sky
     if(this->skyEnabled) {
@@ -779,6 +784,7 @@ void Lighting::drawDebugWindow() {
     ImGui::DragFloat("Shadow Dir Coefficient", &this->shadowDirectionCoefficient, 0.02, 0.1, 6);
 
     ImGui::DragFloat("Shadow Coefficient", &this->shadowFactor, 0.02, 0, 1);
+    ImGui::DragFloat("Ambient Occlusion Coefficient", &this->ssaoFactor, 0.02, 0, 1);
 
     i = std::max(std::min((int) ((log10(this->shadowW) / log10(2)) - 8), 4), 0);
     if(ImGui::BeginCombo("Shadow Map Size", kShadowSizes[i])) {

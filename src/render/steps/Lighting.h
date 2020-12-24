@@ -54,6 +54,10 @@ class Lighting : public RenderStep {
         void bindGBuffer(void);
         void unbindGBuffer(void);
 
+        void setOcclusionTex(gfx::Texture2D *texture) {
+            this->occlusionTex = texture;
+        }
+
     private:
         void setUpRenderBuffer();
 
@@ -85,6 +89,9 @@ class Lighting : public RenderStep {
 
         std::shared_ptr<gfx::VertexArray> vao = nullptr;
         std::shared_ptr<gfx::Buffer> vbo = nullptr;
+
+        // from SSAO
+        gfx::Texture2D *occlusionTex = nullptr;
 
     private:
         // intensity of ambient light
@@ -174,6 +181,9 @@ class Lighting : public RenderStep {
         float shadowDirectionCoefficient = 2.f;
         // "darkness" of the shadow
         float shadowFactor = 1.f;
+
+        // ambient occlusion factor
+        float ssaoFactor = 1.f;
 
     private:
         void drawDebugWindow();

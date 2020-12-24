@@ -51,6 +51,8 @@ class FrameBuffer {
         void bindW(void);
         static void unbindW(void);
 
+        void attachTexture2D(Texture2D *tex, AttachmentType attachment);
+
         void attachTexture2D(std::shared_ptr<Texture2D> tex, AttachmentType attachment);
         void attachTextureRect(std::shared_ptr<Texture2D> tex, AttachmentType attachment);
         void attachRenderBuffer(std::shared_ptr<RenderBuffer> buf, AttachmentType attachment);
