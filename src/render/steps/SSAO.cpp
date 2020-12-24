@@ -1,4 +1,5 @@
 #include "SSAO.h"
+#include "render/WorldRenderer.h"
 
 #include "gfx/gl/program/ShaderProgram.h"
 #include "gfx/gl/texture/Texture2D.h"
@@ -34,18 +35,16 @@ SSAO::SSAO() {
 
     // framebuffers and blur textures
     this->initOcclusionBuf();
-    this->initOcclusionBlurBuf();
 
     // generate the kernel and noise texture
-    this->generateKernel();
+    this->generateKernel(this->ssaoKernelSize);
     this->initNoiseTex();
 
     // shaders
     this->loadOcclusionShader();
-    this->loadOcclusionBlurShader();
 
     // XXX: testing
-    this->showDebugWindow = true;
+    // this->showDebugWindow = true;
 }
 
 /**
@@ -89,7 +88,7 @@ void SSAO::initOcclusionBuf() {
 
     // attach texture to framebuffer and set them
     this->occlusionFb->attachTexture2D(this->occlusionTex, FrameBuffer::ColourAttachment0);
-    
+
     FrameBuffer::AttachmentType buffers[] = {
         FrameBuffer::ColourAttachment0,
         FrameBuffer::End
@@ -98,36 +97,6 @@ void SSAO::initOcclusionBuf() {
 
     // ensure buffer is ready
     XASSERT(FrameBuffer::isComplete(), "SSAO occlusion FBO incomplete");
-    FrameBuffer::unbindRW();
-}
-
-/**
- * Initializes the occlusion blur buffer.
- */
-void SSAO::initOcclusionBlurBuf() {
-    using namespace gfx;
-
-    // set up the framebuffer and bind
-    this->occlusionBlurFb = new FrameBuffer();
-    this->occlusionBlurFb->bindRW();
-
-    // allocate the texture
-    this->occlusionBlurTex = new Texture2D(6);
-    this->occlusionBlurTex->allocateBlank(1024, 768, Texture2D::RED16F);
-    this->occlusionBlurTex->setUsesLinearFiltering(false);
-    this->occlusionBlurTex->setDebugName("SsaoOcclusionBlur");
-
-    // attach texture to framebuffer and set them
-    this->occlusionBlurFb->attachTexture2D(this->occlusionBlurTex, FrameBuffer::ColourAttachment0);
-
-    FrameBuffer::AttachmentType buffers[] = {
-        FrameBuffer::ColourAttachment0,
-        FrameBuffer::End
-    };
-    this->occlusionBlurFb->setDrawBuffers(buffers);
-
-    // ensure buffer is ready
-    XASSERT(FrameBuffer::isComplete(), "SSAO occlusion blur FBO incomplete");
     FrameBuffer::unbindRW();
 }
 
@@ -184,6 +153,8 @@ void SSAO::generateKernel(size_t size) {
         sample *= scale;
         this->kernel.push_back(sample);
     }
+
+    this->needsKernelUpdate = true;
 }
 
 /**
@@ -203,20 +174,6 @@ void SSAO::loadOcclusionShader() {
     this->sendKernel(this->occlusionShader);
 }
 
-/**
- * Loads the occlusion blur shader.
- */
-void SSAO::loadOcclusionBlurShader() {
-    using namespace gfx;
-
-    // load the shaderino
-    this->occlusionBlurShader = new ShaderProgram("/ssao/occlusion.vert", "/ssao/blur.frag");
-    this->occlusionBlurShader->link();
-
-    // send the unit to which the input texture is bound
-    this->occlusionBlurShader->bind();
-    this->occlusionBlurShader->setUniform1i("occlusion", this->occlusionTex->unit);
-}
 
 /**
  * Sends the current SSAO kernel to the specified shader.
@@ -234,16 +191,12 @@ void SSAO::sendKernel(gfx::ShaderProgram *program) {
 SSAO::~SSAO() {
     // delete the output textures and frame buffers
     delete this->occlusionFb;
-    delete this->occlusionBlurFb;
-
     delete this->occlusionTex;
-    delete this->occlusionBlurTex;
 
     // stuff for rendering SSAO
     delete this->noiseTex;
 
     delete this->occlusionShader;
-    delete this->occlusionBlurShader;
 
     delete this->vao;
     delete this->vbo;
@@ -255,13 +208,15 @@ SSAO::~SSAO() {
  */
 void SSAO::reshape(int width, int height) {
     this->occlusionTex->allocateBlank(width, height, gfx::Texture2D::RED16F);
-    this->occlusionBlurTex->allocateBlank(width, height, gfx::Texture2D::RED16F);
 
     // send new size to the occlusion shader
     this->occlusionShader->bind();
 
     glm::vec2 noiseScale(((float) width) / 4., ((float) height) / 4.);
     this->occlusionShader->setUniformVec("noiseScale", noiseScale);
+
+    // set size
+    this->occlusionSize = glm::vec2(width, height);
 }
 
 
@@ -273,6 +228,9 @@ void SSAO::startOfFrame() {
     if(this->showDebugWindow) {
         this->drawDebugWindow();
     }
+    if(this->showSsaoPreview) {
+        this->drawSsaoPreview();
+    }
 }
 
 /**
@@ -281,7 +239,21 @@ void SSAO::startOfFrame() {
 void SSAO::preRender(WorldRenderer *) {
     using namespace gl;
 
-    glClearColor(1, 0, 0, 0);
+    if(this->enabled) {
+        glClearColor(0, 0, 0, 0);
+    } else {
+        glClearColor(1, 0, 0, 0);
+    }
+    glDisable(GL_DEPTH_TEST);
+}
+
+/**
+ * Restores depth testing after we've finished rendering.
+ */
+void SSAO::postRender(WorldRenderer *) {
+    using namespace gl;
+
+    glEnable(GL_DEPTH_TEST);
 }
 
 /**
@@ -305,6 +277,9 @@ void SSAO::render(WorldRenderer *renderer) {
     this->occlusionShader->setUniformMatrix("viewMatrixInv", viewMatrixInv);
     this->occlusionShader->setUniformMatrix("projMatrixInv", projMatrixInv);
 
+    this->occlusionShader->setUniform1f("thfov", tan(glm::radians(renderer->getFoV()) / 2.));
+    this->occlusionShader->setUniform1f("aspect", this->occlusionSize.x / this->occlusionSize.y);
+
     if(this->needsParamUpdate) {
         this->occlusionShader->setUniform1i("kernelSize", this->ssaoKernelSize);
         this->occlusionShader->setUniform1f("radius", this->ssaoRadius);
@@ -318,10 +293,9 @@ void SSAO::render(WorldRenderer *renderer) {
     }
 
     this->occlusionFb->bindW();
-
     glClear(GL_COLOR_BUFFER_BIT);
 
-    if(enabled) {
+    if(this->enabled) {
         this->gNormal->bind();
         this->gDepth->bind();
         this->noiseTex->bind();
@@ -329,21 +303,6 @@ void SSAO::render(WorldRenderer *renderer) {
         this->occlusionShader->setUniform1i("gDepth", this->gDepth->unit);
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    }
-
-    gfx::FrameBuffer::unbindRW();
-
-    // perform the blurring
-    this->occlusionBlurShader->bind();
-
-    this->occlusionTex->bind();
-
-    this->occlusionBlurFb->bindW();
-
-    if(enabled) {
-        gl::glDrawArrays(gl::GL_TRIANGLE_STRIP, 0, 4);
-    } else {
-        glClear(GL_COLOR_BUFFER_BIT);
     }
 
     // unbind everything
@@ -357,7 +316,12 @@ void SSAO::render(WorldRenderer *renderer) {
 void SSAO::drawDebugWindow() {
     // begin window
     if(!ImGui::Begin("SSAO Renderer", &this->showDebugWindow)) {
+        ImGui::End();
         return;
+    }
+
+    if(ImGui::Button("Show Occlusion Buffer")) {
+        this->showSsaoPreview = true;
     }
 
     ImGui::Checkbox("Enabled", &this->enabled);
@@ -366,7 +330,6 @@ void SSAO::drawDebugWindow() {
     ImGui::PushItemWidth(74);
 
     if(ImGui::DragInt("Kernel Size", &this->ssaoKernelSize, 1, 1, 64)) {
-        // TODO: regenerate kernel
         this->generateKernel(this->ssaoKernelSize);
 
         this->needsKernelUpdate = true;
@@ -381,6 +344,66 @@ void SSAO::drawDebugWindow() {
     }
 
     ImGui::PopItemWidth();
+
+    // end
+    ImGui::End();
+}
+
+/**
+ * Draw the SSAO preview window.
+ *
+ * It allows viewing the occlusion buffer texture.
+ */
+void SSAO::drawSsaoPreview() {
+    static const char *kPreviewName[2] = {
+        "Raw", "Blurred"
+    };
+
+    auto &io = ImGui::GetIO();
+
+    // begin window
+    if(!ImGui::Begin("SSAO Buffer", &this->showSsaoPreview, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::End();
+        return;
+    }
+
+    // tint color
+    ImGui::PushItemWidth(200);
+    ImGui::ColorEdit4("Tint", &this->ssaoPreviewTint.x);
+    ImGui::PopItemWidth();
+
+    // index
+    ImGui::PushItemWidth(74);
+    ImGui::SameLine();
+    ImGui::Dummy(ImVec2(10,0));
+    ImGui::SameLine();
+
+    if(ImGui::BeginCombo("Buffer", kPreviewName[this->previewTextureIdx])) {
+        for(size_t j = 0; j < 1; j++) {
+            const bool isSelected = (this->previewTextureIdx == j);
+
+            if (ImGui::Selectable(kPreviewName[j], isSelected)) {
+                this->previewTextureIdx = j;
+            }
+            if(isSelected) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+    }
+
+    // draw pls
+    ImGui::PopItemWidth();
+    ImGui::Separator();
+
+    ImVec2 uv0(0,1), uv1(1,0);
+    ImVec2 imageSize(this->occlusionSize.x / 2 / io.DisplayFramebufferScale.x, 
+            this->occlusionSize.y / 2 / io.DisplayFramebufferScale.y);
+    ImVec4 tint(this->ssaoPreviewTint.x, this->ssaoPreviewTint.y, this->ssaoPreviewTint.z, this->ssaoPreviewTint.w);
+
+    gl::GLuint textureId = this->occlusionTex->getGlObjectId();
+
+    ImGui::Image((void *) (size_t) textureId, imageSize, uv0, uv1, tint, ImVec4(1,1,1,1));
 
     // end
     ImGui::End();

@@ -114,6 +114,10 @@ class Texture {
             this->debugName = str;
         }
 
+        gl::GLuint getGlObjectId() const {
+            return this->texture;
+        }
+
     public:
         int unit;
 

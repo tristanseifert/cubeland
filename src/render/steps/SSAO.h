@@ -7,6 +7,7 @@
 #include <vector>
 
 #include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 
 namespace gfx {
 class Texture2D;
@@ -29,7 +30,7 @@ class SSAO: public RenderStep {
 
         void startOfFrame(void);
         void preRender(WorldRenderer *);
-        void postRender(WorldRenderer *) {};
+        void postRender(WorldRenderer *);
 
         void render(WorldRenderer *);
 
@@ -48,16 +49,15 @@ class SSAO: public RenderStep {
     private:
         void initQuadBuf();
         void initOcclusionBuf();
-        void initOcclusionBlurBuf();
 
         void initNoiseTex();
         void generateKernel(size_t size = 64);
 
         void loadOcclusionShader();
-        void loadOcclusionBlurShader();
         void sendKernel(gfx::ShaderProgram *program);
 
         void drawDebugWindow();
+        void drawSsaoPreview();
 
     private:
         std::shared_ptr<gfx::Texture2D> gNormal = nullptr;
@@ -66,15 +66,13 @@ class SSAO: public RenderStep {
         gfx::VertexArray *vao = nullptr;
         gfx::Buffer *vbo = nullptr;
 
+        /// size of the occlusion buffers
+        glm::vec2 occlusionSize;
         /// 16-bit single component texture holding the occlusion value
         gfx::Texture2D *occlusionTex = nullptr;
-        /// 16-bit single component texture holding blurred occlusion value
-        gfx::Texture2D *occlusionBlurTex = nullptr;
-
         /// Framebuffer bound for the occlusion finding shader
         gfx::FrameBuffer *occlusionFb = nullptr;
-        /// Framebuffer for blurring occlusion buffer
-        gfx::FrameBuffer *occlusionBlurFb = nullptr;
+
 
         /// SSAO kernel
         std::vector<glm::vec3> kernel;
@@ -84,8 +82,6 @@ class SSAO: public RenderStep {
         /// shader for calculating the occlusion value
         gfx::ShaderProgram *occlusionShader = nullptr;
 
-        /// shader for performing the occlusion blur
-        gfx::ShaderProgram *occlusionBlurShader = nullptr;
 
     private:
         // when set, the shader receives new SSAO params
@@ -93,11 +89,15 @@ class SSAO: public RenderStep {
         // when set, the kernel is updated to the shader
         bool needsKernelUpdate = true;
 
-        bool enabled = false;
+        bool enabled = true;
 
-        int ssaoKernelSize = 64;
+        int ssaoKernelSize = 8;
         float ssaoRadius = 0.5;
         float ssaoBias = 0.025;
+
+        bool showSsaoPreview = false;
+        glm::vec4 ssaoPreviewTint = glm::vec4(1,0,0,1);
+        int previewTextureIdx = 0;
 };
 }
 

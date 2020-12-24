@@ -317,9 +317,13 @@ void Globule::fillBuffer() {
                 }
                 numTotal++;
 
+                // figure out what edges are exposed
+                Block::BlockFlags flags = Block::kFlagsNone;
+                this->flagsForBlock(am, x, y, z, flags);
+
                 // determine block data ID
                 const auto worldPos = glm::ivec3(x, y, z) + chunkPos;
-                uint16_t type = block->getBlockId(worldPos);
+                uint16_t type = block->getBlockId(worldPos, flags);
 
                 // append the vertices for this block
                 this->insertBlockVertices(am, x, y, z, type);
@@ -347,8 +351,48 @@ nextRow:;
 #endif
     }
 
+    /*if(!this->indexData.empty() && this->indexData.size() < 65536) {
+        Logging::debug("Index data could use 16-bit: {} indices, {} B overhead", 
+                this->indexData.size(), this->indexData.size() * 2);
+    }*/
+
     this->vertexBufDirty = true;
     this->indexBufDirty = true;
+}
+
+/**
+ * Calculates the flags for the given block. Currently, this is just the exposed edges.
+ */
+void Globule::flagsForBlock(const AirMap &am, const size_t x, const size_t y, const size_t z, world::Block::BlockFlags &flags) {
+    using namespace world;
+
+    // calculate offsets into air map
+    const size_t airMapOff = ((z & 0xFF) << 8) | (x & 0xFF);
+
+    // is the left edge exposed?
+    if(x == 0 || am.current[airMapOff - 1]) {
+        flags |= Block::kExposedXMinus;
+    }
+    // is the right edge exposed?
+    if(x == 255 || am.current[airMapOff + 1]) {
+        flags |= Block::kExposedXPlus;
+    }
+    // is the bottom exposed?
+    if(y == 0 || am.below[airMapOff]) {
+        flags |= Block::kExposedYMinus;
+    }
+    // is the top exposed?
+    if((y + 1) >= 255 || am.above[airMapOff]) {
+        flags |= Block::kExposedYPlus;
+    }
+    // is the z-1 edge exposed?
+    if(z == 0 || am.current[airMapOff - 0x100]) {
+        flags |= Block::kExposedZMinus;
+    }
+    // is the z+1 edge exposed?
+    if(z == 255 || am.current[airMapOff + 0x100]) {
+        flags |= Block::kExposedZPlus;
+    }
 }
 
 /**

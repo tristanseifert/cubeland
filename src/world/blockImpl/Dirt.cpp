@@ -1,5 +1,6 @@
 #include "Dirt.h"
 
+#include "world/block/TextureLoader.h"
 #include "world/block/BlockRegistry.h"
 
 using namespace world::blocks;
@@ -24,37 +25,36 @@ Dirt::Dirt() {
 
     // register textures
     this->normalTextures[0] = BlockRegistry::registerTexture(glm::ivec2(32, 32), [](auto &out) {
-        // top
-        for(size_t i = 0; i < out.size()/4; i++) {
-            out[(i*4)+0] = 1;
-            out[(i*4)+3] = 1;
-        }
+        TextureLoader::load("/block/dirt/top.png", out);
     });
     this->normalTextures[1] = BlockRegistry::registerTexture(glm::ivec2(32, 32), [](auto &out) {
-        // bottom
-        for(size_t i = 0; i < out.size()/4; i++) {
-            out[(i*4)+1] = 1;
-            out[(i*4)+3] = 1;
-        }
+        TextureLoader::load("/block/dirt/bottom.png", out);
     });
     this->normalTextures[2] = BlockRegistry::registerTexture(glm::ivec2(32, 32), [](auto &out) {
-        // sides
-        for(size_t i = 0; i < out.size()/4; i++) {
-            out[(i*4)+2] = 1;
-            out[(i*4)+3] = 1;
-        }
+        TextureLoader::load("/block/dirt/side.png", out);
     });
 
     // register appearance
     this->appearanceId = BlockRegistry::registerBlockAppearance();
     BlockRegistry::appearanceSetTextures(this->appearanceId, this->normalTextures);
+
+    this->noGrassAppearance = BlockRegistry::registerBlockAppearance();
+    BlockRegistry::appearanceSetTextures(this->noGrassAppearance, this->normalTextures[1],
+            this->normalTextures[1], this->normalTextures[1]);
 }
 
 
 /**
  * Returns the default dirt block appearance.
  */
-uint16_t Dirt::getBlockId(const glm::ivec3 &pos) {
-    return this->appearanceId;
+uint16_t Dirt::getBlockId(const glm::ivec3 &pos, const BlockFlags flags) {
+    // if the top is exposed, use the normal "grass" appearance
+    if((flags & kExposedYPlus) == 0) {
+        return this->appearanceId;
+    }
+    // otherwise, use the dirt only appearance
+    else {
+        return this->noGrassAppearance;
+    }
 }
 

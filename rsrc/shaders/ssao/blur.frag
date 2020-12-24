@@ -10,6 +10,10 @@ layout (location = 0) out float FragColor;
 // input occlusion values
 uniform sampler2D occlusion;
 
+/**
+ * Averages all pixels in a 4x4 zone at the current position. Since we apply a 4x4 noise to the
+ * algorithm, this removes that noise and smoothes the result out.
+ */
 void main()  {
     vec2 texelSize = 1.0 / vec2(textureSize(occlusion, 0));
     float result = 0.0;

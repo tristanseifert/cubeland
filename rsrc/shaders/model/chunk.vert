@@ -27,7 +27,7 @@ void main() {
     BlockInfoPos = ivec2(0, blockId);
 
     uint faceTexId = min(2, faceId);
-    ivec2 uvInfoCoords = ivec2((faceTexId * 2) + vertexId/2, BlockInfoPos.y);
+    ivec2 uvInfoCoords = ivec2((faceId * 2) + vertexId/2, BlockInfoPos.y);
 
     if(vertexId == 0 || vertexId == 2) { // odd indices are the first two components
         TexCoords = texelFetch(blockTypeDataTex, uvInfoCoords, 0).st;

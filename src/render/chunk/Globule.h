@@ -5,6 +5,8 @@
 #ifndef RENDER_CHUNK_GLOBULE_H
 #define RENDER_CHUNK_GLOBULE_H
 
+#include "world/block/Block.h"
+
 #include <memory>
 #include <atomic>
 #include <vector>
@@ -73,6 +75,7 @@ class Globule {
 
         void fillBuffer();
         void generateBlockIdMap();
+        void flagsForBlock(const AirMap &am, const size_t x, const size_t y, const size_t z, world::Block::BlockFlags &flags);
         void insertBlockVertices(const AirMap &am, const size_t x, const size_t y, const size_t z, const uint16_t blockDataId);
         void buildAirMap(world::ChunkSlice *slice, std::bitset<256*256> &map);
 

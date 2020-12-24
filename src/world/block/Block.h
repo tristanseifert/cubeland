@@ -19,6 +19,7 @@
 #ifndef WORLD_BLOCK_BLOCK_H
 #define WORLD_BLOCK_BLOCK_H
 
+#include <cstdint>
 #include <uuid.h>
 
 #include <glm/vec3.hpp>
@@ -27,6 +28,21 @@ namespace world {
 struct Chunk;
 
 class Block {
+    public:
+        enum BlockFlags: uint32_t {
+            kFlagsNone = 0,
+
+            /// exposed edges
+            kExposureMask       = 0x3F,
+
+            kExposedYPlus       = (1 << 0),
+            kExposedYMinus      = (1 << 1),
+            kExposedXPlus       = (1 << 2),
+            kExposedXMinus      = (1 << 3),
+            kExposedZPlus       = (1 << 4),
+            kExposedZMinus      = (1 << 5),
+        };
+
     public:
         virtual ~Block() = default;
 
@@ -39,8 +55,16 @@ class Block {
             return this->id;
         }
 
-        /// Returns the 16-bit block type id to use for drawing the block at the given world pos
-        virtual uint16_t getBlockId(const glm::ivec3 &pos) = 0;
+        /**
+         * Returns the 16-bit block appearance to use for drawing the block at the given world
+         * position. When invoked, the drawing code has already evaluated the UUID and determined
+         * this instance should draw it, so you really only need to decide if the block has a
+         * special appearance.
+         *
+         * For convenience, a set of flags is included indicating what edges the block is exposed
+         * on.
+         */
+        virtual uint16_t getBlockId(const glm::ivec3 &pos, const BlockFlags flags) = 0;
 
         /// Whether this block type is interested in chunk load/unload notifications
         virtual const bool wantsChunkLoadNotifications() const { return false; }
@@ -56,6 +80,15 @@ class Block {
         /// Internal rdns-style name
         std::string internalName;
 };
+
+// proper bitset OR for block flags. (XXX: extend if we ever use more than 32 bits)
+inline Block::BlockFlags operator|(Block::BlockFlags a, Block::BlockFlags b) {
+    return static_cast<Block::BlockFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+}
+inline Block::BlockFlags operator|=(Block::BlockFlags &a, Block::BlockFlags b) {
+    return (Block::BlockFlags &) ((uint32_t &) a |= (uint32_t) b);
+}
+
 }
 
 #endif

@@ -14,7 +14,7 @@ class Dirt: public Block {
         Dirt();
 
     public:
-        uint16_t getBlockId(const glm::ivec3 &pos) override;
+        uint16_t getBlockId(const glm::ivec3 &pos, const BlockFlags flags) override;
 
     private:
         static std::shared_ptr<Dirt> gShared;
@@ -23,6 +23,8 @@ class Dirt: public Block {
         BlockRegistry::TextureId normalTextures[3];
         /// type id for the primary dirt block appearance
         uint16_t appearanceId;
+        /// dirt with no grass (only the bottom texture)
+        uint16_t noGrassAppearance;
 };
 }
 

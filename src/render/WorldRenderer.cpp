@@ -48,7 +48,7 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win) {
 
     // Set up some shared buffers
     this->lighting->setSceneRenderer(scnRnd);
-    this->lighting->setOcclusionTex(ssao->occlusionBlurTex);
+    this->lighting->setOcclusionTex(ssao->occlusionTex);
 
     this->hdr->setDepthBuffer(this->lighting->gDepth);
     this->hdr->setOutputFBO(this->fxaa->getFXAABuffer());

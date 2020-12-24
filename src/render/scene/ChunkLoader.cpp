@@ -38,6 +38,7 @@ ChunkLoader::ChunkLoader() {
 
     // allocate the block texture atlas
     this->blockAtlasTex = new gfx::Texture2D(1);
+    this->blockAtlasTex->setUsesLinearFiltering(false);
     this->blockAtlasTex->setDebugName("ChunkBlockAtlas");
 
     {

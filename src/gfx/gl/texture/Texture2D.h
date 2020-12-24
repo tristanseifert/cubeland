@@ -41,6 +41,9 @@ class Texture2D: public Texture {
         void setBorderColour(glm::vec4 border);
 
         void generateMipMaps(void);
+
+    private:
+        bool usesLinearFiltering = true;
 };
 } /* namespace gfx */
 

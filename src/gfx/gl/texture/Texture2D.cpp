@@ -173,8 +173,13 @@ void Texture2D::allocateBlank(unsigned int width, unsigned int height, TextureFo
 			colourFormat, dataType, NULL);
 
 	// use nearest neighbour interpolation
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (GLint) GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (GLint) GL_NEAREST);
+        if(!this->usesLinearFiltering) {
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (GLint) GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (GLint) GL_NEAREST);
+        } else {
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (GLint) GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (GLint) GL_LINEAR);
+        }
 
 	// unbind texture
 	Texture2D::unbind();
@@ -285,6 +290,8 @@ void Texture2D::loadFromImage(const std::string &path, bool sRGB) {
 void Texture2D::setUsesLinearFiltering(bool enabled) {
 	// bind texture
 	bind();
+
+        this->usesLinearFiltering = enabled;
 
 	// set the filtering state
 	if(enabled) {

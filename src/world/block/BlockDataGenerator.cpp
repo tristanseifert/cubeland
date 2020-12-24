@@ -260,8 +260,11 @@ glm::vec4 BlockDataGenerator::uvBoundsForTexture(BlockRegistry::TextureId id) {
  * assigned to it. These are laid out as follows:
  * -  0...1: Bottom face texture coordinates
  * -  2...3: Top face exture coordinates
- * -  4...5: Side faces texture coordinates
- * -      6: Material properties (x = specular, y = shininess)
+ * -  4...5: Side face texture coordinates (left)
+ * -  6...7: Side face texture coordinates (right)
+ * -  8...9: Side face texture coordinates (front)
+ * - 10..11: Side face texture coordinates (back)
+ * -     12: Material properties (x = specular, y = shininess)
  *
  * Note that we leave the first row devoid of all data. Appearance IDs start at 1, with air having
  * the "unofficial" ID of 0 even though it's not actually a block.
@@ -300,10 +303,20 @@ void BlockDataGenerator::writeBlockInfo(std::vector<glm::vec4> &out, const size_
 
     // UV coords for sides
     texUv = this->uvBoundsForTexture(appearance.texSide);
-    out[off + 4] = glm::vec4(texUv.x, texUv.w, texUv.z, texUv.w);
-    out[off + 5] = glm::vec4(texUv.z, texUv.y, texUv.x, texUv.y);
+
+    // left/right faces
+    out[off + 4] = glm::vec4(texUv.x, texUv.w, texUv.x, texUv.y);
+    out[off + 5] = glm::vec4(texUv.z, texUv.y, texUv.z, texUv.w);
+    out[off + 6] = glm::vec4(texUv.z, texUv.w, texUv.z, texUv.y);
+    out[off + 7] = glm::vec4(texUv.x, texUv.y, texUv.x, texUv.w);
+
+    // front/back faces
+    out[off + 8] = glm::vec4(texUv.x, texUv.y, texUv.z, texUv.y);
+    out[off + 9] = glm::vec4(texUv.z, texUv.w, texUv.x, texUv.w);
+    out[off + 10] = glm::vec4(texUv.x, texUv.w, texUv.z, texUv.w);
+    out[off + 11] = glm::vec4(texUv.z, texUv.y, texUv.x, texUv.y);
 
     // material props
-    out[off + 6] = glm::vec4(0.33, 0, 0, 0);
+    out[off + 12] = glm::vec4(0.33, 0, 0, 0);
 }
 

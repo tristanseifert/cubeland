@@ -102,6 +102,8 @@ float FogDistanceFromDepth(float depth);
 vec4 ViewSpaceFromDepth(float depth);
 // Reconstructs the position from the depth buffer.
 vec3 WorldPosFromDepth(float depth);
+// Samples the SSAO texture while blurring it.
+float SampleOcclusion(vec2 uv);
 
 // 1.0 when x > y, 0.0 otherwise
 float when_gt(float x, float y) {
@@ -131,8 +133,8 @@ void main() {
     // if only the skybox is rendered at a given light, skip lighting
     if(Depth < 1.0) {
         // Ambient lighting
-        float AmbientOcclusion = texture(gOcclusion, TexCoord).r;
-        vec3 ambient = Diffuse * ambientLight.Intensity * mix(1, AmbientOcclusion, ssaoFactor);
+        float AmbientOcclusion = SampleOcclusion(TexCoord);
+        vec3 ambient = Diffuse * ambientLight.Intensity * max(mix(1, AmbientOcclusion, ssaoFactor), 0.33);
         vec3 lighting = vec3(0, 0, 0);
 
         // Directional lights
@@ -233,7 +235,6 @@ void main() {
 
         // Add ambient lighting
         lighting += ambient;
-
 
         // apply fog as needed
         float fogDist = max(FogDistanceFromDepth(Depth) - fogOffset, 0);
@@ -344,3 +345,22 @@ vec3 WorldPosFromDepth(float depth) {
 
     return worldSpacePosition.xyz;
 }
+
+/**
+ * Samples the SSAO buffer, by taking the average of a 4x4 grid of pixels centered around the given
+ * UV coordinate. Since during SSAO rendering we have a 4x4 noise texture that's applied, this will
+ * remove that noise and improve its appearance.
+ */
+float SampleOcclusion(vec2 uv) {
+    vec2 texelSize = 1.0 / vec2(textureSize(gOcclusion, 0));
+    float result = 0.0;
+    for(int x = -2; x < 2; ++x) {
+        for(int y = -2; y < 2; ++y)  {
+            vec2 offset = vec2(float(x), float(y)) * texelSize;
+            result += texture(gOcclusion, uv + offset).r;
+        }
+    }
+
+    return result / (4.0 * 4.0);
+}
+

@@ -23,7 +23,7 @@ uniform float radius = 0.5;
 uniform float bias = 0.025;
 
 // tile noise texture over screen based on screen dimensions divided by noise size
-uniform vec2 noiseScale; 
+uniform vec2 noiseScale = vec2(800.0/4.0, 600.0/4.0); 
 
 // projection matrix
 uniform mat4 projection;
@@ -31,6 +31,11 @@ uniform mat4 projection;
 uniform mat4 projMatrixInv;
 // Inverse view matrix: clip space -> view space
 uniform mat4 viewMatrixInv;
+
+// tan(FoV / 2)
+uniform float thfov;
+// aspect ratio (width/height)
+uniform float aspect;
 
 // Reconstructs view space position from depth buffer.
 vec4 ViewSpaceFromDepth(float depth);
@@ -42,8 +47,16 @@ vec3 WorldPosFromDepth(float depth);
 
 void main() {
     // get the world position
-    float Depth = texture(gDepth, TexCoord).x;
-    vec3 FragWorldPos = WorldPosFromDepth(Depth);
+    vec2 ndc = (TexCoord * 2.0) - 1.0;
+    vec3 vViewRay = vec3(
+        ndc.x * thfov * aspect,
+        ndc.y * thfov,
+        1.0
+    );
+
+    float FragWorldDepth = texture(gDepth, TexCoord).x;
+    vec3 FragWorldPos = WorldPosFromDepth(FragWorldDepth);
+    // vec3 FragWorldPos = vViewRay * texture(gDepth, TexCoord).r;
 
     // get input for SSAO algorithm
     vec3 normal = normalize(texture(gNormal, TexCoord).rgb);
@@ -58,22 +71,27 @@ void main() {
     float occlusion = 0.0;
     for(int i = 0; i < kernelSize; ++i) {
         // get sample position
-        vec3 samplePos = TBN * samples[i]; // from tangent to view-space
-        samplePos = FragWorldPos + samplePos * radius; 
+        // vec3 samplePos = TBN * samples[i]; // from tangent to view-space
+        // samplePos = FragWorldPos + samplePos * radius; 
 
-        // project sample position (to sample texture) (to get position on screen/texture)
+        vec3 samplePos = TBN * samples[i];
+        samplePos = samplePos * radius + FragWorldPos;
+
+        // project sample position (to get position on screen/texture)
         vec4 offset = vec4(samplePos, 1.0);
         offset = projection * offset; // from view to clip-space
         offset.xyz /= offset.w; // perspective divide
-        offset.xyz = offset.xyz * 0.5 + 0.5; // transform to range 0.0 - 1.0
+        offset.xyz = (offset.xyz * 0.5) + 0.5; // transform to range 0.0 - 1.0
 
         // get sample depth
         float sampleDepth = texture(gDepth, offset.xy).x; // get depth value of kernel sample
-        // float sampleDepth = Depth;
 
         // range check & accumulate
-        float rangeCheck = smoothstep(0.0, 1.0, radius / abs(Depth - sampleDepth));
-        occlusion += (sampleDepth >= samplePos.z + bias ? 1.0 : 0.0) * rangeCheck;
+        // float rangeCheck = 1;
+        // float rangeCheck = smoothstep(0.0, 1.0, radius / abs(FragWorldDepth - sampleDepth));
+        // occlusion += (sampleDepth >= samplePos.z + bias ? 1.0 : 0.0) * rangeCheck;
+        float rangeCheck = abs(FragWorldPos.z - sampleDepth) < radius ? 1.0 : 0.0;
+        occlusion += (sampleDepth <= samplePos.z ? 1.0 : 0.0) * rangeCheck;
     }
     occlusion = 1.0 - (occlusion / kernelSize);
 
