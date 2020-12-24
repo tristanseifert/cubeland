@@ -660,10 +660,10 @@ void Lighting::renderShadowMap(WorldRenderer *wr) {
 
     // Calculate shadow view matrix
     glm::vec3 position = wr->getCamera().getCameraPosition();
-    glm::vec3 lightDir = this->sun->getDirection();
-    glm::mat4 depthProjectionMatrix = glm::ortho<float>(-10, 10, -10, 10, zNear, zFar);
+    glm::vec3 lightDir = this->sunDirection;
+    glm::mat4 depthProjectionMatrix = glm::ortho<float>(-100, 100, -100, 100, zNear, zFar);
 
-    glm::vec3 shadowPos = position + (lightDir * 20.f / 2.f);
+    glm::vec3 shadowPos = position;// + (lightDir * 20.f / 2.f);
     glm::mat4 depthViewMatrix = glm::lookAt(shadowPos, -lightDir, glm::vec3(0,1,0));
 
     glm::mat4 lightSpaceMatrix = depthProjectionMatrix * depthViewMatrix;
@@ -674,7 +674,7 @@ void Lighting::renderShadowMap(WorldRenderer *wr) {
 
     glViewport(0, 0, this->shadowW, this->shadowH);
 
-    // glClearColor(0.f, 0.f, 0.f, 1.f);
+    glClearColor(1.f, 1.f, 1.f, 1.f);
     glClear(GL_DEPTH_BUFFER_BIT);
 
     glEnable(GL_DEPTH_TEST);

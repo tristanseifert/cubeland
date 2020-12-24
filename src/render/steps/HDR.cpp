@@ -72,6 +72,7 @@ void HDR::setUpInputBuffers(void) {
     // colour (RGB) buffer (gets the full range of lighting values from scene)
     this->inColour = std::make_shared<Texture2D>(0);
     this->inColour->allocateBlank(width, height, Texture2D::RGB16F);
+    this->inColour->setUsesLinearFiltering(true);
     this->inColour->setDebugName("HDRColorIn");
 
     this->inFBO->attachTexture2D(this->inColour, FrameBuffer::ColourAttachment0);
@@ -399,6 +400,9 @@ void HDR::renderPerformTonemapping(void) {
     // TODO: Dynamically calculate white point
     this->tonemapProgram->setUniformVec("whitePoint", this->whitePoint);
 
+    this->tonemapProgram->setUniformVec("uchimura1", this->uchimura1);
+    this->tonemapProgram->setUniformVec("uchimura2", this->uchimura2);
+
     // bind VAO for a full-screen quad and render
     this->quadVAO->bind();
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -421,6 +425,9 @@ void HDR::postRender(WorldRenderer *) {
 void HDR::startOfFrame(void) {
     if(this->showDebugWindow) {
         this->drawDebugWindow();
+    }
+    if(this->showTexturePreview) {
+        this->drawTexturePreview();
     }
 
     if((this->histoCounter++) == this->histoFrameWait) {
@@ -542,6 +549,10 @@ void HDR::drawDebugWindow() {
         goto done;
     }
 
+    if(ImGui::Button("Buffer Viewer")) {
+        this->showTexturePreview = true;
+    }
+
     // bloom
     ImGui::Text("Bloom");
     ImGui::Separator();
@@ -564,17 +575,107 @@ void HDR::drawDebugWindow() {
     // exposure
     ImGui::Text("Tonemapping");
     ImGui::Separator();
-
     ImGui::DragFloat("Exposure", &this->exposure, 0.01, 0.1, 6);
-    ImGui::PopItemWidth();
 
+    ImGui::DragFloat("Max Brightness", &this->uchimura1.x, 0.01, 0.1);
+    ImGui::DragFloat("Contrast", &this->uchimura1.y, 0.01);
+    ImGui::DragFloat("Linear Section Begin", &this->uchimura1.z, 0.01, 0);
+    ImGui::DragFloat("Linear Section End", &this->uchimura2.x, 0.01, this->uchimura1.z);
+    ImGui::DragFloat("Black", &this->uchimura2.y, 0.01, 0);
+    ImGui::DragFloat("Pedestal", &this->uchimura2.z, 0.01, 0);
+
+    ImGui::PopItemWidth();
     ImGui::PushItemWidth(150);
     ImGui::DragFloat3("White Point", &this->whitePoint.x, 0.01, 0);
-    
+
     ImGui::DragFloat3("HSV Adjust", &this->hsvAdjust.x, 0.01, 0);
-    
+
     ImGui::PopItemWidth();
 
 done:;
+    ImGui::End();
+}
+
+/**
+ * Draws the texture preview window.
+ */
+void HDR::drawTexturePreview() {
+    static const char *kPreviewName[5] = {
+        "In Color", "In Depth", "Bloom 1", "Bloom 2", "Scene Luma",
+    };
+
+    auto &io = ImGui::GetIO();
+  // short circuit drawing if not visible
+    if(!ImGui::Begin("HDR Buffers", &this->showTexturePreview, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::End();
+        return;
+    }
+
+    // toolbar
+    ImGui::PushItemWidth(200);
+    ImGui::ColorEdit4("Tint", &this->previewTint.x);
+    ImGui::PopItemWidth();
+
+    ImGui::SameLine();
+    ImGui::Dummy(ImVec2(10,0));
+    ImGui::SameLine();
+    ImGui::PushItemWidth(32);
+    ImGui::DragInt("Scale", &this->previewScale, 1, 1, 16);
+    ImGui::PopItemWidth();
+
+    ImGui::SameLine();
+    ImGui::Dummy(ImVec2(10,0));
+    ImGui::PushItemWidth(100);
+    ImGui::SameLine();
+    if(ImGui::BeginCombo("Buffer", kPreviewName[this->previewTextureIdx])) {
+        for(size_t j = 0; j < 5; j++) {
+            const bool isSelected = (this->previewTextureIdx == j);
+
+            if (ImGui::Selectable(kPreviewName[j], isSelected)) {
+                this->previewTextureIdx = j;
+            }
+            if(isSelected) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+    }
+
+    // draw pls
+    ImGui::PopItemWidth();
+    ImGui::Separator();
+
+    ImVec2 uv0(0,1), uv1(1,0);
+    ImVec2 imageSize(this->viewportSize.x, this->viewportSize.y);
+    ImVec4 tint(this->previewTint.x, this->previewTint.y, this->previewTint.z, this->previewTint.w);
+
+    gl::GLuint textureId = this->inColour->getGlObjectId();
+    if(this->previewTextureIdx == 1) {
+        textureId = this->inDepth->getGlObjectId();
+    } else if(this->previewTextureIdx == 2) {
+        textureId = this->inBloom1->getGlObjectId();
+        imageSize.x = imageSize.x / this->bloomTexDivisor;
+        imageSize.y = imageSize.y / this->bloomTexDivisor;
+    } else if(this->previewTextureIdx == 3) {
+        textureId = this->inBloom2->getGlObjectId();
+        imageSize.x = imageSize.x / this->bloomTexDivisor;
+        imageSize.y = imageSize.y / this->bloomTexDivisor;
+    } else if(this->previewTextureIdx == 4) {
+        textureId = this->sceneLuma->getGlObjectId();
+    }
+
+    const auto textureSize = imageSize;
+
+    imageSize.x = imageSize.x / this->previewScale / io.DisplayFramebufferScale.x;
+    imageSize.y = imageSize.y / this->previewScale / io.DisplayFramebufferScale.y;
+
+    ImGui::Image((void *) (size_t) textureId, imageSize, uv0, uv1, tint, ImVec4(1,1,1,1));
+
+    // image info
+    ImGui::Text("Texture Size: %g x %g", textureSize.x, textureSize.y);
+    ImGui::SameLine();
+    ImGui::Text("Display Size: %g x %g", imageSize.x, imageSize.y);
+
+    // done
     ImGui::End();
 }

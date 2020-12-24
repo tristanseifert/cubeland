@@ -6,6 +6,8 @@
 #include <SOIL/SOIL.h>
 #include <cmrc/cmrc.hpp>
 
+#include <glm/glm.hpp>
+
 #include <stdexcept>
 #include <algorithm>
 #include <cstddef>
@@ -17,8 +19,10 @@ CMRC_DECLARE(textures);
 /**
  * Loads the given image from the textures resource bundle. It is decoded to 8-bit RGBA, which is
  * then converted to floating point and sqongled into the output buffer.
+ *
+ * This assumes that the input data is sRGB, and is converted to linear when loaded, if requested.
  */
-void TextureLoader::load(const std::string &path, std::vector<float> &out) {
+void TextureLoader::load(const std::string &path, std::vector<float> &out, const bool sRgbConvert) {
     // read image data from resource directory
     auto fs = cmrc::textures::get_filesystem();
     auto texture = fs.open(path);
@@ -48,6 +52,15 @@ void TextureLoader::load(const std::string &path, std::vector<float> &out) {
             for(size_t c = 0; c < 4; c++) {
                 const auto temp = image[yOff + xOff + c];
                 out[yOff + xOff + c] = ((float) temp) / 255.;
+            }
+            // gamma correct RGB
+            if(sRgbConvert) {
+                const float gamma = 2.2;
+                glm::vec3 color(out[yOff + xOff], out[yOff + xOff + 1], out[yOff + xOff + 2]);
+                color = glm::pow(color, glm::vec3(gamma));
+                out[yOff + xOff + 0] = color.x;
+                out[yOff + xOff + 1] = color.y;
+                out[yOff + xOff + 2] = color.z;
             }
         }
     }

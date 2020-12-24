@@ -11,7 +11,7 @@
 namespace world {
 class TextureLoader {
     public:
-        static void load(const std::string &path, std::vector<float> &out);
+        static void load(const std::string &path, std::vector<float> &out, const bool gammaConvert = false);
 };
 }
 

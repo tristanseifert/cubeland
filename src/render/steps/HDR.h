@@ -6,6 +6,7 @@
 #include <memory>
 
 #include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 
 namespace gfx {
 class Texture2D;
@@ -131,6 +132,12 @@ class HDR: public RenderStep {
         /// white point
         glm::vec3 whitePoint = glm::vec3(1, 1, 1);
 
+        /// uchimura params; max display brightness, contrast, linear sec start
+        glm::vec3 uchimura1 = glm::vec3(1., 1., .22);
+        /// uchimura params; linear section length, black, pedestal
+        glm::vec3 uchimura2 = glm::vec3(.4, 1.5, 0.);
+
+
     // VBO to render a full-screen quad
     private:
         std::unique_ptr<gfx::VertexArray> quadVAO;
@@ -138,6 +145,13 @@ class HDR: public RenderStep {
 
     private:
         void drawDebugWindow();
+
+        void drawTexturePreview();
+
+        bool showTexturePreview = false;
+        glm::vec4 previewTint = glm::vec4(1);
+        int previewTextureIdx = 0;
+        int previewScale = 2;
 };
 }
 

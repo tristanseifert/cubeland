@@ -50,6 +50,12 @@ ChunkLoader::ChunkLoader() {
         this->blockAtlasTex->allocateBlank(atlasSize.x, atlasSize.y, gfx::Texture2D::RGBA16F);
         this->blockAtlasTex->bufferSubData(atlasSize.x, atlasSize.y, 0, 0,  gfx::Texture2D::RGBA16F, data.data());
     }
+
+    this->blockAtlasTex->bind();
+    gl::glGenerateMipmap(gl::GL_TEXTURE_2D);
+    gl::glTexParameterf(gl::GL_TEXTURE_2D, gl::GL_TEXTURE_MAX_ANISOTROPY_EXT, 4.f);
+    gl::glTexParameteri(gl::GL_TEXTURE_2D, gl::GL_TEXTURE_MIN_FILTER, gl::GL_LINEAR_MIPMAP_LINEAR);
+
     // allocate a texture holding block ID info data
     this->blockInfoTex = new gfx::Texture2D(2);
     this->blockInfoTex->setUsesLinearFiltering(false);

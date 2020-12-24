@@ -133,56 +133,60 @@ void Texture2D::dump(const std::string &base) {
  * with anything.
  */
 void Texture2D::allocateBlank(unsigned int width, unsigned int height, TextureFormat format) {
-	this->bind();
+    this->bind();
 
-	// copy format
-	this->format = format;
+    // copy format
+    this->format = format;
 
-	this->width = width;
-	this->height = height;
+    this->width = width;
+    this->height = height;
 
-	// Get the colour format
-	GLenum colourFormat = GL_RGB;
-	GLenum dataType = GL_FLOAT;
+    // Get the colour format
+    GLenum colourFormat = GL_RGB;
+    GLenum dataType = GL_FLOAT;
 
-	if(format == RGBA || format == RGBA8 || format == RGBA16F ||
-	   format == RGBA32F) {
-		colourFormat = GL_RGBA;
-	} else if(format == DepthGeneric || format == Depth24Stencil8) {
-		colourFormat = GL_DEPTH_COMPONENT;
-	} else if(format == RG8 || format == RG16F || format == RG32F) {
-		colourFormat = GL_RG;
-	} else if(format == RED8 || format == RED16F || format == RED32F) {
-		colourFormat = GL_RED;
-	}
+    if(format == RGBA || format == RGBA8 || format == RGBA16F ||
+       format == RGBA32F) {
+            colourFormat = GL_RGBA;
+    } else if(format == DepthGeneric || format == Depth24Stencil8) {
+            colourFormat = GL_DEPTH_COMPONENT;
+    } else if(format == RG8 || format == RG16F || format == RG32F) {
+            colourFormat = GL_RG;
+    } else if(format == RED8 || format == RED16F || format == RED32F) {
+            colourFormat = GL_RED;
+    }
 
-	if(format == RGB || format == RGBA || format == RGB8 || format == RGBA8 ||
-	   format == RED8 || format == RG8) {
-		dataType = GL_UNSIGNED_BYTE;
-	}
+    if(format == RGB || format == RGBA || format == RGB8 || format == RGBA8 ||
+       format == RED8 || format == RG8) {
+            dataType = GL_UNSIGNED_BYTE;
+    }
 
-	if(format == RG16F || format == RGBA16F || format == RGB16F || format == RED16F ||
-	   format == DepthGeneric) {
-		dataType = GL_FLOAT;
-	}
+    if(format == RG16F || format == RGBA16F || format == RGB16F || format == RED16F ||
+       format == DepthGeneric) {
+            dataType = GL_FLOAT;
+    }
 
-	// allocate memory
-	GLint type = (GLint) this->glFormat();
+    // allocate memory
+    GLint type = (GLint) this->glFormat();
 
-	glTexImage2D(GL_TEXTURE_2D, 0, type, (GLsizei) width, (GLsizei) height, 0,
-			colourFormat, dataType, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, type, (GLsizei) width, (GLsizei) height, 0,
+                    colourFormat, dataType, NULL);
 
-	// use nearest neighbour interpolation
-        if(!this->usesLinearFiltering) {
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (GLint) GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (GLint) GL_NEAREST);
-        } else {
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (GLint) GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (GLint) GL_LINEAR);
-        }
+    // use nearest neighbour interpolation
+    if(!this->usesLinearFiltering) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (GLint) GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (GLint) GL_NEAREST);
+    } else {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (GLint) GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (GLint) GL_LINEAR);
 
-	// unbind texture
-	Texture2D::unbind();
+        // enable antistropic filtering
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 4.f);
+    }
+
+
+    // unbind texture
+    Texture2D::unbind();
 }
 
 /**
