@@ -133,7 +133,7 @@ WorldChunk::WorldChunk() {
                                      (((z * kGlobuleSize) & 0xFF) << 8) | 
                                      ((x * kGlobuleSize) & 0xFF);
 
-                auto glob = std::make_shared<Globule>(this, pos);
+                auto glob = new Globule(this, pos);
                 this->globules[key] = glob;
             }
         }
@@ -141,9 +141,19 @@ WorldChunk::WorldChunk() {
 }
 
 /**
- * If any of our buffers are stale, begin updating them in the background at the start of the frame
- * so that hopefully, by the time we need to go draw, they're done.
- * Perform some calculations of updating data in the background at the start of a frame.
+ * Deletes the globules.
+ */
+WorldChunk::~WorldChunk() {
+    for(auto [key, globule] : this->globules) {
+        delete globule;
+    }
+}
+
+/**
+ * Perform highlight calculations right here; these don't have a lot of data to go over so the
+ * overhead of pushing them to the background is not really worth it.
+ *
+ * Also invoke all globules, which may kick off background buffer filling.
  */
 void WorldChunk::frameBegin() {
     // invoke the handlers of all globules
@@ -152,11 +162,8 @@ void WorldChunk::frameBegin() {
     }
     // highlight related stuff
     if(this->highlightsNeedUpdate) { // queue updating of buffer in background
-        ChunkWorker::pushWork([&]() -> void {
-            // clear flag first, so if data changes while we're updating, it's fixed next frame
-            this->highlightsNeedUpdate = false;
-            this->updateHighlightBuffer();
-        });
+        this->highlightsNeedUpdate = false;
+        this->updateHighlightBuffer();
     }
 
     // draw debugger
@@ -171,7 +178,7 @@ void WorldChunk::frameBegin() {
  * At this point, our draw list should have been culled to the point that only blocks exposed to
  * air (e.g. ones that could be visible) are in it.
  */
-void WorldChunk::draw(std::shared_ptr<gfx::RenderProgram> program) {
+void WorldChunk::draw(std::shared_ptr<gfx::RenderProgram> &program) {
     PROFILE_SCOPE(ChunkDraw);
 
     using namespace gl;
@@ -228,13 +235,14 @@ void WorldChunk::setChunk(std::shared_ptr<world::Chunk> chunk) {
 /**
  * Adds a new highlighting section.
  */
-uint64_t WorldChunk::addHighlight(const glm::vec3 &start, const glm::vec3 &end) {
+uint64_t WorldChunk::addHighlight(const glm::vec3 &start, const glm::vec3 &end, const glm::vec4 &color) {
     uint64_t id = this->highlightsId++;
 
     // create highlights info and submit it
     HighlightInfo info;
     info.start = start;
     info.end = end;
+    info.color = color;
 
     {
         LOCK_GUARD(this->highlightsLock, AddHighlight);
@@ -312,7 +320,7 @@ void WorldChunk::updateHighlightBuffer() {
         float zScale = fabs(info.start.z - info.end.z);
         glm::vec3 scale(xScale, yScale, zScale);
 
-        translation = glm::translate(translation, glm::vec3(0.01, 0.01, 0.01));
+        // translation = glm::translate(translation, glm::vec3(0.01, 0.01, 0.01));
         translation = glm::translate(translation, info.start);
 
         translation = glm::translate(translation, glm::vec3(xScale/2, yScale/2, zScale/2));
@@ -322,6 +330,7 @@ void WorldChunk::updateHighlightBuffer() {
         translation = glm::scale(translation, scale);
         scaled = glm::scale(scaled, scale);
 
+        data.color = info.color;
         data.transform = translation;
         data.scaled = scaled;
 
@@ -330,21 +339,17 @@ void WorldChunk::updateHighlightBuffer() {
     }
 
     // mark buffer as to be updated
+    // Logging::trace("Highlighting data size: {}", this->highlightData.size());
     this->highlightsBufDirty = true;
 }
 
 
 
 /**
- * Draws the highlights. This is done in two steps:
- *
- * 1. Stencil buffer is written to for all selections
- * 2. Rendering each selection slightly scaled up, only where the stencil test passes, with a solid
- *    color allows drawing of the borders.
+ * Draws the highlights.
  */
-void WorldChunk::drawHighlights(std::shared_ptr<gfx::RenderProgram> program) {
+void WorldChunk::drawHighlights(std::shared_ptr<gfx::RenderProgram> &program) {
     using namespace gl;
-
     PROFILE_SCOPE(DrawHighlights);
 
     // transfer the highlighting buffer if it's ready, and bail if there's nothing to draw
@@ -365,45 +370,21 @@ void WorldChunk::drawHighlights(std::shared_ptr<gfx::RenderProgram> program) {
     }
 
     // set the highlight color
-    program->setUniformVec("HighlightColor", glm::vec3(1, 1, 0));
-    program->setUniform1f("WriteColor", 0);
-
-    // step 1: draw to stencil buffer
-    // configure to always write a 1 to the appropriate bit in the stencil buffer. no color is written
-    glEnable(GL_STENCIL_TEST);
-    // glDepthMask(GL_FALSE);
-    // glDepthFunc(GL_LEQUAL);
-    glDepthFunc(GL_ALWAYS);
-
-    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-    glStencilFunc(GL_ALWAYS, 1, 0x01);
-    glStencilMask(0x01);
-
-    this->highlightVao->bind();
-    for(const auto &data: this->highlightData) {
-        program->setUniformMatrix("model2", data.transform);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-    }
-
-    // step 2: scale each outline a wee bit and draw the colors where stencil test passes
     program->setUniform1f("WriteColor", 1);
 
-    glStencilFunc(GL_NOTEQUAL, 1, 0x01);
-    glStencilMask(0x00); // do not write to stencil buffer
+    // draw the highlights, ignoring depth
+    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDisable(GL_DEPTH_TEST);
 
     this->highlightVao->bind();
     for(const auto &data: this->highlightData) {
-        program->setUniformMatrix("model2", data.scaled);
+        program->setUniformVec("HighlightColor", data.color);
+        program->setUniformMatrix("model2", data.transform);
         glDrawArrays(GL_TRIANGLES, 0, 36);
     }
 
     // clean up
     gfx::VertexArray::unbind();
-
-    glStencilFunc(GL_ALWAYS, 1, 0xFF);
     glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
-    glDisable(GL_STENCIL_TEST);
 }
 

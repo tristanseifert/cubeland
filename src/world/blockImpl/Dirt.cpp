@@ -70,10 +70,10 @@ const bool Dirt::wantsChunkLoadNotifications() const {
 }
 
 void Dirt::chunkWasLoaded(std::shared_ptr<Chunk> chunk) {
-    Logging::trace("Loaded: {}", chunk->worldPos);
+//     Logging::trace("Loaded: {}", chunk->worldPos);
 }
 
 void Dirt::chunkWillUnload(std::shared_ptr<Chunk> chunk) {
-    Logging::trace("Unloaded: {}", chunk->worldPos);
+//     Logging::trace("Unloaded: {}", chunk->worldPos);
 }
 

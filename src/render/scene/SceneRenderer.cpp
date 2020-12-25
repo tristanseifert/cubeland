@@ -92,25 +92,14 @@ void SceneRenderer::preRender(WorldRenderer *world) {
  * Actually renders the scene. This is called with the G-buffer attached.
  */
 void SceneRenderer::render(WorldRenderer *renderer) {
-    gl::glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);
-
     this->render(this->projView, this->viewDirection, false, true);
 
     // draw the highlights
-    /*{
-        PROFILE_SCOPE(ChunkHighlights);
+    auto program = this->getProgram(kProgramChunkHighlight, false);
+    program->bind();
+    program->setUniformMatrix("projectionView", projView);
 
-        auto program = this->getProgram(kProgramChunkHighlight, false);
-        program->bind();
-        program->setUniformMatrix("projectionView", projView);
-
-        for(auto &chunk : this->chunks) {
-            if(chunk->needsDrawHighlights()) {
-                this->prepareChunk(program, chunk, false);
-                chunk->drawHighlights(program);
-            }
-        }
-    }*/
+    this->chunkLoader->drawHighlights(program, projView);
 }
 
 /**

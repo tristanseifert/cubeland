@@ -15,12 +15,16 @@
 #include <chrono>
 #include <variant>
 #include <optional>
+#include <functional>
+#include <utility>
 
 #include <concurrentqueue.h>
 #include <glm/mat4x4.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/gtx/hash.hpp>
+
+#include "util/ThreadPool.h"
 
 class MetricsGuiMetric;
 class MetricsGuiPlot;
@@ -38,10 +42,13 @@ class WorldSource;
 }
 namespace render {
 class WorldChunk;
+class SceneRenderer;
 }
 
 namespace render::scene {
 class ChunkLoader {
+    friend class render::SceneRenderer;
+
     public:
         ChunkLoader();
         ~ChunkLoader();
@@ -50,7 +57,9 @@ class ChunkLoader {
 
         void startOfFrame();
         void updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirection, const glm::mat4 &projView);
-        void draw(std::shared_ptr<gfx::RenderProgram> program, const glm::mat4 &projView, const glm::vec3 &viewDirection);
+        void draw(std::shared_ptr<gfx::RenderProgram> &program, const glm::mat4 &projView, const glm::vec3 &viewDirection);
+
+        void drawHighlights(std::shared_ptr<gfx::RenderProgram> &program, const glm::mat4 &projView);
 
         void setFoV(const float fov) {
             this->fov = fov;
@@ -65,6 +74,8 @@ class ChunkLoader {
         constexpr static const float kOverlayAlpha = 0.74f;
         /// bias value to add to the distance of all culled chunks when determining draw order
         constexpr static const float kCulledChunkDrawOrderDistanceBias = 42069;
+        /// color for the selection of the block under the cursor
+        constexpr static const glm::vec4 kLookAtSelectionColor = glm::vec4(1, 1, 0, 0.74);
 
     private:
         using DeferredChunk = std::future<std::shared_ptr<world::Chunk>>;
@@ -101,8 +112,6 @@ class ChunkLoader {
         void initDisplayChunks();
 
         void updateVisible(const glm::vec3 &cameraPos, const glm::mat4 &projView);
-        bool checkIntersect(const glm::vec3 &origin, const glm::vec3 &dirfrac, const glm::vec3 &lb,
-                const glm::vec3 &rt);
 
         void updateDeferredChunks();
         void addLoadedChunk(LoadChunkInfo &pending);
@@ -110,6 +119,9 @@ class ChunkLoader {
 
         void updateDrawOrder();
         void updateLookAt();
+        void updateLookAtBlock();
+        void removeLookAtSelection();
+        void updateLookAtSelection(const glm::ivec2 chunkPos, const glm::ivec3 blockOff);
 
         bool updateCenterChunk(const glm::vec3 &delta, const glm::vec3 &camera);
         void loadChunk(const glm::ivec2 position);
@@ -127,6 +139,8 @@ class ChunkLoader {
         void drawChunkMetrics();
 
     private:
+        using WorkItem = std::function<void(void)>;
+
         /**
          * Data texture used to store the globule vertex normal data. This does not change at all
          * and is the same 4*6 different values for ALL vertices rendered, so we store it in a
@@ -185,6 +199,12 @@ class ChunkLoader {
 #else
         size_t eagerLoadRateLimitReset = 30;
 #endif
+
+        /**
+         * All chunk loading happens on this thread pool.
+         */
+        util::ThreadPool<WorkItem> chunkWorkQueue = util::ThreadPool<WorkItem>(4);
+
 
         /**
          * Whenever a chunk load request has completed, info is pushed onto this queue. Each trip
@@ -265,10 +285,18 @@ class ChunkLoader {
         /// reset value for the chunk prune timer
         size_t chunkPruneTimerReset = 30;
 
+        /**
+         * Pair of chunk position and selection registration id for a selection outline for the
+         * selected chunk.
+         */
+        std::optional<std::pair<glm::ivec2, uint64_t>> lookAtSelectionMarker;
+
         /// chunk position of the chunk we're currently on (e.g. that the camera is on)
         glm::ivec2 centerChunkPos;
         /// chunk pos we're looking at, if any
         std::optional<glm::ivec2> lookAtChunk;
+        /// block inside the look at chunk we're looking at (chunk relative coordinates)
+        std::optional<glm::ivec3> lookAtBlock;
         /// most recent camera position
         glm::vec3 lastPos = glm::vec3(0);
         /// most recent primary camera direction

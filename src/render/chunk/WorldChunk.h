@@ -56,9 +56,10 @@ class WorldChunk: public Drawable {
 
     public:
         WorldChunk();
+        virtual ~WorldChunk();
 
-        virtual void draw(std::shared_ptr<gfx::RenderProgram> program);
-        void drawHighlights(std::shared_ptr<gfx::RenderProgram> program);
+        virtual void draw(std::shared_ptr<gfx::RenderProgram> &program);
+        void drawHighlights(std::shared_ptr<gfx::RenderProgram> &program);
 
         virtual void frameBegin();
 
@@ -72,7 +73,7 @@ class WorldChunk: public Drawable {
         static std::shared_ptr<gfx::RenderProgram> getShadowProgram();
 
     public:
-        uint64_t addHighlight(const glm::vec3 &start, const glm::vec3 &end);
+        uint64_t addHighlight(const glm::vec3 &start, const glm::vec3 &end, const glm::vec4 &color = glm::vec4(0, 1, 0, .74));
         bool removeHighlight(const uint64_t id);
 
         // whether this chunk needs to participate in the outline drawing process
@@ -90,10 +91,12 @@ class WorldChunk: public Drawable {
             bool wireframe = false;
 
             // color of the highlight
-            glm::vec3 color = glm::vec3(0, 1, 0);
+            glm::vec4 color = glm::vec4(0, 1, 0, .74);
         };
 
         struct HighlightInstanceData {
+            // color to use for this highlight
+            glm::vec4 color;
             // transform matrix (both regular and scaled)
             glm::mat4 transform, scaled;
         };
@@ -128,7 +131,7 @@ class WorldChunk: public Drawable {
         // chunk to be displayed
         std::shared_ptr<world::Chunk> chunk = nullptr;
         // the globules that make up the chunk (for rendering)
-        std::unordered_map<uint32_t, std::shared_ptr<chunk::Globule>> globules;
+        std::unordered_map<uint32_t, chunk::Globule *> globules;
 
         // vertex array and buffer for a single cube
         std::shared_ptr<gfx::VertexArray> placeholderVao = nullptr;

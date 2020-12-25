@@ -16,13 +16,13 @@ in vec3 Normal;
 // when 1, we write to the color buffers
 uniform float WriteColor;
 // highlight color
-uniform vec3 HighlightColor;
+uniform vec4 HighlightColor;
 
 
 void main() {
     // write to G buffer only if desired
     if(WriteColor > 0) {
-        gDiffuse = vec4(HighlightColor, 1);
-        gMatSpec.b = 1; // pass-through without lighting flag
+        gDiffuse = HighlightColor;
+        gMatSpec = vec4(0, 0, 1, 0); // pass-through without lighting flag
     }
 }

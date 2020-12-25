@@ -9,6 +9,7 @@
 #include "gfx/gl/texture/Texture2D.h"
 #include "gfx/model/RenderProgram.h"
 #include "util/Frustum.h"
+#include "util/Intersect.h"
 #include "io/MetricsManager.h"
 #include "io/Format.h"
 #include <Logging.h>
@@ -209,7 +210,7 @@ void ChunkLoader::startOfFrame() {
  */
 void ChunkLoader::updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirection, const glm::mat4 &projView) {
     bool visibilityChanged = this->forceUpdate;
-    bool needsDrawOrderUpdate = this->forceLookAtUpdate;
+    bool needsDrawOrderUpdate = this->forceLookAtUpdate | this->forceUpdate;
 
     // perform any deferred chunk loading/unloading
     this->updateVisible(pos, projView);
@@ -302,6 +303,7 @@ void ChunkLoader::updateVisible(const glm::vec3 &cameraPos, const glm::mat4 &pro
  * Note that this is limited to currently loaded display chunks.
  */
 void ChunkLoader::updateLookAt() {
+    using namespace util;
     PROFILE_SCOPE(UpdateLookAt);
 
     // calculate ray
@@ -314,48 +316,161 @@ void ChunkLoader::updateLookAt() {
         glm::vec3 min(worldOrigin.x, 0, worldOrigin.y);
         glm::vec3 max = min + glm::vec3(255, 255, 255);
 
-        if(this->checkIntersect(this->lastPos, dirfrac, min, max)) {
+        if(Intersect::rayArbb(this->lastPos, dirfrac, min, max)) {
             this->lookAtChunk = chunkPos;
+            this->updateLookAtBlock();
             return;
         }
     }
 
     // if we get down here, not looking at any chonks
     this->lookAtChunk.reset();
+    this->lookAtBlock.reset();
 }
-
 
 /**
- * Checks whether the given direction (in this case, an inverse direction vector) intersects the
- * volume defined by the lower/bottom (lb) and right/top (rt) coordinates.
+ * Determines what block we're looking at.
+ *
+ * Note that this may be in a different chunk than the one we're looking at; this is the case if
+ * we're standing very close to a chunk boundary.
+ *
+ * This works by casting a ray from the current look-at position to large bounding boxes to first
+ * determine if we should test chunks in the +X or -X direction, as well as the +Z or -Z direction;
+ * once this has been established, we try all blocks in a 6x6 range, and record the distance for
+ * those that pass the intersection test.
+ *
+ * Iterating over the list of touched blocks in increasing distance order, we check the block at
+ * that location. If it's not air, mark it as the pointed-at block.
  */
-bool ChunkLoader::checkIntersect(const glm::vec3 &org, const glm::vec3 &dirfrac, const glm::vec3 &lb, const glm::vec3 &rt) {
-    float t1 = (lb.x - org.x)*dirfrac.x;
-    float t2 = (rt.x - org.x)*dirfrac.x;
-    float t3 = (lb.y - org.y)*dirfrac.y;
-    float t4 = (rt.y - org.y)*dirfrac.y;
-    float t5 = (lb.z - org.z)*dirfrac.z;
-    float t6 = (rt.z - org.z)*dirfrac.z;
+void ChunkLoader::updateLookAtBlock() {
+    using namespace util;
+    PROFILE_SCOPE(UpdateLookAtBlock);
 
-    float tmin = fmax(fmax(fmin(t1, t2), fmin(t3, t4)), fmin(t5, t6));
-    float tmax = fmin(fmin(fmax(t1, t2), fmax(t3, t4)), fmax(t5, t6));
-    float t = 0;
+    const int kPointingDistance = 6; // max distance we check for selection
 
-    // if tmax < 0, ray (line) is intersecting AABB, but the whole AABB is behind us
-    if (tmax < 0) {
-        t = tmax;
-        return false;
+    // calculate ray
+    glm::vec3 dirfrac = glm::vec3(1., 1., 1.) / this->lastDirection;
+
+    // check all intersecting blocks within a 6 block distance
+    std::vector<std::pair<glm::ivec3, float>> distances;
+    const glm::vec3 lbo = glm::floor(this->lastPos), rto = lbo + glm::vec3(1., 1., 1.);
+
+    for(int z = -kPointingDistance; z <= kPointingDistance; z++) {
+        for(int y = -kPointingDistance; y <= kPointingDistance; y++) {
+            for(int x = -kPointingDistance; x <= kPointingDistance; x++) {
+                const auto lb = lbo + glm::vec3(x, y, z), rt = rto + glm::vec3(x, y, z);
+
+                if(Intersect::rayArbb(this->lastPos, dirfrac, lb, rt)) {
+                    const auto middle = lb + glm::vec3(.5, .5, .5);
+                    const auto dist = glm::distance(middle, this->lastPos);
+
+                    if(dist <= kPointingDistance) {
+                        distances.emplace_back(glm::ivec3(lb), dist);
+                    }
+                }
+            }
+        }
     }
 
-    // if tmin > tmax, ray doesn't intersect AABB
-    if (tmin > tmax) {
-        t = tmax;
-        return false;
+    // sort by distance
+    std::sort(std::begin(distances), std::end(distances), [](const auto &l, const auto &r) {
+        return (l.second < r.second);
+    });
+
+    // try to find the first non-air block
+    for(const auto [blockPos, distance] : distances) {
+        // convert the block position to a chunk position and try to get the chunk
+        glm::vec2 chunkPosF = glm::vec2(blockPos.x, blockPos.z) / glm::vec2(256., 256.);
+        glm::ivec2 chunkPos = glm::ivec2(glm::floor(chunkPosF));
+
+        if(!this->loadedChunks.contains(chunkPos)) {
+            continue;
+        }
+
+        auto chunk = this->loadedChunks[chunkPos];
+
+        // read the 8-bit ID of the block at this position
+        int zOff = (blockPos.z % 256), xOff = (blockPos.x % 256);
+        if(zOff < 0) {
+            zOff = 255 - abs(zOff);
+        } if(xOff < 0) {
+            xOff = 255 - abs(xOff);
+        }
+
+        auto slice = chunk->slices[blockPos.y];
+        if(!slice) continue;
+        auto row = slice->rows[zOff];
+        if(!row) continue;
+
+        const auto temp = row->at(xOff);
+        const auto &map = chunk->sliceIdMaps[row->typeMap];
+        const auto uuid = map.idMap[temp];
+
+        if(!BlockRegistry::isAirBlock(uuid)) {
+            // it is not air, we've found the block we're looking at
+            this->lookAtBlock = glm::ivec3(blockPos);
+            //Logging::trace("Look@ block {} (off {}, {}) chunk {}, dist {}, id {}", blockPos, xOff,
+            //        zOff, chunkPos, distance, uuids::to_string(uuid));
+
+            // update selection
+            this->updateLookAtSelection(chunkPos, glm::ivec3(xOff, blockPos.y, zOff));
+            return;
+        }
     }
 
-    t = tmin;
-    return true;
+    // if we get here, failed to find a non-air block
+    this->removeLookAtSelection();
+    this->lookAtBlock.reset();
 }
+
+/**
+ * Removes the current selection.
+ */
+void ChunkLoader::removeLookAtSelection() {
+    // ensure we even have a selection
+    if(!this->lookAtSelectionMarker) return;
+
+    // try to get the chunk
+    auto pos = this->lookAtSelectionMarker->first;
+    if(!this->chunks.contains(pos)) {
+        this->lookAtSelectionMarker.reset();
+        return;
+    }
+
+    auto info = this->chunks[pos];
+    auto chunk = info.wc;
+    if(!chunk) goto beach;
+
+    // unregister
+    chunk->removeHighlight(this->lookAtSelectionMarker->second);
+
+beach:;
+    // clear the selection variable
+    this->lookAtSelectionMarker.reset();
+}
+
+/**
+ * Updates the selection of the look-at block.
+ *
+ * Assuemes that the chunk for the block is loaded.
+ */
+void ChunkLoader::updateLookAtSelection(const glm::ivec2 chunkPos, const glm::ivec3 blockOff) {
+    // remove old selection
+    this->removeLookAtSelection();
+
+    // get the world chunk
+    if(!this->chunks.contains(chunkPos)) return;
+    auto &chunkInfo = this->chunks[chunkPos];
+    if(!chunkInfo.wc) return;
+    auto chunk = chunkInfo.wc;
+
+    // build selection range
+    const glm::vec3 start = glm::vec3(blockOff), end = start + glm::vec3(1.);
+
+    auto id = chunk->addHighlight(start, end, kLookAtSelectionColor);
+    this->lookAtSelectionMarker = std::make_pair(chunkPos, id);
+}
+
 
 /**
  * Updates all chunks whose data became ready since the last invocation.
@@ -581,7 +696,7 @@ void ChunkLoader::pruneLoadedChunksList() {
 
     // if we removed chunks, queue deallocation
     if(numChunks) {
-        auto future = render::chunk::ChunkWorker::pushWork([&] {
+        auto future = this->chunkWorkQueue.queueWorkItem([&] {
             PROFILE_SCOPE(DeallocChunks);
             LOCK_GUARD(this->chunksToDeallocLock, DeallocChunksList);
 
@@ -695,7 +810,7 @@ void ChunkLoader::loadChunk(const glm::ivec2 position) {
     this->currentlyLoading.push_back(position);
 
     // push work to the chunk worker queue
-    auto future = render::chunk::ChunkWorker::pushWork([&, position] {
+    auto future = this->chunkWorkQueue.queueWorkItem([&, position] {
         LoadChunkInfo info;
         info.position = position;
 
@@ -716,7 +831,7 @@ void ChunkLoader::loadChunk(const glm::ivec2 position) {
 /**
  * Draws all of the chunks currently loaded.
  */
-void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> program, const glm::mat4 &projView, const glm::vec3 &viewDirection) {
+void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> &program, const glm::mat4 &projView, const glm::vec3 &viewDirection) {
     const bool withNormals = program->rendersColor();
 
     // bind data textures/buffers
@@ -836,6 +951,27 @@ void ChunkLoader::prepareChunk(std::shared_ptr<gfx::RenderProgram> program,
 }
 
 /**
+ * Draws highlights.
+ */
+void ChunkLoader::drawHighlights(std::shared_ptr<gfx::RenderProgram> &program, const glm::mat4 &projView) {
+    PROFILE_SCOPE(ChunkHighlights);
+
+    for(auto [pos, info] : this->chunks) {
+        auto chunk = info.wc;
+        if(!chunk) continue;
+
+        if(chunk->needsDrawHighlights()) {
+            glm::mat4 model(1.);
+            this->prepareChunk(program, chunk, false, model);
+            chunk->drawHighlights(program);
+        }
+    }
+}
+
+
+
+
+/**
  * Draws the chunk loader status overlay.
  */
 void ChunkLoader::drawOverlay() {
@@ -862,11 +998,18 @@ void ChunkLoader::drawOverlay() {
     ImGui::SameLine();
     ImGui::Text("Camera: %.1f, %.1f, %.1f", this->lastPos.x, this->lastPos.y, this->lastPos.z);
 
-    // look at chunk
+    // look at chunk and block
     if(this->lookAtChunk) {
         ImGui::Text("LookAt: %d, %d", this->lookAtChunk->x, this->lookAtChunk->y);
     } else {
-        ImGui::TextUnformatted("LookAt: (null)");
+        ImGui::TextUnformatted("LookAt: C (null)");
+    }
+    ImGui::SameLine();
+    if(this->lookAtBlock) {
+        ImGui::Text("B %d, %d, %d", this->lookAtBlock->x, this->lookAtBlock->y,
+                this->lookAtBlock->z);
+    } else {
+        ImGui::TextUnformatted("B (null)");
     }
 
     // active chunks (data and drawing)
@@ -874,7 +1017,8 @@ void ChunkLoader::drawOverlay() {
             this->currentlyLoading.size(), this->chunks.size(), this->chunkQueue.size_approx());
 
     // chunk work queue items remaining
-    ImGui::Text("Work Queue: %5lu", chunk::ChunkWorker::getPendingItemCount());
+    ImGui::Text("Work Queue: C %5lu L %5lu", chunk::ChunkWorker::getPendingItemCount(),
+            this->chunkWorkQueue.numPending());
     ImGui::SameLine();
     ImGui::Text("Culled: %lu", this->numChunksCulled);
 

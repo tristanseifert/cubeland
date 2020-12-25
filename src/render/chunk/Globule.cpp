@@ -236,14 +236,19 @@ void Globule::fillBuffer() {
     this->buildAirMap(c->slices[0], am.current);
     this->buildAirMap(c->slices[1], am.above);
 
+    std::fill(std::begin(this->sliceVertexIdx), std::end(this->sliceVertexIdx), 0);
+
     // update the actual instance buffer itself
-    for(size_t y = this->position.y; y <= std::max((size_t)this->position.y + 64, Chunk::kMaxY-1); y++) {
+    for(size_t y = this->position.y; y <= std::min((size_t)this->position.y + 65, Chunk::kMaxY-1); y++) {
         PROFILE_SCOPE(ProcessSlice);
         const size_t yOffset = static_cast<size_t>(y - this->position.y) * (64 * 64);
 
         // bail if needing to exit
         if(!this->chunk || !this->chunk->chunk) return;
         if(this->abortWork) return;
+
+        // record current vertex index
+        this->sliceVertexIdx[y - (size_t)this->position.y] = this->vertexData.size();
 
         // if there's no blocks at this Y level, check the next one
         auto slice = c->slices[y];
@@ -413,30 +418,6 @@ void Globule::insertBlockVertices(const AirMap &am, const size_t x, const size_t
 
     gl::GLuint iVtx = this->vertexData.size();
 
-    // is the left edge exposed?
-    if(x == 0 || am.current[airMapOff - 1]) {
-        this->vertexData.insert(this->vertexData.end(), {
-            {.p = pos + glm::i16vec3(0,0,1), .blockId = blockId, .face = (0x2), .vertexId = 0},
-            {.p = pos + glm::i16vec3(0,1,1), .blockId = blockId, .face = (0x2), .vertexId = 1},
-            {.p = pos + glm::i16vec3(0,1,0), .blockId = blockId, .face = (0x2), .vertexId = 2},
-            {.p = pos + glm::i16vec3(0,0,0), .blockId = blockId, .face = (0x2), .vertexId = 3},
-        });
-        this->indexData.insert(this->indexData.end(), 
-                {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
-        iVtx += 4;
-    }
-    // is the right edge exposed?
-    if(x == 255 || am.current[airMapOff + 1]) {
-        this->vertexData.insert(this->vertexData.end(), {
-            {.p = pos + glm::i16vec3(1,0,0), .blockId = blockId, .face = (0x3), .vertexId = 0},
-            {.p = pos + glm::i16vec3(1,1,0), .blockId = blockId, .face = (0x3), .vertexId = 1},
-            {.p = pos + glm::i16vec3(1,1,1), .blockId = blockId, .face = (0x3), .vertexId = 2},
-            {.p = pos + glm::i16vec3(1,0,1), .blockId = blockId, .face = (0x3), .vertexId = 3},
-        });
-        this->indexData.insert(this->indexData.end(), 
-                {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
-        iVtx += 4;
-    }
     // is the bottom exposed?
     if(y == 0 || am.below[airMapOff]) {
         this->vertexData.insert(this->vertexData.end(), {
@@ -456,6 +437,30 @@ void Globule::insertBlockVertices(const AirMap &am, const size_t x, const size_t
             {.p = pos + glm::i16vec3(1,1,1), .blockId = blockId, .face = (0x1), .vertexId = 1},
             {.p = pos + glm::i16vec3(1,1,0), .blockId = blockId, .face = (0x1), .vertexId = 2},
             {.p = pos + glm::i16vec3(0,1,0), .blockId = blockId, .face = (0x1), .vertexId = 3},
+        });
+        this->indexData.insert(this->indexData.end(), 
+                {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
+        iVtx += 4;
+    }
+    // is the left edge exposed?
+    if(x == 0 || am.current[airMapOff - 1]) {
+        this->vertexData.insert(this->vertexData.end(), {
+            {.p = pos + glm::i16vec3(0,0,1), .blockId = blockId, .face = (0x2), .vertexId = 0},
+            {.p = pos + glm::i16vec3(0,1,1), .blockId = blockId, .face = (0x2), .vertexId = 1},
+            {.p = pos + glm::i16vec3(0,1,0), .blockId = blockId, .face = (0x2), .vertexId = 2},
+            {.p = pos + glm::i16vec3(0,0,0), .blockId = blockId, .face = (0x2), .vertexId = 3},
+        });
+        this->indexData.insert(this->indexData.end(), 
+                {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
+        iVtx += 4;
+    }
+    // is the right edge exposed?
+    if(x == 255 || am.current[airMapOff + 1]) {
+        this->vertexData.insert(this->vertexData.end(), {
+            {.p = pos + glm::i16vec3(1,0,0), .blockId = blockId, .face = (0x3), .vertexId = 0},
+            {.p = pos + glm::i16vec3(1,1,0), .blockId = blockId, .face = (0x3), .vertexId = 1},
+            {.p = pos + glm::i16vec3(1,1,1), .blockId = blockId, .face = (0x3), .vertexId = 2},
+            {.p = pos + glm::i16vec3(1,0,1), .blockId = blockId, .face = (0x3), .vertexId = 3},
         });
         this->indexData.insert(this->indexData.end(), 
                 {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});

@@ -11,8 +11,9 @@
 #include <atomic>
 #include <vector>
 #include <bitset>
+#include <array>
 
-#include <glbinding/gl/gl.h>
+#include <glbinding/gl/types.h>
 
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
@@ -115,6 +116,16 @@ class Globule {
          * considered air-like for purposes of exposure mapping.
          */
         std::vector<std::array<bool, 256>> exposureIdMaps;
+
+        /**
+         * Mapping from globule-relative Y level to the index in the vertex buffer. This allows us
+         * to (relatively) quickly index into the vertex buffer to modify a particular block by
+         * advancing to the start of the Y range.
+         *
+         * This allows some further optimizations since blocks in the vertex buffer are implicitly
+         * sorted in increasing Y, Z, and X order.
+         */
+        std::array<size_t, 66> sliceVertexIdx;
 
         /// when set, we are being destructed/want to bail out of work early
         std::atomic_bool abortWork = false;
