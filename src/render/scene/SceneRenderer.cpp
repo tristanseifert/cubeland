@@ -40,7 +40,7 @@ SceneRenderer::SceneRenderer() {
     this->shadowPrograms[kProgramChunkDraw] = WorldChunk::getShadowProgram();
 
     // create the chunk loader
-    this->chunkLoader = std::make_shared<ChunkLoader>();
+    this->chunkLoader = new ChunkLoader;
 }
 
 /**
@@ -51,7 +51,7 @@ SceneRenderer::~SceneRenderer() {
     chunk::ChunkWorker::shutdown();
 
     // destroy all of our helper objects
-    this->chunkLoader = nullptr;
+    delete this->chunkLoader;
 
     // shut down other systems of the engine
     world::BlockRegistry::shutdown();
@@ -127,4 +127,42 @@ void SceneRenderer::postRender(WorldRenderer *) {
 
     // disable culling again
     glDisable(GL_CULL_FACE);
+}
+
+
+/**
+ * Returns the position of the selected block, if there is one.
+ */
+std::optional<std::pair<glm::ivec3, glm::ivec3>> SceneRenderer::getSelectedBlockPos() const {
+    if(!this->chunkLoader->lookAtBlock.has_value()) return std::nullopt;
+    else if(!this->chunkLoader->lookAtBlockRelative.has_value()) return std::nullopt;
+
+    return std::make_pair(*this->chunkLoader->lookAtBlock, *this->chunkLoader->lookAtBlockRelative);
+}
+
+/**
+ * Returns a reference to the given chunk.
+ */
+std::shared_ptr<world::Chunk> SceneRenderer::getChunk(const glm::ivec2 &pos) {
+    if(this->chunkLoader->loadedChunks.contains(pos)) {
+        return this->chunkLoader->loadedChunks[pos];
+    }
+
+    // chunk not available
+    return nullptr;
+}
+
+/**
+ * Forces the selection to be recalculated next frame. This is useful after modifying the blocks
+ * on screen.
+ */
+void SceneRenderer::forceSelectionUpdate() {
+    this->chunkLoader->forceLookAtUpdate = true;
+}
+
+/**
+ * Returns the most recent camera position.
+ */
+glm::vec3 SceneRenderer::getCameraPos() const {
+    return this->chunkLoader->lastPos;
 }

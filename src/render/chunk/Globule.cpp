@@ -28,7 +28,7 @@ using namespace render::chunk;
  * This allocates the vertex and index buffers, configures a vertex array that can be used for
  * drawing the globule.
  */
-Globule::Globule(WorldChunk *_chunk, const glm::vec3 _pos) : position(_pos), chunk(_chunk) {
+Globule::Globule(WorldChunk *_chunk, const glm::ivec3 _pos) : position(_pos), chunk(_chunk) {
     using namespace gfx;
 
     // allocate buffers
@@ -502,8 +502,6 @@ void Globule::insertBlockVertices(const AirMap &am, const size_t x, const size_t
  * extra on each end, if possible.
  */
 void Globule::buildAirMap(world::ChunkSlice *slice, std::bitset<256*256> &b) {
-    PROFILE_SCOPE(BuildAirMap);
-
     // if the slice is empty (e.g. nonexistent,) bail; the entire thing is air
     if(!slice) {
         b.set();
@@ -539,8 +537,6 @@ void Globule::buildAirMap(world::ChunkSlice *slice, std::bitset<256*256> &b) {
  * Generates the mapping of 8-bit block ids to whether they're air or not
  */
 void Globule::generateBlockIdMap() {
-    PROFILE_SCOPE(GenerateAirMap);
-
     auto c = this->chunk->chunk;
 
     std::vector<std::array<bool, 256>> maps;

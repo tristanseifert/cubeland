@@ -50,6 +50,7 @@ add_executable(cubeland
     src/gui/MetricsDisplay.cpp
 # input
     src/input/InputManager.cpp
+    src/input/BlockInteractions.cpp
 # GL wrappers
     src/gfx/gl/texture/Texture.cpp
     src/gfx/gl/texture/Texture2D.cpp
@@ -95,6 +96,7 @@ add_executable(cubeland
     src/world/FileWorldReader+Reading.cpp
     src/world/WorldSource.cpp
     src/world/debug/WorldDebugger.cpp
+    src/world/chunk/Chunk.cpp
     src/world/block/BlockRegistry.cpp
     src/world/block/BlockDataGenerator.cpp
     src/world/block/RegisterBuiltins.cpp

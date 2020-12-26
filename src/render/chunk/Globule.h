@@ -41,7 +41,7 @@ class Globule {
     friend class WorldChunkDebugger;
 
     public:
-        Globule(WorldChunk *chunk, const glm::vec3 pos);
+        Globule(WorldChunk *chunk, const glm::ivec3 pos);
         ~Globule();
 
         void chunkChanged(const bool isDifferentChunk);
@@ -50,6 +50,17 @@ class Globule {
         void draw(std::shared_ptr<gfx::RenderProgram> &program);
 
         static void fillNormalTex(gfx::Texture2D *tex);
+
+        void eraseBlockAt(const glm::ivec3 &pos);
+        void insertBlockAt(const glm::ivec3 &pos, const uuids::uuid &newId);
+        void updateBlockAt(const glm::ivec3 &pos, const uuids::uuid &newId);
+
+        /**
+         * Marks this globule as needing a vertex buffer update.
+         */
+        void markDirty() {
+            this->vertexDataNeedsUpdate = true;
+        }
 
     private:
         /**
@@ -82,7 +93,7 @@ class Globule {
 
     private:
         // position of the globule, in block coordinates, relative to the chunk origin
-        glm::vec3 position;
+        glm::ivec3 position;
         // chunk we draw data from
         WorldChunk *chunk = nullptr;
 

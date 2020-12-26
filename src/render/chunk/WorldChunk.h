@@ -27,6 +27,7 @@
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
+#include <glm/gtx/hash.hpp>
 
 namespace gfx {
 class RenderProgram;
@@ -72,7 +73,8 @@ class WorldChunk: public Drawable {
         /// render program for shadow rendering
         static std::shared_ptr<gfx::RenderProgram> getShadowProgram();
 
-    public:
+        void markBlockChanged(const glm::ivec3 &pos);
+
         uint64_t addHighlight(const glm::vec3 &start, const glm::vec3 &end, const glm::vec4 &color = glm::vec4(0, 1, 0, .74));
         bool removeHighlight(const uint64_t id);
 
@@ -82,6 +84,12 @@ class WorldChunk: public Drawable {
         }
 
     private:
+        void blockDidChange(const glm::ivec3 &blockCoord);
+
+    private:
+        /// size of a globule, cubed
+        constexpr static const size_t kGlobuleSize = 64;
+
         struct HighlightInfo {
             // extents of the highlighting zone
             glm::vec3 start, end;
@@ -131,7 +139,10 @@ class WorldChunk: public Drawable {
         // chunk to be displayed
         std::shared_ptr<world::Chunk> chunk = nullptr;
         // the globules that make up the chunk (for rendering)
-        std::unordered_map<uint32_t, chunk::Globule *> globules;
+        std::unordered_map<glm::ivec3, chunk::Globule *> globules;
+
+        // id of the chunk change handler (or 0)
+        size_t chunkChangeToken = 0;
 
         // vertex array and buffer for a single cube
         std::shared_ptr<gfx::VertexArray> placeholderVao = nullptr;

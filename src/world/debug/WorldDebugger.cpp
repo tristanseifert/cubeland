@@ -420,12 +420,12 @@ void WorldDebugger::drawChunkViewer(gui::GameUI *ui) {
 
     // actions
     if(ImGui::Button("Render")) {
-        auto world = dynamic_pointer_cast<render::WorldChunk>(gSceneRenderer->chunks[0]);
+        /*auto world = dynamic_pointer_cast<render::WorldChunk>(gSceneRenderer->chunks[0]);
         if(!world) {
             this->worldError = std::make_unique<std::string>("Failed to get world chunk (for drawing)");
         } else {
             world->setChunk(this->chunk);
-        }
+        }*/
     }
     ImGui::Separator();
 

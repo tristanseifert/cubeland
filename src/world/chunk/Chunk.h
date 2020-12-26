@@ -22,9 +22,12 @@
 #include <vector>
 #include <list>
 #include <atomic>
+#include <functional>
 #include <cstring>
+#include <mutex>
 
 #include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
 #include <uuid.h>
 
 namespace render::scene {
@@ -74,6 +77,9 @@ struct Chunk {
     /// Block coordinate (chunk relative); these are 8 bit to save space
     /// Packed block coordinate is in the format 0x00YYZZXX.
     using BlockCoord = uint32_t;
+
+    using ChangeToken = uint32_t;
+    using ChangeCallback = std::function<void(const glm::ivec3 &)>;
 
     public:
         /// Position of the Y position in the block coordinate integer
@@ -133,6 +139,27 @@ struct Chunk {
                 delete slice;
             }
         }
+
+    public:
+        /// Adds a function to invoke any time blocks inside this chunk are changed
+        ChangeToken registerChangeCallback(const ChangeCallback &callback);
+        /// Removes a previously registered block change callback
+        void unregisterChangeCallback(const ChangeToken token);
+
+        /// Sets the UUID of a block at the given chunk-relative coordinate.
+        void setBlock(const glm::ivec3 &pos, const uuids::uuid &blockId);
+
+    private:
+        /**
+         * All registered chunk modification callbacks. Each of these is invoked when a block in
+         * the chunk is changed.
+         */
+        std::unordered_map<ChangeToken, ChangeCallback> changeCbs;
+
+        /// We need a lock to protect access to the change callbacks
+        std::mutex changeCbsLock;
+        /// Token for the next registration
+        ChangeToken changeNextToken = 1;
 
     private:
         /**
@@ -200,6 +227,13 @@ struct Chunk {
                 // if we get here, we failed to allocate an object
                 return nullptr;
             }
+
+            /**
+             * Releases an existing object.
+             *
+             * Currently, this is a no-op.
+             */
+            void free(T *) { /* nothing */ }
 
             /**
              * Returns the approximate amount of memory used by the pool

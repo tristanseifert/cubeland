@@ -297,6 +297,8 @@ class ChunkLoader {
         std::optional<glm::ivec2> lookAtChunk;
         /// block inside the look at chunk we're looking at (chunk relative coordinates)
         std::optional<glm::ivec3> lookAtBlock;
+        /// chunk relative look-at block
+        std::optional<glm::ivec3> lookAtBlockRelative;
         /// most recent camera position
         glm::vec3 lastPos = glm::vec3(0);
         /// most recent primary camera direction

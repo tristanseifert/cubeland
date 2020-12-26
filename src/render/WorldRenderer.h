@@ -16,6 +16,7 @@ class MainWindow;
 
 namespace input {
 class InputManager;
+class BlockInteractions;
 }
 
 namespace render {
@@ -64,6 +65,8 @@ class WorldRenderer: public gui::RunLoopStep {
         std::shared_ptr<input::InputManager> input = nullptr;
         // debugging
         std::shared_ptr<WorldRendererDebugger> debugger = nullptr;
+
+        input::BlockInteractions *blockInt = nullptr;
 
     private:
         /**

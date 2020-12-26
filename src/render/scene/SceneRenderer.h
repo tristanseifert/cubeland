@@ -6,7 +6,9 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
+#include <optional>
 
+#include <glm/vec2.hpp>
 #include <glm/mat4x4.hpp>
 
 namespace gfx {
@@ -15,6 +17,7 @@ class RenderProgram;
 
 namespace world {
 class WorldDebugger;
+struct Chunk;
 }
 
 namespace render {
@@ -45,6 +48,14 @@ class SceneRenderer: public RenderStep {
         // ignored
         void reshape(int w, int h) {};
 
+    public:
+        std::optional<std::pair<glm::ivec3, glm::ivec3>> getSelectedBlockPos() const;
+        // std::optional<glm::ivec3> getSelectedBlockPos() const;
+        std::shared_ptr<world::Chunk> getChunk(const glm::ivec2 &pos);
+        glm::vec3 getCameraPos() const;
+
+        void forceSelectionUpdate();
+
     protected:
         void render(const glm::mat4 &projView, const glm::vec3 &viewDir, const bool shadow = false, const bool hasNormalMatrix = true);
 
@@ -71,9 +82,7 @@ class SceneRenderer: public RenderStep {
         glm::mat4 projView;
 
         /// chunk loader responsible for getting world data into the game
-        std::shared_ptr<scene::ChunkLoader> chunkLoader = nullptr;
-        /// the chunks we're rendering as part of the world
-        std::vector<std::shared_ptr<WorldChunk>> chunks;
+        scene::ChunkLoader *chunkLoader = nullptr;
 
         /// regular (color rendering) programs
         std::unordered_map<ProgramType, std::shared_ptr<gfx::RenderProgram>> colorPrograms;

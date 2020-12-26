@@ -124,17 +124,13 @@ WorldChunk::WorldChunk() {
     this->initHighlightBuffer();
 
     // allocate globules
-    const size_t kGlobuleSize = 64;
     for(size_t y = 0; y < 256/kGlobuleSize; y++) {
         for(size_t z = 0; z < 256/kGlobuleSize; z++) {
             for(size_t x = 0; x < 256/kGlobuleSize; x++) {
-                const glm::vec3 pos(x * kGlobuleSize, y * kGlobuleSize, z * kGlobuleSize);
-                const uint32_t key = (((y * kGlobuleSize) & 0xFF) << 16) | 
-                                     (((z * kGlobuleSize) & 0xFF) << 8) | 
-                                     ((x * kGlobuleSize) & 0xFF);
+                const glm::ivec3 pos(x * kGlobuleSize, y * kGlobuleSize, z * kGlobuleSize);
 
                 auto glob = new Globule(this, pos);
-                this->globules[key] = glob;
+                this->globules[pos] = glob;
             }
         }
     }
@@ -222,12 +218,36 @@ void WorldChunk::draw(std::shared_ptr<gfx::RenderProgram> &program) {
  * comes around, we'll skip updating the buffer and possibly draw stale data.
  */
 void WorldChunk::setChunk(std::shared_ptr<world::Chunk> chunk) {
+    // remove any old chunk observers
+    if(this->chunkChangeToken) {
+        if(this->chunk) {
+            this->chunk->unregisterChangeCallback(this->chunkChangeToken);
+        }
+        this->chunkChangeToken = 0;
+    }
+
+    // register changed chunk
     bool changed = (chunk != this->chunk);
     this->chunk = chunk;
 
     for(auto &[key, globule] : this->globules) {
         globule->chunkChanged(changed);
     }
+
+    // install new observer
+    if(chunk) {
+        this->chunkChangeToken = this->chunk->registerChangeCallback(
+                std::bind(&WorldChunk::blockDidChange, this, std::placeholders::_1));
+    }
+}
+
+/**
+ * Notifies us that a block inside the chunk was changed. This is used so that we can automagically
+ * update the globule holding that chunk.
+ */
+void WorldChunk::blockDidChange(const glm::ivec3 &blockCoord) {
+    // update the block
+    this->markBlockChanged(blockCoord);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -388,3 +408,16 @@ void WorldChunk::drawHighlights(std::shared_ptr<gfx::RenderProgram> &program) {
     glEnable(GL_DEPTH_TEST);
 }
 
+/**
+ * Marks a block as changed. This will cause the globule at the given coordinate to regenerate its
+ * internal buffers.
+ *
+ * @note `pos` is relative to the origin of the chunk.
+ */
+void WorldChunk::markBlockChanged(const glm::ivec3 &pos) {
+    const auto globuleOff = pos / glm::ivec3(kGlobuleSize);
+    const auto globuleOrigin = globuleOff * glm::ivec3(kGlobuleSize);
+
+    auto globule = this->globules[globuleOrigin];
+    globule->markDirty();
+}

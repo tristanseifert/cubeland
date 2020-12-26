@@ -326,6 +326,7 @@ void ChunkLoader::updateLookAt() {
     // if we get down here, not looking at any chonks
     this->lookAtChunk.reset();
     this->lookAtBlock.reset();
+    this->lookAtBlockRelative.reset();
 }
 
 /**
@@ -392,9 +393,9 @@ void ChunkLoader::updateLookAtBlock() {
         // read the 8-bit ID of the block at this position
         int zOff = (blockPos.z % 256), xOff = (blockPos.x % 256);
         if(zOff < 0) {
-            zOff = 255 - abs(zOff);
+            zOff = 256 - abs(zOff);
         } if(xOff < 0) {
-            xOff = 255 - abs(xOff);
+            xOff = 256 - abs(xOff);
         }
 
         auto slice = chunk->slices[blockPos.y];
@@ -409,6 +410,7 @@ void ChunkLoader::updateLookAtBlock() {
         if(!BlockRegistry::isAirBlock(uuid)) {
             // it is not air, we've found the block we're looking at
             this->lookAtBlock = glm::ivec3(blockPos);
+            this->lookAtBlockRelative = glm::ivec3(xOff, blockPos.y, zOff);
             //Logging::trace("Look@ block {} (off {}, {}) chunk {}, dist {}, id {}", blockPos, xOff,
             //        zOff, chunkPos, distance, uuids::to_string(uuid));
 
@@ -421,6 +423,7 @@ void ChunkLoader::updateLookAtBlock() {
     // if we get here, failed to find a non-air block
     this->removeLookAtSelection();
     this->lookAtBlock.reset();
+    this->lookAtBlockRelative.reset();
 }
 
 /**

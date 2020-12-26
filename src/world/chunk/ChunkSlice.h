@@ -33,6 +33,8 @@ struct ChunkSliceRow {
     virtual uint8_t at(const int i) = 0;
     virtual void set(const int i, const uint8_t value) = 0;
     virtual bool containsType(const uint8_t value) = 0;
+    /// whether this row has space for additional data
+    virtual bool hasSpaceAvailable() const = 0;
     /// performs any internal housekeeping to prepare the row for rendering
     virtual void prepare() {};
 
@@ -56,6 +58,10 @@ struct ChunkSliceRowSparse: public ChunkSliceRow {
     uint8_t defaultBlockId;
     /// current amount of slots used in the sparse storage array
     uint8_t slotsUsed = 0;
+
+    bool hasSpaceAvailable() const {
+        return (this->slotsUsed < kMaxEntries);
+    }
 
     /**
      * Mapping of X coordinate to block ID.
@@ -140,6 +146,11 @@ struct ChunkSliceRowDense: public ChunkSliceRow {
     virtual bool containsType(const uint8_t type) {
         return std::find(std::begin(this->storage), std::end(this->storage), type) 
             != std::end(this->storage);
+    }
+
+    // dense map can never run out of space :D
+    bool hasSpaceAvailable() const {
+        return true;
     }
 };
 

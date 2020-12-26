@@ -2,7 +2,9 @@
 #include "WorldRendererDebugger.h"
 #include "RenderStep.h"
 #include "scene/SceneRenderer.h"
+
 #include "input/InputManager.h"
+#include "input/BlockInteractions.h"
 
 #include "steps/FXAA.h"
 #include "steps/Lighting.h"
@@ -57,11 +59,16 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win) {
     ssao->setNormalTex(this->lighting->gNormal);
 
     this->debugger = std::make_shared<WorldRendererDebugger>(this);
+
+    // interactions and some game UI
+    this->blockInt = new input::BlockInteractions(scnRnd);
 }
 /**
  * Releases all of our render resources.
  */
 WorldRenderer::~WorldRenderer() {
+    delete this->blockInt;
+
     gSceneRenderer = nullptr;
     this->steps.clear();
 }
@@ -145,6 +152,11 @@ void WorldRenderer::reshape(unsigned int width, unsigned int height) {
  * Do nothing with UI events.
  */
 bool WorldRenderer::handleEvent(const SDL_Event &event) {
+    // try the block interactions
+    if(this->blockInt->handleEvent(event)) {
+        return true;
+    }
+
     // send it to the IO handler
     return this->input->handleEvent(event);
     // return false;
