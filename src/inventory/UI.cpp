@@ -20,16 +20,16 @@ using namespace inventory;
 UI::UI(Manager *_mgr) : inventory(_mgr) {
     _mgr->ui = this;
 
+    // set up UI components
+    this->bar = new UIBar(this);
+    this->detail = new UIDetail(this);
+
     // create the atlas texture
     this->atlas = new gfx::Texture2D;
     this->atlas->setUsesLinearFiltering(false);
     this->atlas->setDebugName("InventoryAtlas");
 
     this->uploadAtlasTexture();
-
-    // set up UI components
-    this->bar = new UIBar(this);
-    this->detail = new UIDetail(this);
 }
 
 /**

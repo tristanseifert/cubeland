@@ -7,6 +7,10 @@
 #include "input/BlockInteractions.h"
 #include "gui/GameUI.h"
 
+#include "world/FileWorldReader.h"
+#include "world/WorldSource.h"
+#include "world/generators/Terrain.h"
+
 #include "inventory/Manager.h"
 #include "inventory/UI.h"
 
@@ -32,13 +36,26 @@ std::shared_ptr<SceneRenderer> gSceneRenderer = nullptr;
  */
 WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> &_gui) :
     gui(_gui) {
+    // XXX: testing world source
+    try {
+        auto file = std::make_shared<world::FileWorldReader>("/Users/tristan/cubeland/build/./test.world");
+        auto gen = std::make_shared<world::Terrain>(420);
+
+        this->source = std::make_shared<world::WorldSource>(file, gen);
+        this->source->setGenerateOnly(true);
+    } catch(std::exception &e) {
+        Logging::error("Failed to open world: {}", e.what());
+        exit(-1);
+    }
+
     // create the IO manager
-    this->input = new input::InputManager (win);
+    this->input = new input::InputManager(win);
 
     // then, the render steps
     auto scnRnd = std::make_shared<SceneRenderer>();
     gSceneRenderer = scnRnd;
 
+    scnRnd->setWorldSource(this->source);
     this->steps.push_back(scnRnd);
 
     auto ssao = std::make_shared<SSAO>();

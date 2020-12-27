@@ -23,3 +23,12 @@ std::string PathHelper::appDataDir() {
     }
 }
 
+/**
+ * Returns the path to the bundle's resources directory.
+ */
+std::string PathHelper::resourcesDir() {
+    @autoreleasepool {
+        NSString *path = [NSBundle mainBundle].resourceURL.path;
+        return std::string([path UTF8String]);
+    }
+}

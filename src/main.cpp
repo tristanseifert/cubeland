@@ -1,6 +1,7 @@
 #include "io/ConfigManager.h"
 #include "io/PrefsManager.h"
 #include "io/PathHelper.h"
+#include "io/ResourceManager.h"
 #include "io/Format.h"
 #include "logging/Logging.h"
 #include "gui/MainWindow.h"
@@ -116,6 +117,8 @@ int main(int argc, const char **argv) {
     Logging::start();
     Logging::info("Cubeland {} (commit {}) starting", gVERSION, gVERSION_HASH);
 
+    io::ResourceManager::init();
+
     // initialize SDL
     err = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
     XASSERT(err == 0, "Failed to initialize SDL ({}): {}", err, SDL_GetError());
@@ -134,6 +137,7 @@ int main(int argc, const char **argv) {
     // tear down UI and other systems
     window = nullptr;
 
+    io::ResourceManager::shutdown();
     io::PrefsManager::synchronize();
 
     // last, stop logging

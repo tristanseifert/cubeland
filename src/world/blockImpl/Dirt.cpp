@@ -32,20 +32,20 @@ Dirt::Dirt() {
     // register textures
     this->normalTextures[0] = BlockRegistry::registerTexture(Type::kTypeBlockFace,
             glm::ivec2(32, 32), [](auto &out) {
-        TextureLoader::load("/block/dirt/top.png", out);
+        TextureLoader::load("block/dirt/top.png", out);
     });
     this->normalTextures[1] = BlockRegistry::registerTexture(Type::kTypeBlockFace,
             glm::ivec2(32, 32), [](auto &out) {
-        TextureLoader::load("/block/dirt/bottom.png", out);
+        TextureLoader::load("block/dirt/bottom.png", out);
     });
     this->normalTextures[2] = BlockRegistry::registerTexture(Type::kTypeBlockFace,
             glm::ivec2(32, 32), [](auto &out) {
-        TextureLoader::load("/block/dirt/side.png", out);
+        TextureLoader::load("block/dirt/side.png", out);
     });
 
     this->inventoryIcon = BlockRegistry::registerTexture(Type::kTypeInventory,
             glm::ivec2(96, 96), [](auto &out) {
-        TextureLoader::load("/block/dirt/inventory.png", out);
+        TextureLoader::load("block/dirt/inventory.png", out);
     }); 
 
     // register appearance

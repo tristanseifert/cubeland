@@ -24,6 +24,10 @@ class InputManager;
 class BlockInteractions;
 }
 
+namespace world {
+class WorldSource;
+}
+
 namespace render {
 class RenderStep;
 class Lighting;
@@ -105,6 +109,9 @@ class WorldRenderer: public gui::RunLoopStep {
 
         // render stages
         std::vector<std::shared_ptr<RenderStep>> steps;
+
+        // world source providing all data for this world
+        std::shared_ptr<world::WorldSource> source;
 
         std::shared_ptr<Lighting> lighting = nullptr;
         std::shared_ptr<HDR> hdr = nullptr;

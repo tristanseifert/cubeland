@@ -19,6 +19,7 @@ class RenderProgram;
 
 namespace world {
 class WorldDebugger;
+class WorldSource;
 struct Chunk;
 }
 
@@ -49,6 +50,8 @@ class SceneRenderer: public RenderStep {
 
         // ignored
         void reshape(int w, int h) {};
+
+        void setWorldSource(std::shared_ptr<world::WorldSource> &source);
 
     public:
         std::optional<std::pair<glm::ivec3, glm::ivec3>> getSelectedBlockPos() const;

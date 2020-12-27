@@ -38,6 +38,7 @@ add_executable(cubeland
     src/io/ConfigManager.cpp
     src/io/PrefsManager.cpp
     src/io/PathHelper.cpp
+    src/io/ResourceManager.cpp
     src/io/MetricsManager.cpp
 # utilities
     src/util/LZ4.cpp
@@ -64,9 +65,6 @@ add_executable(cubeland
     src/gfx/gl/buffer/RenderBuffer.cpp
     src/gfx/gl/buffer/VertexArray.cpp
     src/gfx/gl/query/OcclusionQuery.cpp
-# model loading
-#    src/gfx/model/Mesh.cpp
-#    src/gfx/model/Model.cpp
 # lighting
     src/gfx/lights/abstract/AbstractLight.cpp
     src/gfx/lights/abstract/LightPosition.cpp
@@ -155,24 +153,6 @@ cmrc_add_resource_library(cubeland-rsrc-shaders
 ALIAS cubeland::rsrc_shaders WHENCE rsrc/shaders NAMESPACE shaders)
 target_link_libraries(cubeland PRIVATE cubeland::rsrc_shaders)
 
-# models
-file(GLOB MODEL_FILES ${CMAKE_CURRENT_SOURCE_DIR}/rsrc/models/*/*)
-
-cmrc_add_resource_library(cubeland-rsrc-models
-    ${MODEL_FILES}
-ALIAS cubeland::rsrc_models WHENCE rsrc/models NAMESPACE models)
-#target_link_libraries(cubeland PRIVATE cubeland::rsrc_models)
-
-# textures
-cmrc_add_resource_library(cubeland-rsrc-textures
-    rsrc/textures/test/empty/whitegreen.png
-    rsrc/textures/block/dirt/top.png
-    rsrc/textures/block/dirt/side.png
-    rsrc/textures/block/dirt/bottom.png
-    rsrc/textures/block/dirt/inventory.png
-ALIAS cubeland::rsrc_textures WHENCE rsrc/textures NAMESPACE textures)
-target_link_libraries(cubeland PRIVATE cubeland::rsrc_textures)
-
 # SQL statements
 cmrc_add_resource_library(cubeland-rsrc-sql
     rsrc/sql/world_v1.sql
@@ -227,7 +207,7 @@ add_library(dearimgui OBJECT
     libs/imgui/imgui_draw.cpp
     libs/imgui/imgui_widgets.cpp
     libs/imgui/imgui_tables.cpp
-
+    libs/imgui/imgui_demo.cpp
     # use the generic OpenGL/SDL backends
     libs/imgui/backends/imgui_impl_sdl.cpp
     libs/imgui/backends/imgui_impl_opengl3.cpp
@@ -366,7 +346,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
      set(MACOSX_BUNDLE_SHORT_VERSION_STRING "420")
 
      set(BUNDLE_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/README.md)
-    #list(APPEND BUNDLE_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/CHANGELOG.md)
+     list(APPEND BUNDLE_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/build/default.rsrc)
     #list(APPEND BUNDLE_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/CONTRIBUTORS.MD)
      set_target_properties(cubeland PROPERTIES RESOURCE "${BUNDLE_RESOURCES}")
      target_sources(cubeland PUBLIC ${BUNDLE_RESOURCES})

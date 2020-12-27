@@ -302,7 +302,10 @@ void GameUI::pushGameStyles() {
     // new colors
     ImGui::PushStyleColor(ImGuiCol_TitleBg, glm::vec4(0, 0, 0, 1));
     ImGui::PushStyleColor(ImGuiCol_TitleBgActive, glm::vec4(.31, 0, 0, 1));
-
+    
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, glm::vec4(.31, 0, 0, .85));
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, glm::vec4(.2, 0, 0, 1));
+    
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowTitleAlign, glm::vec2(.5, .5));
 }
@@ -313,6 +316,6 @@ void GameUI::pushGameStyles() {
 void GameUI::popGameStyles() {
     ImGui::PopFont();
 
-    ImGui::PopStyleColor(2);
+    ImGui::PopStyleColor(4);
     ImGui::PopStyleVar(2);
 }

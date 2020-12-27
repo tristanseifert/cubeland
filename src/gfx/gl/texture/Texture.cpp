@@ -1,11 +1,6 @@
-/*
- * Texture.cpp
- *
- *  Created on: Aug 24, 2015
- *      Author: tristan
- */
-
 #include "Texture.h"
+
+#include "io/ResourceManager.h"
 
 #include <Logging.h>
 
@@ -15,7 +10,6 @@
 #include <algorithm>
 
 #include <SOIL/SOIL.h>
-#include <cmrc/cmrc.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
@@ -29,8 +23,6 @@
 using namespace std;
 using namespace gl;
 using namespace gfx;
-
-CMRC_DECLARE(textures);
 
 /**
  * Allocates a texture object.
@@ -54,11 +46,9 @@ Texture::~Texture() {
  * @note width, height and format MUST be specified.
  */
 void *Texture::loadImageData(const std::string &path, int *width, int *height, GLenum *format) {
-    // read image data from resource directory
-    auto fs = cmrc::textures::get_filesystem();
-    auto texture = fs.open(path);
-
-    std::vector<unsigned char> data(texture.begin(), texture.end());
+    // read texture data
+    std::vector<unsigned char> data;
+    io::ResourceManager::get(path, data);
 
 	// load image
 	int channels;

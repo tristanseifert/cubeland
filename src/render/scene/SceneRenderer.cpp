@@ -3,9 +3,6 @@
 #include "ChunkLoader.h"
 
 #include "world/block/BlockRegistry.h"
-#include "world/WorldSource.h"
-#include "world/FileWorldReader.h"
-#include "world/generators/Terrain.h"
 #include "world/tick/TickHandler.h"
 
 #include "render/WorldRenderer.h"
@@ -189,4 +186,14 @@ void SceneRenderer::setSelectionColor(const glm::vec4 &color) {
  */
 glm::vec3 SceneRenderer::getCameraPos() const {
     return this->chunkLoader->lastPos;
+}
+
+/**
+ * Sets the world source used to render world data.
+ *
+ * This should be called once, immediately before we render for the first time, to set the world
+ * data. After, it should not be modified or changed; the behavior is undefined if this is done.
+ */
+void SceneRenderer::setWorldSource(std::shared_ptr<world::WorldSource> &source) {
+    this->chunkLoader->setSource(source);
 }

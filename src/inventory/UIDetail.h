@@ -1,6 +1,8 @@
 #ifndef INVENTORY_UIDETAIL_H
 #define INVENTORY_UIDETAIL_H
 
+#include "world/block/BlockRegistry.h"
+
 #include <cstddef>
 
 #include <glm/vec2.hpp>
@@ -17,7 +19,7 @@ class UI;
 
 class UIDetail {
     public:
-        UIDetail(UI *_owner) : owner(_owner) {};
+        UIDetail(UI *owner);
 
         void draw(gui::GameUI *gui);
 
@@ -48,18 +50,23 @@ class UIDetail {
 
     private:
         void drawRow(gui::GameUI *gui, const size_t offset);
-        void drawItemBackground(const glm::vec2 &, const size_t);
+        void drawItemBackground(const glm::vec2 &, const size_t = 999999);
         void drawItem(const glm::vec2 &, const size_t);
 
         void dragTooltipForItem(const SlotDragPayload &);
 
         void handleItemDrop(const size_t, const SlotDragPayload *);
 
+        void drawDeleteItem(const glm::vec2&, gui::GameUI *);
+
     private:
         UI *owner = nullptr;
 
         /// font for displaying the count of items
         ImFont *countFont = nullptr;
+
+        /// texture ID for the delete slot
+        world::BlockRegistry::TextureId deleteSlotTex = 0;
 };
 }
 

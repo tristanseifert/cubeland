@@ -12,6 +12,7 @@ class PathHelper {
         static void init();
 
         static std::string appDataDir();
+        static std::string resourcesDir();
 
     public:
         static std::string logsDir() {

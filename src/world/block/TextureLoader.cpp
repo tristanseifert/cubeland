@@ -1,10 +1,10 @@
 #include "TextureLoader.h"
 
+#include "io/ResourceManager.h"
 #include "io/Format.h"
 #include <Logging.h>
 
 #include <SOIL/SOIL.h>
-#include <cmrc/cmrc.hpp>
 
 #include <glm/glm.hpp>
 
@@ -14,8 +14,6 @@
 
 using namespace world;
 
-CMRC_DECLARE(textures);
-
 /**
  * Loads the given image from the textures resource bundle. It is decoded to 8-bit RGBA, which is
  * then converted to floating point and sqongled into the output buffer.
@@ -23,11 +21,9 @@ CMRC_DECLARE(textures);
  * This assumes that the input data is sRGB, and is converted to linear when loaded, if requested.
  */
 void TextureLoader::load(const std::string &path, std::vector<float> &out, const bool sRgbConvert) {
-    // read image data from resource directory
-    auto fs = cmrc::textures::get_filesystem();
-    auto texture = fs.open(path);
-
-    std::vector<unsigned char> data(texture.begin(), texture.end());
+    // read image data
+    std::vector<unsigned char> data;
+    io::ResourceManager::get(path, data);
 
     // load image
     int width = 0, height = 0;

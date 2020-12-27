@@ -4,6 +4,7 @@
 
 #include "world/block/BlockRegistry.h"
 #include "world/block/Block.h"
+#include "world/block/TextureLoader.h"
 #include "gui/GameUI.h"
 #include "gfx/gl/texture/Texture2D.h"
 
@@ -15,6 +16,16 @@
 #include <algorithm>
 
 using namespace inventory;
+
+/**
+ * Loads textures needed to display the inventory UI.
+ */
+UIDetail::UIDetail(UI *_owner) : owner(_owner) {
+    this->deleteSlotTex = world::BlockRegistry::registerTexture(
+            world::BlockRegistry::TextureType::kTypeInventory, glm::ivec2(96, 96), [](auto &out) {
+        world::TextureLoader::load("inventory/detail/delete.png", out);
+    });
+}
 
 /**
  * Draws the main window of the detail view.
@@ -29,6 +40,13 @@ void UIDetail::draw(gui::GameUI *ui) {
     if(!this->countFont) {
         this->countFont = ui->getFont(gui::GameUI::kGameFontBold);
     }
+
+    // trash and actions
+    this->drawDeleteItem(ImGui::GetCursorScreenPos(), ui);
+
+    ImGui::Dummy(glm::vec2(0, 5));
+    ImGui::Separator();
+    ImGui::Dummy(glm::vec2(0, 5));
 
     // remaining inventory rows
     for(size_t off = 10; off < Manager::kNumInventorySlots; off += 10) {
@@ -63,8 +81,9 @@ void UIDetail::drawRow(gui::GameUI *gui, const size_t offset) {
         // spacing
         ImGui::Dummy(glm::vec2(kItemSize, kItemSize));
 
-        // drag source (if the slot is NOT empty)
+        // various behaviors only for occupied slots
         if(occupied) {
+            // drag source (if the slot is NOT empty)
             if(ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
                 SlotDragPayload p;
                 p.slot = i;
@@ -99,6 +118,8 @@ void UIDetail::drawRow(gui::GameUI *gui, const size_t offset) {
 
 /**
  * Draws the background for a slot.
+ *
+ * Pass a very large slot value (greater than the number of slots) to suppress highlight drawing.
  */
 void UIDetail::drawItemBackground(const glm::vec2 &origin, const size_t slot) {
     auto d = ImGui::GetWindowDrawList();
@@ -267,4 +288,37 @@ swap:;
 beach:;
     // finished, clean up empty slots
     this->owner->inventory->removeEmptySlots();
+}
+
+/**
+ * Draws the delete item. It accepts drops from all inventory slots and allows them to be emptied.
+ */
+void UIDetail::drawDeleteItem(const glm::vec2 &origin, gui::GameUI *gui) {
+    // draw border and background like normal items
+    this->drawItemBackground(origin);
+
+    // get texture UVs and draw
+    const auto uvs = world::BlockRegistry::getTextureUv(this->deleteSlotTex);
+    const auto uv0 = glm::vec2(uvs.x, uvs.y), uv1 = glm::vec2(uvs.z, uvs.w);
+    const auto texId = (ImTextureID) (size_t) this->owner->atlas->getGlObjectId();
+
+    const auto iOrg = origin + glm::vec2(1);
+    auto d = ImGui::GetWindowDrawList();
+    d->AddImage(texId, iOrg, iOrg+glm::vec2(48, 48), uv0, uv1);
+
+    // drag and drop stuff
+    ImGui::Dummy(glm::vec2(kItemSize, kItemSize));
+
+    if(ImGui::BeginDragDropTarget()) {
+        // accept inventory slot data
+        if(const auto payload = ImGui::AcceptDragDropPayload(kInventorySlotDragType)) {
+            XASSERT(payload->DataSize == sizeof(SlotDragPayload), "Invalid paylad size {}", payload->DataSize);
+
+            const auto fromSlot = reinterpret_cast<SlotDragPayload *>(payload->Data);
+            this->owner->inventory->slots[fromSlot->slot] = std::monostate();
+        }
+
+        // end drop target
+        ImGui::EndDragDropTarget();
+    }
 }
