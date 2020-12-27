@@ -169,6 +169,7 @@ cmrc_add_resource_library(cubeland-rsrc-textures
     rsrc/textures/block/dirt/top.png
     rsrc/textures/block/dirt/side.png
     rsrc/textures/block/dirt/bottom.png
+    rsrc/textures/block/dirt/inventory.png
 ALIAS cubeland::rsrc_textures WHENCE rsrc/textures NAMESPACE textures)
 target_link_libraries(cubeland PRIVATE cubeland::rsrc_textures)
 

@@ -44,8 +44,8 @@ Dirt::Dirt() {
     });
 
     this->inventoryIcon = BlockRegistry::registerTexture(Type::kTypeInventory,
-            glm::ivec2(32, 32), [](auto &out) {
-        TextureLoader::load("/block/dirt/side.png", out);
+            glm::ivec2(96, 96), [](auto &out) {
+        TextureLoader::load("/block/dirt/inventory.png", out);
     }); 
 
     // register appearance

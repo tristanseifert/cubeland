@@ -114,3 +114,21 @@ std::optional<uuids::uuid> Manager::dequeueSlotBlock() {
     return block.blockId;
 }
 
+/**
+ * Erases all slots that contain zero-length entries.
+ */
+void Manager::removeEmptySlots() {
+    for(size_t i = 0; i < this->slots.size(); i++) {
+        // ignore actually empty slots
+        if(!this->isSlotOccupied(i)) continue;
+        auto &slot = this->slots[i];
+
+        // blocks
+        if(std::holds_alternative<InventoryBlock>(slot)) {
+            auto &block = std::get<InventoryBlock>(slot);
+            if(block.count == 0) {
+                this->slots[i] = std::monostate();
+            }
+        }
+    }
+}

@@ -51,7 +51,7 @@ class Manager {
         /// If the current slot contains blocks, returns its id and decrements its count by 1
         std::optional<uuids::uuid> dequeueSlotBlock();
 
-    private:
+    public:
         /// total number of inventory slots
         constexpr static const size_t kNumInventorySlots = 50;
         /// maximum number of items per inventory slot
@@ -68,6 +68,9 @@ class Manager {
         };
 
         using InventoryType = std::variant<std::monostate, InventoryBlock>;
+
+    private:
+        void removeEmptySlots();
 
     private:
         UI *ui = nullptr;

@@ -8,6 +8,7 @@
 #include "gfx/gl/texture/Texture2D.h"
 
 #include <imgui.h>
+#include <mutils/time/profiler.h>
 #include <glm/glm.hpp>
 
 #include <cstring>
@@ -28,6 +29,8 @@ UIBar::UIBar(UI *_owner) : owner(_owner) {
  * @return Whether the bar was drawn or not
  */
 bool UIBar::draw(gui::GameUI *ui, bool end) {
+    PROFILE_SCOPE(InventoryBarDraw);
+
     // get fonts if needed
     if(!this->countFont) {
         this->countFont = ui->getFont(gui::GameUI::kGameFontBold);
@@ -96,8 +99,9 @@ void UIBar::drawItem(const glm::vec2 &origin, const size_t slotIdx) {
         count = block.count;
 
         // get the texture for this block
-        const auto previewTexId = world::BlockRegistry::getBlock(block.blockId)->getInventoryIcon();
-        if(previewTexId) {
+        auto blockPtr = world::BlockRegistry::getBlock(block.blockId);
+        if(blockPtr) {
+            const auto previewTexId = blockPtr->getInventoryIcon();
             const auto uvs = world::BlockRegistry::getTextureUv(previewTexId);
 
             uv0 = glm::vec2(uvs.x, uvs.y);
