@@ -30,6 +30,14 @@ class BlockRegistry {
         /// All textures registered by blocks to be included in the texture maps use these IDs
         using TextureId = uint32_t;
 
+        /// types of textures (e.g. what atlas they end up in)
+        enum class TextureType {
+            /// textures used to render block edges
+            kTypeBlockFace,
+            /// Textures used to render the inventory screen
+            kTypeInventory,
+        };
+
     public:
         // you should not call this
         BlockRegistry();
@@ -63,7 +71,7 @@ class BlockRegistry {
         static void notifyChunkWillUnload(std::shared_ptr<Chunk> &ptr);
 
         /// Registers a texture
-        static TextureId registerTexture(const glm::ivec2 size, const std::function<void(std::vector<float> &)> &fillFunc);
+        static TextureId registerTexture(const TextureType type, const glm::ivec2 size, const std::function<void(std::vector<float> &)> &fillFunc);
         /// Removes an existing texture registration
         static void removeTexture(const TextureId id);
 
@@ -78,8 +86,13 @@ class BlockRegistry {
             appearanceSetTextures(id, ids[0], ids[1], ids[2]);
         }
 
+        /// Returns UV coordinates for the given texture.
+        static glm::vec4 getTextureUv(const TextureId id);
+
         /// generates the block texture atlas
         static void generateBlockTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
+        /// generates the inventory texture atlas
+        static void generateInventoryTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
         /// generates the block info data
         static void generateBlockData(glm::ivec2 &size, std::vector<glm::vec4> &out);
 
@@ -92,6 +105,8 @@ class BlockRegistry {
             TextureId id;
             /// Size of the texture, in pixels
             glm::ivec2 size;
+            /// intended use of the texture (e.g. what atlas it ends up in)
+            TextureType type;
 
             /**
              * Function to invoke to get the texture data from the block handler for the texture;

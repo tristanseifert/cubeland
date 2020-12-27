@@ -237,7 +237,7 @@ void WorldChunk::setChunk(std::shared_ptr<world::Chunk> chunk) {
     // install new observer
     if(chunk) {
         this->chunkChangeToken = this->chunk->registerChangeCallback(
-                std::bind(&WorldChunk::blockDidChange, this, std::placeholders::_1));
+                std::bind(&WorldChunk::blockDidChange, this, std::placeholders::_1, std::placeholders::_2));
     }
 }
 
@@ -245,9 +245,10 @@ void WorldChunk::setChunk(std::shared_ptr<world::Chunk> chunk) {
  * Notifies us that a block inside the chunk was changed. This is used so that we can automagically
  * update the globule holding that chunk.
  */
-void WorldChunk::blockDidChange(const glm::ivec3 &blockCoord) {
+void WorldChunk::blockDidChange(const glm::ivec3 &blockCoord, const world::Chunk::ChangeHints hints) {
     // update the block
     this->markBlockChanged(blockCoord);
+    // Logging::trace("Block {} changed, flags {}", blockCoord, hints);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

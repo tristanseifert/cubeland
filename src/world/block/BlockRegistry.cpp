@@ -124,11 +124,12 @@ void BlockRegistry::appearanceSetTextures(const uint16_t id, const TextureId top
 /**
  * Adds a texture registration.
  */
-BlockRegistry::TextureId BlockRegistry::registerTexture(const glm::ivec2 size,
-        const std::function<void(std::vector<float> &)> &fillFunc) {
+BlockRegistry::TextureId BlockRegistry::registerTexture(const TextureType type,
+        const glm::ivec2 size, const std::function<void(std::vector<float> &)> &fillFunc) {
     // build info struct
     TextureReg info;
     info.size = size;
+    info.type = type;
     info.fillFunc = fillFunc;
 
     // insert it while we hold the lock
@@ -158,7 +159,14 @@ void BlockRegistry::removeTexture(const TextureId id) {
  * Generates the texture atlas for block textures.
  */
 void BlockRegistry::generateBlockTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out) {
-    gShared->dataGen->buildTextureAtlas(size, out);
+    gShared->dataGen->buildBlockTextureAtlas(size, out);
+}
+
+/**
+ * Generates the texture atlas for inventory images.
+ */
+void BlockRegistry::generateInventoryTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out) {
+    gShared->dataGen->buildInventoryTextureAtlas(size, out);
 }
 
 /**
@@ -166,6 +174,28 @@ void BlockRegistry::generateBlockTextureAtlas(glm::ivec2 &size, std::vector<std:
  */
 void BlockRegistry::generateBlockData(glm::ivec2 &size, std::vector<glm::vec4> &out) {
     gShared->dataGen->generate(size, out);
+}
+
+/**
+ * Returns UV coordinates for the given texture.
+ */
+glm::vec4 BlockRegistry::getTextureUv(const TextureId id) {
+    // ensure texture exists
+    std::lock_guard<std::mutex> lg(gShared->texturesLock);
+    if(!gShared->textures.contains(id)) {
+        throw std::runtime_error("Invalid texture id");
+    }
+
+    switch(gShared->textures[id].type) {
+        case TextureType::kTypeBlockFace:
+            return gShared->dataGen->uvBoundsForBlockTexture(id);
+        case TextureType::kTypeInventory:
+            return gShared->dataGen->uvBoundsForInventoryTexture(id);
+
+        // shouldn't get here
+        default:
+            throw std::runtime_error("Failed to get UV coords for texture");
+    }
 }
 
 

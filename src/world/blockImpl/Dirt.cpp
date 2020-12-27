@@ -23,20 +23,30 @@ void Dirt::Register() {
  * Sets up the block type and registers its textures.
  */
 Dirt::Dirt() {
+    using Type = BlockRegistry::TextureType;
+
     // set id and name
     this->internalName = "me.tseifert.cubeland.block.dirt";
     this->id = uuids::uuid::from_string("2be68612-133b-40c6-8436-189d4bd87a4e");
 
     // register textures
-    this->normalTextures[0] = BlockRegistry::registerTexture(glm::ivec2(32, 32), [](auto &out) {
+    this->normalTextures[0] = BlockRegistry::registerTexture(Type::kTypeBlockFace,
+            glm::ivec2(32, 32), [](auto &out) {
         TextureLoader::load("/block/dirt/top.png", out);
     });
-    this->normalTextures[1] = BlockRegistry::registerTexture(glm::ivec2(32, 32), [](auto &out) {
+    this->normalTextures[1] = BlockRegistry::registerTexture(Type::kTypeBlockFace,
+            glm::ivec2(32, 32), [](auto &out) {
         TextureLoader::load("/block/dirt/bottom.png", out);
     });
-    this->normalTextures[2] = BlockRegistry::registerTexture(glm::ivec2(32, 32), [](auto &out) {
+    this->normalTextures[2] = BlockRegistry::registerTexture(Type::kTypeBlockFace,
+            glm::ivec2(32, 32), [](auto &out) {
         TextureLoader::load("/block/dirt/side.png", out);
     });
+
+    this->inventoryIcon = BlockRegistry::registerTexture(Type::kTypeInventory,
+            glm::ivec2(32, 32), [](auto &out) {
+        TextureLoader::load("/block/dirt/side.png", out);
+    }); 
 
     // register appearance
     this->appearanceId = BlockRegistry::registerBlockAppearance();

@@ -5,6 +5,10 @@
 
 #include "input/InputManager.h"
 #include "input/BlockInteractions.h"
+#include "gui/GameUI.h"
+
+#include "inventory/Manager.h"
+#include "inventory/UI.h"
 
 #include "steps/FXAA.h"
 #include "steps/Lighting.h"
@@ -26,9 +30,10 @@ std::shared_ptr<SceneRenderer> gSceneRenderer = nullptr;
 /**
  * Creates the renderer resources.
  */
-WorldRenderer::WorldRenderer(gui::MainWindow *win) {
+WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> &_gui) :
+    gui(_gui) {
     // create the IO manager
-    this->input = std::make_shared<input::InputManager>(win);
+    this->input = new input::InputManager (win);
 
     // then, the render steps
     auto scnRnd = std::make_shared<SceneRenderer>();
@@ -58,19 +63,36 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win) {
     ssao->setDepthTex(this->lighting->gDepth);
     ssao->setNormalTex(this->lighting->gNormal);
 
-    this->debugger = std::make_shared<WorldRendererDebugger>(this);
+#ifndef NDEBUG
+    this->debugger = new WorldRendererDebugger(this);
+#endif
 
     // interactions and some game UI
-    this->blockInt = new input::BlockInteractions(scnRnd);
+    this->inventory = new inventory::Manager(this->input);
+
+    this->inventoryUi = std::make_shared<inventory::UI>(this->inventory);
+    _gui->addWindow(this->inventoryUi);
+
+    this->blockInt = new input::BlockInteractions(scnRnd, this->inventory);
 }
 /**
  * Releases all of our render resources.
  */
 WorldRenderer::~WorldRenderer() {
+    if(this->debugger) {
+        delete this->debugger;
+    }
+
     delete this->blockInt;
+    this->gui->removeWindow(this->inventoryUi);
+    this->inventoryUi = nullptr;
+
+    delete this->inventory;
 
     gSceneRenderer = nullptr;
     this->steps.clear();
+
+    delete this->input;
 }
 
 /**
@@ -152,14 +174,20 @@ void WorldRenderer::reshape(unsigned int width, unsigned int height) {
  * Do nothing with UI events.
  */
 bool WorldRenderer::handleEvent(const SDL_Event &event) {
-    // try the block interactions
-    if(this->blockInt->handleEvent(event)) {
+    // game inputs
+    if(this->input->acceptsGameInput()) {
+        if(this->blockInt->handleEvent(event)) {
+            return true;
+        }
+    }
+
+    // various UIs
+    if(this->inventory->handleEvent(event)) {
         return true;
     }
 
     // send it to the IO handler
     return this->input->handleEvent(event);
-    // return false;
 }
 
 

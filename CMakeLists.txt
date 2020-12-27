@@ -104,6 +104,11 @@ add_executable(cubeland
     src/world/generators/Terrain.cpp
 # built in block types
     src/world/blockImpl/Dirt.cpp
+# inventory support
+    src/inventory/Manager.cpp
+    src/inventory/UI.cpp
+    src/inventory/UIBar.cpp
+    src/inventory/UIDetail.cpp
 # resources and other misc stuff
     ${version_file}
 )
@@ -133,6 +138,8 @@ cmrc_add_resource_library(cubeland-rsrc-ui
     rsrc/fonts/SourceSansPro-Black.ttf
     rsrc/fonts/SpaceMono-Regular.ttf
     rsrc/fonts/SpaceMono-Bold.ttf
+    rsrc/fonts/Overpass-Regular.ttf
+    rsrc/fonts/Overpass-Bold.ttf
 # define the namespace and alias we put this lib in
 ALIAS cubeland::rsrc_ui WHENCE rsrc NAMESPACE ui)
 target_link_libraries(cubeland PRIVATE cubeland::rsrc_ui)
@@ -228,6 +235,7 @@ target_include_directories(dearimgui PUBLIC ${GLEW_INCLUDE_DIRS})
 target_include_directories(dearimgui PRIVATE ${SDL2_INCLUDE_DIRS})
 target_include_directories(dearimgui PRIVATE src/gui/imgui)
 target_include_directories(dearimgui PRIVATE libs/imgui)
+target_include_directories(dearimgui PRIVATE libs/glm)
 
 target_include_directories(dearimgui PRIVATE libs/glbinding/source/glbinding/include)
 target_include_directories(dearimgui PRIVATE libs/glbinding/build/source/glbinding/include)
@@ -250,6 +258,7 @@ add_library(dearimgui_ext OBJECT
 target_include_directories(dearimgui_ext PRIVATE src/gui/imgui)
 target_include_directories(dearimgui_ext PRIVATE libs/imgui)
 target_include_directories(dearimgui_ext PRIVATE src/3rdparty/metricsgui)
+target_include_directories(dearimgui_ext PRIVATE libs/glm)
 
 target_link_libraries(cubeland PRIVATE dearimgui_ext)
 

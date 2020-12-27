@@ -56,10 +56,10 @@ MainWindow::MainWindow() {
     MUtils::Profiler::NameThread("Main");
 
     // create the renderers
-    auto world = std::make_shared<render::WorldRenderer>(this);
-    this->stages.push_back(world);
-
     auto ui = std::make_shared<GameUI>(this->win, this->winCtx);
+
+    auto world = std::make_shared<render::WorldRenderer>(this, ui);
+    this->stages.push_back(world);
     this->stages.push_back(ui);
 
     // initialize renderers with current viewport size
@@ -215,8 +215,7 @@ void MainWindow::show() {
     XASSERT(this->win, "Window must exist");
 
     // capture mouse
-    // SDL_SetRelativeMouseMode(SDL_TRUE);
-    // SDL_ShowCursor(1);
+    // this->setMouseCaptureState(true);
 
     /**
      * MacOS kludge: we need to give SDL an extra hint to make relative mouse
@@ -375,7 +374,10 @@ void MainWindow::handleEvent(const SDL_Event &event, int &reason) {
         auto &render = *rit;
 
         if(render->handleEvent(event)) {
-            return;
+            // all handlers receive ESC key down
+            if(event.type != SDL_KEYDOWN && event.key.keysym.scancode != SDL_SCANCODE_ESCAPE) {
+                return;
+            }
         }
     }
 }

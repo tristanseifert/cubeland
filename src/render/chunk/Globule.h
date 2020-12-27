@@ -12,6 +12,7 @@
 #include <vector>
 #include <bitset>
 #include <array>
+#include <future>
 
 #include <glbinding/gl/types.h>
 
@@ -91,6 +92,8 @@ class Globule {
         void insertBlockVertices(const AirMap &am, const size_t x, const size_t y, const size_t z, const uint16_t blockDataId);
         void buildAirMap(world::ChunkSlice *slice, std::bitset<256*256> &map);
 
+        int vertexIndexForBlock(const glm::ivec3 &blockOff);
+
     private:
         // position of the globule, in block coordinates, relative to the chunk origin
         glm::ivec3 position;
@@ -140,6 +143,8 @@ class Globule {
 
         /// when set, we are being destructed/want to bail out of work early
         std::atomic_bool abortWork = false;
+        /// pending work
+        std::vector<std::future<void>> futures;
 
         /// inhibits the chunk visibility til the next time the index/vertex buffers are uploaded
         bool inhibitDrawing = false;

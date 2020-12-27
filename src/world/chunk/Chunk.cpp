@@ -1,4 +1,5 @@
 #include "Chunk.h"
+#include "world/block/BlockRegistry.h"
 
 #include <glm/gtx/hash.hpp>
 #include <mutils/time/profiler.h>
@@ -33,6 +34,27 @@ void Chunk::unregisterChangeCallback(const ChangeToken token) {
     }
 }
 
+
+/**
+ * Gets the value of a block at the given chunk-relative coordinate.
+ */
+std::optional<uuids::uuid> Chunk::getBlock(const glm::ivec3 &pos) {
+    // get slice and row
+    ChunkSlice *slice = this->slices[pos.y];
+    if(!slice) {
+        return std::nullopt;
+    }
+    ChunkSliceRow *row = slice->rows[pos.z];
+    if(!row) {
+        return std::nullopt;
+    }
+
+    // read the temp value and convert
+    auto &map = this->sliceIdMaps[row->typeMap];
+    const auto temp = row->at(pos.x);
+
+    return map.idMap[temp];
+}
 
 
 /**
@@ -86,10 +108,18 @@ beach:;
     row->set(pos.x, mapValue);
 
     // callbacks
+    ChangeHints hints = ChangeHints::kNone;
+
+    if(BlockRegistry::isAirBlock(blockId)) {
+        hints |= ChangeHints::kBlockRemoved;
+    } else {
+        hints |= ChangeHints::kBlockAdded;
+    }
+
     {
         LOCK_GUARD(this->changeCbsLock, InvokeChangeCb);
         for(auto &i : this->changeCbs) {
-            i.second(pos);
+            i.second(pos, hints);
         }
     }
 }

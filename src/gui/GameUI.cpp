@@ -12,6 +12,7 @@
 #include <backends/imgui_impl_sdl.h>
 #include <backends/imgui_impl_opengl3.h>
 
+#include <algorithm>
 #include <cstring>
 
 #include <mutils/time/profiler.h>
@@ -33,18 +34,18 @@ const std::vector<GameUI::FontInfo> GameUI::kDefaultFonts = {
         .path = "fonts/SourceSansPro-Regular.ttf",
         .name = "Source Sans Pro (Regular)",
     },
-    {
+/*    {
         .path = "fonts/SourceSansPro-Italic.ttf",
         .name = "Source Sans Pro (Italic)",
-    },
+    },*/
     {
         .path = "fonts/SourceSansPro-Bold.ttf",
         .name = "Source Sans Pro (Bold)",
     },
-    {
+/*    {
         .path = "fonts/SourceSansPro-BoldItalic.ttf",
         .name = "Source Sans Pro (Bold + Italic)",
-    },
+    },*/
 
     // the black version of Source Sans Pro is used for headings; accordingly, make it bigger
     {
@@ -62,12 +63,29 @@ const std::vector<GameUI::FontInfo> GameUI::kDefaultFonts = {
         .path = "fonts/SpaceMono-Bold.ttf",
         .name = "Space Mono (Bold)",
     },
+
+    // used for game UI
+    {
+        .path = "fonts/Overpass-Regular.ttf",
+        .name = "Overpass (Regular)",
+        .scalesWithUi = true,
+    },
+    {
+        .path = "fonts/Overpass-Bold.ttf",
+        .name = "Overpass (Bold)",
+        .scalesWithUi = true,
+    }
 };
 
 const std::string GameUI::kRegularFontName = "Source Sans Pro (Regular)";
 const std::string GameUI::kBoldFontName = "Source Sans Pro (Bold)";
 const std::string GameUI::kItalicFontName = "Source Sans Pro (Italic)";
+
 const std::string GameUI::kMonospacedFontName = "Space Mono (Regular)";
+const std::string GameUI::kMonospacedBoldFontName = "Space Mono (Bold)";
+
+const std::string GameUI::kGameFontRegular = "Overpass (Regular)";
+const std::string GameUI::kGameFontBold = "Overpass (Bold)";
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /**
@@ -113,9 +131,30 @@ GameUI::GameUI(SDL_Window *_window, void *context) : window(_window) {
 
     // create the metrics display
     auto md = std::make_shared<MetricsDisplay>();
-    this->windows.push_back(md);
+    this->addWindow(md);
 
     io::MetricsManager::setDisplay(md);
+}
+
+/**
+ * Adds a new window to the UI.
+ */
+void GameUI::addWindow(std::shared_ptr<GameWindow> window) {
+    // inscrete
+    this->windows.push_back(window);
+
+    // sort by the "uses game styling" flag
+    std::sort(std::begin(this->windows), std::end(this->windows), [](const auto &l, const auto &r){
+        return (l->usesGameStyle() < r->usesGameStyle());
+    });
+}
+
+/**
+ * Removes a window from the game UI.
+ */
+void GameUI::removeWindow(std::shared_ptr<GameWindow> window) {
+    this->windows.erase(std::remove(std::begin(this->windows), std::end(this->windows), window),
+            std::end(this->windows));
 }
 
 /**
@@ -140,13 +179,20 @@ void GameUI::loadFonts(const double scale) {
     ImFontConfig cfg;
     cfg.FontDataOwnedByAtlas = false;
 
+    io.Fonts->Clear();
+
     // then, load fonts
     for(const auto &info : kDefaultFonts) {
+        float fontScale = scale;
+        if(info.scalesWithUi) {
+            fontScale *= this->scale;
+        }
+
         file = fs.open(info.path);
 
         strncpy(cfg.Name, info.name.c_str(), sizeof(cfg.Name));
         font = io.Fonts->AddFontFromMemoryTTF((void *) file.begin(), (file.end() - file.begin()),
-                floor(info.size * scale), &cfg);
+                floor(info.size * fontScale), &cfg);
 
         this->fonts[info.name] = font;
     }
@@ -205,10 +251,25 @@ void GameUI::willBeginFrame() {
     ImGui::NewFrame();
 
     // draw windows
+    bool appliedStyle = false;
+
     for(auto &w : this->windows) {
-        if(w->isVisible()) {
-            w->draw(this);
+        // ignore invisible windows
+        if(!w->isVisible()) continue;
+
+        // apply game style if needed
+        if(!appliedStyle && w->usesGameStyle()) {
+            this->pushGameStyles();
+            appliedStyle = true;
         }
+
+        // let the window draw
+        w->draw(this);
+    }
+
+    // pop the game styles again
+    if(appliedStyle) {
+        this->popGameStyles();
     }
 }
 
@@ -229,4 +290,29 @@ void GameUI::draw() {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+/**
+ * Applies the game UI style.
+ */
+void GameUI::pushGameStyles() {
+    // default font
+    ImGui::PushFont(this->getFont(kGameFontRegular));
+
+    // new colors
+    ImGui::PushStyleColor(ImGuiCol_TitleBg, glm::vec4(0, 0, 0, 1));
+    ImGui::PushStyleColor(ImGuiCol_TitleBgActive, glm::vec4(.31, 0, 0, 1));
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowTitleAlign, glm::vec2(.5, .5));
+}
+
+/**
+ * Removes all styles we added.
+ */
+void GameUI::popGameStyles() {
+    ImGui::PopFont();
+
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar(2);
 }

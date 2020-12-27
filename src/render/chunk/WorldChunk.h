@@ -11,6 +11,7 @@
 #ifndef RENDER_SCENE_WORLDCHUNK_H
 #define RENDER_SCENE_WORLDCHUNK_H
 
+#include "world/chunk/Chunk.h"
 #include "render/scene/Drawable.h"
 
 #include <memory>
@@ -37,7 +38,6 @@ class Buffer;
 }
 
 namespace world {
-struct Chunk;
 struct ChunkSlice;
 }
 
@@ -84,7 +84,7 @@ class WorldChunk: public Drawable {
         }
 
     private:
-        void blockDidChange(const glm::ivec3 &blockCoord);
+        void blockDidChange(const glm::ivec3 &blockCoord, const world::Chunk::ChangeHints hints);
 
     private:
         /// size of a globule, cubed

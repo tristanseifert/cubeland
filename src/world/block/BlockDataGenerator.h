@@ -3,6 +3,8 @@
 
 #include "BlockRegistry.h"
 
+#include "util/TexturePacker.h"
+
 #include <vector>
 #include <cstddef>
 #include <array>
@@ -22,32 +24,41 @@ class BlockDataGenerator {
         BlockDataGenerator(BlockRegistry *_reg) : registry(_reg) {};
 
     public:
-        void buildTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
-        void repackAtlas();
+        void buildBlockTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
+        void repackBlockAtlas();
+
+        void buildInventoryTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
 
         void generate(glm::ivec2 &size, std::vector<glm::vec4> &out);
 
-        glm::vec4 uvBoundsForTexture(BlockRegistry::TextureId id);
+        glm::vec4 uvBoundsForBlockTexture(BlockRegistry::TextureId id) {
+            return this->blockAtlas.uvBoundsForTexture(id);
+        }
+        glm::vec4 uvBoundsForInventoryTexture(BlockRegistry::TextureId id) {
+            return this->inventoryAtlas.uvBoundsForTexture(id);
+        }
 
     private:
         static const std::array<glm::vec2, 4> kFaceUv;
 
     private:
-        void buildAtlasLayout();
-
         void writeBlockInfo(std::vector<glm::vec4> &out, const size_t y, const BlockRegistry::BlockAppearanceType &block);
+
+        void copyAtlas(const util::TexturePacker<BlockRegistry::TextureId> &, glm::ivec2 &, std::vector<std::byte> &);
 
     private:
         /// this is our data source for all block data
         BlockRegistry *registry = nullptr;
 
-        /// mapping of texture id -> bounding rect in the texture atlas
-        std::unordered_map<BlockRegistry::TextureId, glm::ivec4> atlasLayout;
-        /// size of the texture atlas
-        glm::ivec2 atlasSize;
+        /// texture packer for block textures
+        util::TexturePacker<BlockRegistry::TextureId> blockAtlas;
+        /// whether the block atlas needs to be updated
+        bool forceBlockAtlasUpdate = true;
 
-        /// when set, the texture atlas is generated as 16-bit float rather than 8-bit unsigned
-        bool makeFloatAtlas = true;
+        /// texture packer for inventory textures
+        util::TexturePacker<BlockRegistry::TextureId> inventoryAtlas;
+        /// whether the inventory atlas needs to be updated
+        bool forceInventoryAtlasUpdate = true;
 };
 }
 

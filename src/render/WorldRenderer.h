@@ -12,6 +12,11 @@
 
 namespace gui {
 class MainWindow;
+class GameUI;
+}
+namespace inventory {
+class Manager;
+class UI;
 }
 
 namespace input {
@@ -30,7 +35,7 @@ class WorldRenderer: public gui::RunLoopStep {
     friend class WorldRendererDebugger;
 
     public:
-        WorldRenderer(gui::MainWindow *);
+        WorldRenderer(gui::MainWindow *, std::shared_ptr<gui::GameUI> &);
         virtual ~WorldRenderer();
 
     public:
@@ -62,11 +67,16 @@ class WorldRenderer: public gui::RunLoopStep {
 
     private:
         // used for keyboard/game controller input
-        std::shared_ptr<input::InputManager> input = nullptr;
+        input::InputManager *input = nullptr;
         // debugging
-        std::shared_ptr<WorldRendererDebugger> debugger = nullptr;
+        WorldRendererDebugger *debugger = nullptr;
 
         input::BlockInteractions *blockInt = nullptr;
+
+        inventory::Manager *inventory = nullptr;
+        std::shared_ptr<inventory::UI> inventoryUi = nullptr;
+
+        std::shared_ptr<gui::GameUI> gui;
 
     private:
         /**

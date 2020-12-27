@@ -1,8 +1,8 @@
 #include "BlockInteractions.h"
 
+#include "inventory/Manager.h"
 #include "world/chunk/Chunk.h"
 #include "world/block/BlockRegistry.h"
-
 #include "render/scene/SceneRenderer.h"
 #include "render/scene/ChunkLoader.h"
 
@@ -22,7 +22,8 @@ using namespace input;
 /**
  * Sets up the block interactions controller.
  */
-BlockInteractions::BlockInteractions(std::shared_ptr<render::SceneRenderer> _scn) : scene(_scn) {
+BlockInteractions::BlockInteractions(std::shared_ptr<render::SceneRenderer> _scn, 
+        inventory::Manager *_inv) : scene(_scn), inventory(_inv) {
 
 }
 
@@ -79,13 +80,20 @@ void BlockInteractions::destroyBlock() {
 
     // get the chunk for this block
     glm::ivec2 chunkPos(floor(pos.x / 256.), floor(pos.z / 256.));
-    Logging::trace("Destroy block: {} (in chunk {}) relative {}", pos, chunkPos, relBlock);
+    // Logging::trace("Destroy block: {} (in chunk {}) relative {}", pos, chunkPos, relBlock);
 
     auto chunk = this->scene->getChunk(chunkPos);
     if(!chunk) return;
 
     // TODO: drop old one as item
-    // TODO: update inventory
+    // update inventory
+    const auto oldId = chunk->getBlock(relBlock);
+    bool collected = false;
+    if(oldId) {
+        collected = this->inventory->addItem(*oldId);
+    }
+
+    // TODO: animate collection, if it happened
 
     // replace it with air
     // glm::ivec3 relBlock(pos->x % 256, pos->y % Chunk::kMaxY, pos->z % 256);
@@ -156,11 +164,12 @@ void BlockInteractions::placeBlock() {
     auto chunk = this->scene->getChunk(placeAtChunk);
     if(!chunk) return;
 
-    // TODO: pick correct item id
-    const auto id = uuids::uuid::from_string("2be68612-133b-40c6-8436-189d4bd87a4e");
-
-    chunk->setBlock(placeAtRel, id);
-    this->scene->forceSelectionUpdate();
+    // get one of the block in the current slot
+    const auto id = this->inventory->dequeueSlotBlock();
+    if(id) {
+        chunk->setBlock(placeAtRel, *id);
+        this->scene->forceSelectionUpdate();
+    }
 }
 
 /**

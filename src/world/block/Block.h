@@ -19,6 +19,8 @@
 #ifndef WORLD_BLOCK_BLOCK_H
 #define WORLD_BLOCK_BLOCK_H
 
+#include "BlockRegistry.h"
+
 #include <cstdint>
 #include <uuid.h>
 
@@ -55,6 +57,11 @@ class Block {
             return this->id;
         }
 
+        /// Returns the texture ID used in the inventory UI
+        virtual const BlockRegistry::TextureId getInventoryIcon() const {
+            return this->inventoryIcon;
+        }
+
         /**
          * Returns the 16-bit block appearance to use for drawing the block at the given world
          * position. When invoked, the drawing code has already evaluated the UUID and determined
@@ -79,6 +86,9 @@ class Block {
 
         /// Internal rdns-style name
         std::string internalName;
+
+        /// inventory icon texture id
+        BlockRegistry::TextureId inventoryIcon;
 };
 
 // proper bitset OR for block flags. (XXX: extend if we ever use more than 32 bits)

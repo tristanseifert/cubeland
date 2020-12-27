@@ -60,7 +60,11 @@ Globule::Globule(WorldChunk *_chunk, const glm::ivec3 _pos) : position(_pos), ch
 Globule::~Globule() {
     // wait for any background work to complete
     this->abortWork = true;
-    // TODO: implement
+
+    for(auto &future : this->futures) {
+        future.wait();
+    }
+    this->futures.clear();
 }
 
 /**
@@ -93,11 +97,11 @@ void Globule::startOfFrame() {
     if(this->vertexDataNeedsUpdate) {
         this->abortWork = false;
         this->vertexDataNeedsUpdate = false;
-        ChunkWorker::pushWork([&]() -> void {
+        this->futures.emplace_back(ChunkWorker::pushWork([&]() -> void {
             // clear flag first, so if data changes while we're updating, it's fixed next frame
             this->vertexDataNeedsUpdate = false;
             this->fillBuffer();
-        });
+        }));
     }
 }
 
@@ -611,5 +615,15 @@ void Globule::fillNormalTex(gfx::Texture2D *tex) {
     // allocate texture data and send it
     tex->allocateBlank(4, 6, Texture2D::RGBA16F);
     tex->bufferSubData(4, 6, 0, 0,  Texture2D::RGBA16F, data.data());
+}
+
+/**
+ * Returns the offset into the vertex buffer for the given block, or -1 if there is no such vertex
+ * in the buffer.
+ */
+int Globule::vertexIndexForBlock(const glm::ivec3 &blockOff) {
+    // find the vertex range to check for the Y position
+
+    return -1;
 }
 

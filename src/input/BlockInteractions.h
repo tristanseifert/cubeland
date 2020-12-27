@@ -15,12 +15,15 @@ union SDL_Event;
 namespace render {
 class SceneRenderer;
 }
+namespace inventory {
+class Manager;
+}
 
 namespace input {
 
 class BlockInteractions {
     public:
-        BlockInteractions(std::shared_ptr<render::SceneRenderer> scene);
+        BlockInteractions(std::shared_ptr<render::SceneRenderer> scene, inventory::Manager *);
 
         bool handleEvent(const SDL_Event &);
 
@@ -35,6 +38,7 @@ class BlockInteractions {
     private:
         bool enabled = true;
 
+        inventory::Manager *inventory = nullptr;
         std::shared_ptr<render::SceneRenderer> scene;
 };
 

@@ -155,7 +155,6 @@ void InputManager::handleKey(int scancode, unsigned int modifiers, bool isDown) 
         case SDL_SCANCODE_F6:
             if(this->showDebugWindow && !isDown) {
                 this->inputUpdatesCamera = !this->inputUpdatesCamera;
-                this->window->setMouseCaptureState(this->inputUpdatesCamera);
             }
             break;
 
@@ -239,3 +238,28 @@ void InputManager::drawDebugWindow() {
 done:;
     ImGui::End();
 }
+
+
+
+/**
+ * Increments the reference count of the cursor, making it display if needed. Note that while the
+ * cursor is visible, game input is not accepted.
+ */
+void InputManager::incrementCursorCount() {
+    if(++this->cursorRefCount == 1) {
+        this->inputUpdatesCamera = false;
+        this->window->setMouseCaptureState(false);
+    }
+}
+
+/**
+ * Decrements the cursor reference count. If it reaches zero, the cursor is hidden and regular game
+ * input can resume.
+ */
+void InputManager::decrementCursorCount() {
+    if(--this->cursorRefCount == 0) {
+        this->window->setMouseCaptureState(true);
+        this->inputUpdatesCamera = true;
+    }
+}
+

@@ -1,3 +1,4 @@
+#define IMGUI_NO_VEC_TYPES
 #include <algorithm>
 #include <atomic>
 #include <cassert>

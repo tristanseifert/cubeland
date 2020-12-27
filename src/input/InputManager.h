@@ -39,6 +39,13 @@ class InputManager {
             return this->movementDelta;
         }
 
+        void incrementCursorCount();
+        void decrementCursorCount();
+
+        bool acceptsGameInput() const {
+            return this->inputUpdatesCamera;
+        }
+
     private:
         enum Keys {
             KeyMoveLeft     = 0,
@@ -103,6 +110,9 @@ class InputManager {
 
         // main window handle (for adjusting mouse behavior)
         gui::MainWindow *window = nullptr;
+
+        // cursor reference count; when 0, no mouse cursor is shown
+        size_t cursorRefCount = 0;
 
     private:
         double mouseDeltaX = 0., mouseDeltaY = 0.;

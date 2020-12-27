@@ -13,6 +13,11 @@ class GameWindow {
             return this->visible;
         }
 
+        /// Whether this window uses the game's UI style or the default debug style
+        virtual bool usesGameStyle() const {
+            return true;
+        }
+
     protected:
         bool visible = true;
 };

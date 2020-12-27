@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <array>
 #include <map>
@@ -23,7 +24,7 @@
 #include <list>
 #include <atomic>
 #include <functional>
-#include <cstring>
+#include <optional>
 #include <mutex>
 
 #include <glm/vec2.hpp>
@@ -74,12 +75,22 @@ struct ChunkRowBlockTypeMap {
 struct Chunk {
     friend class render::scene::ChunkLoader;
 
-    /// Block coordinate (chunk relative); these are 8 bit to save space
-    /// Packed block coordinate is in the format 0x00YYZZXX.
-    using BlockCoord = uint32_t;
+    public:
+        /**
+         * Hints provided to a change callback to indicate what changed about the given block.
+         */
+        enum class ChangeHints: uint32_t {
+            kNone                       = 0,
+            kBlockRemoved               = (1 << 0),
+            kBlockAdded                 = (1 << 1),
+        };
 
-    using ChangeToken = uint32_t;
-    using ChangeCallback = std::function<void(const glm::ivec3 &)>;
+        /// Block coordinate (chunk relative); these are 8 bit to save space
+        /// Packed block coordinate is in the format 0x00YYZZXX.
+        using BlockCoord = uint32_t;
+
+        using ChangeToken = uint32_t;
+        using ChangeCallback = std::function<void(const glm::ivec3 &, const ChangeHints)>;
 
     public:
         /// Position of the Y position in the block coordinate integer
@@ -146,6 +157,8 @@ struct Chunk {
         /// Removes a previously registered block change callback
         void unregisterChangeCallback(const ChangeToken token);
 
+        /// Gets the block ID at the given chunk-relative coordinate
+        std::optional<uuids::uuid> getBlock(const glm::ivec3 &pos);
         /// Sets the UUID of a block at the given chunk-relative coordinate.
         void setBlock(const glm::ivec3 &pos, const uuids::uuid &blockId);
 
@@ -339,6 +352,13 @@ struct Chunk {
         }
 };
 
+// proper bitset for chunk change handler hints (XXX: extend if we ever use more than 32 bits)
+inline Chunk::ChangeHints operator|(Chunk::ChangeHints a, Chunk::ChangeHints b) {
+    return static_cast<Chunk::ChangeHints>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+}
+inline Chunk::ChangeHints operator|=(Chunk::ChangeHints &a, Chunk::ChangeHints b) {
+    return (Chunk::ChangeHints &) ((uint32_t &) a |= (uint32_t) b);
+}
 }
 
 #endif
