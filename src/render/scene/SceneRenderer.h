@@ -9,6 +9,8 @@
 #include <optional>
 
 #include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>
 
 namespace gfx {
@@ -55,6 +57,7 @@ class SceneRenderer: public RenderStep {
         glm::vec3 getCameraPos() const;
 
         void forceSelectionUpdate();
+        void setSelectionColor(const glm::vec4 &color);
 
     protected:
         void render(const glm::mat4 &projView, const glm::vec3 &viewDir, const bool shadow = false, const bool hasNormalMatrix = true);

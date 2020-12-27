@@ -22,7 +22,7 @@ class UIBar {
     public:
         UIBar(UI *owner);
 
-        void draw(gui::GameUI *gui);
+        bool draw(gui::GameUI *gui, bool end = true);
 
     private:
         /// Padding between display edge and inventory window

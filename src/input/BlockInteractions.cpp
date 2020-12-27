@@ -3,6 +3,8 @@
 #include "inventory/Manager.h"
 #include "world/chunk/Chunk.h"
 #include "world/block/BlockRegistry.h"
+#include "world/block/Block.h"
+#include "world/tick/TickHandler.h"
 #include "render/scene/SceneRenderer.h"
 #include "render/scene/ChunkLoader.h"
 
@@ -24,7 +26,14 @@ using namespace input;
  */
 BlockInteractions::BlockInteractions(std::shared_ptr<render::SceneRenderer> _scn, 
         inventory::Manager *_inv) : scene(_scn), inventory(_inv) {
+    this->tickCb = world::TickHandler::add(std::bind(&BlockInteractions::destroyTickCallback, this));
+}
 
+/**
+ * Removes tick callback.
+ */
+BlockInteractions::~BlockInteractions() {
+    world::TickHandler::remove(this->tickCb);
 }
 
 /**
@@ -46,10 +55,10 @@ bool BlockInteractions::handleEvent(const SDL_Event &event) {
     if(event.type == SDL_MOUSEBUTTONDOWN) {
         if(event.button.button == SDL_BUTTON_LEFT) {
             this->destroyBlock();
-        } 
+        }
         else if(event.button.button == SDL_BUTTON_RIGHT) {
             this->placeBlock();
-        } 
+        }
         // ignore other mouse buttons
         else {
             return false;
@@ -58,6 +67,15 @@ bool BlockInteractions::handleEvent(const SDL_Event &event) {
     }
     // mouse up
     else if(event.type == SDL_MOUSEBUTTONUP) {
+        // cancel destroy timer if any
+        if(event.button.button == SDL_BUTTON_LEFT) {
+            // ensure the selection color is restored
+            if(this->destroyTimerActive) {
+                this->destroyTimerActive = false;
+                this->updateDestroyProgress(false);
+            }
+        }
+
         return true;
     }
 
@@ -85,23 +103,39 @@ void BlockInteractions::destroyBlock() {
     auto chunk = this->scene->getChunk(chunkPos);
     if(!chunk) return;
 
+    // get ID and block info
+    const auto oldId = chunk->getBlock(relBlock);
+    if(!oldId) return;
+
+    const auto block = BlockRegistry::getBlock(*oldId);
+    XASSERT(block, "Failed to get block for id {}", uuids::to_string(*oldId));
+
+    // figure out how long the block needs to consume 
+    const auto ticksToDestroy = block->destroyTicks();
+
+    if(!ticksToDestroy) {
+        // it's immediate, so don't bother with the timer
+        bool collected = this->inventory->addItem(*oldId);
+        chunk->setBlock(relBlock, BlockRegistry::kAirBlockId);
+        this->scene->forceSelectionUpdate();
+    }
+    // set the timer
+    else {
+        this->destroyTimer = this->destroyTimerTotal = ticksToDestroy;
+        this->destroyPos = *sel;
+        this->destroyTimerActive = true;
+    }
+
     // TODO: drop old one as item
     // update inventory
-    const auto oldId = chunk->getBlock(relBlock);
-    bool collected = false;
-    if(oldId) {
-        collected = this->inventory->addItem(*oldId);
-    }
 
     // TODO: animate collection, if it happened
 
     // replace it with air
     // glm::ivec3 relBlock(pos->x % 256, pos->y % Chunk::kMaxY, pos->z % 256);
 
-    chunk->setBlock(relBlock, BlockRegistry::kAirBlockId);
 
     // force some stuff to get recalculated
-    this->scene->forceSelectionUpdate();
 }
 
 /**
@@ -224,3 +258,75 @@ void BlockInteractions::absoluteToRelative(const glm::ivec3 &pos, glm::ivec2 &ch
     blockPos = glm::ivec3(xOff, pos.y, zOff);
 }
 
+
+
+/**
+ * Tick callback to handle destroying blocks
+ */
+void BlockInteractions::destroyTickCallback() {
+    PROFILE_SCOPE(DestroyBlock);
+
+    // bail if the timer isn't active
+    if(!this->destroyTimerActive) {
+        // reset the selection color
+        if(this->destroyTimerTotal) {
+            this->updateDestroyProgress();
+            this->destroyTimerTotal = 0;
+        }
+    }
+
+    // handle expiration
+    if(--this->destroyTimer == 0) {
+        world::TickHandler::defer(std::bind(&BlockInteractions::destroyBlockTimerExpired, this));
+
+        // clear timer
+        this->destroyTimerActive = false;
+    }
+
+    // update progress
+    this->updateDestroyProgress();
+}
+
+/**
+ * Block destruction timer expired. This is deferred to the main thread.
+ */
+void BlockInteractions::destroyBlockTimerExpired() {
+    auto [pos, relBlock] = this->destroyPos;
+
+    glm::ivec2 chunkPos(floor(pos.x / 256.), floor(pos.z / 256.));
+    auto chunk = this->scene->getChunk(chunkPos);
+    if(!chunk) return;
+
+    // get ID and block info
+    const auto oldId = chunk->getBlock(relBlock);
+    if(!oldId) return;
+
+    // perform destruction of block
+    bool collected = this->inventory->addItem(*oldId);
+    chunk->setBlock(relBlock, world::BlockRegistry::kAirBlockId);
+    this->scene->forceSelectionUpdate();
+}
+
+/**
+ * Updates the progress indicator for block destruction.
+ */
+void BlockInteractions::updateDestroyProgress(bool defer) {
+    float progress = 0;
+
+    // update the color of the selection
+    if(this->destroyTimerActive) {
+        progress = 1. - (((float) this->destroyTimer) / ((float) this->destroyTimerTotal));
+    }
+
+    const auto color = glm::mix(kSelectionColor, kSelectionCollectedColor, progress);
+
+    auto yeet = [&, color]{
+        this->scene->setSelectionColor(color);
+    };
+
+    if(defer) {
+        world::TickHandler::defer(yeet);
+    } else {
+        yeet();
+    }
+}

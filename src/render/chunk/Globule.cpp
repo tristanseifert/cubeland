@@ -95,6 +95,14 @@ void Globule::chunkChanged(const bool isDifferentChunk) {
  */
 void Globule::startOfFrame() {
     if(this->vertexDataNeedsUpdate) {
+        // wait for pending work to complete
+        // XXX: this will block the main loop so probably not great but MEH
+        for(auto &future : this->futures) {
+            future.wait();
+        }
+        this->futures.clear();
+
+        // only then can we queue the new stuff
         this->abortWork = false;
         this->vertexDataNeedsUpdate = false;
         this->futures.emplace_back(ChunkWorker::pushWork([&]() -> void {
@@ -237,13 +245,13 @@ void Globule::fillBuffer() {
     // initial air map filling
     AirMap am;
     am.below.reset();
-    this->buildAirMap(c->slices[0], am.current);
-    this->buildAirMap(c->slices[1], am.above);
+    this->buildAirMap(c->slices[this->position.y], am.current);
+    this->buildAirMap(c->slices[this->position.y + 1], am.above);
 
     std::fill(std::begin(this->sliceVertexIdx), std::end(this->sliceVertexIdx), 0);
 
     // update the actual instance buffer itself
-    for(size_t y = this->position.y; y <= std::min((size_t)this->position.y + 65, Chunk::kMaxY-1); y++) {
+    for(size_t y = this->position.y; y <= std::min((size_t)this->position.y + 64, Chunk::kMaxY-1); y++) {
         PROFILE_SCOPE(ProcessSlice);
         const size_t yOffset = static_cast<size_t>(y - this->position.y) * (64 * 64);
 
@@ -422,8 +430,8 @@ void Globule::insertBlockVertices(const AirMap &am, const size_t x, const size_t
 
     gl::GLuint iVtx = this->vertexData.size();
 
-    // is the bottom exposed?
-    if(y == 0 || am.below[airMapOff]) {
+    // is the bottom exposed? (or bottom of globule)
+    if(y == 0 || (y % 64) == 0 || am.below[airMapOff]) {
         this->vertexData.insert(this->vertexData.end(), {
             {.p = pos + glm::i16vec3(0,0,0), .blockId = blockId, .face = (0x0), .vertexId = 0},
             {.p = pos + glm::i16vec3(1,0,0), .blockId = blockId, .face = (0x0), .vertexId = 1},
@@ -434,8 +442,8 @@ void Globule::insertBlockVertices(const AirMap &am, const size_t x, const size_t
                 {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
         iVtx += 4;
     }
-    // is the top exposed?
-    if((y + 1) >= 255 || am.above[airMapOff]) {
+    // is the top exposed? (or top edge of globule)
+    if((y + 1) >= 255 || (y % 64) == 63 || am.above[airMapOff]) {
         this->vertexData.insert(this->vertexData.end(), {
             {.p = pos + glm::i16vec3(0,1,1), .blockId = blockId, .face = (0x1), .vertexId = 0},
             {.p = pos + glm::i16vec3(1,1,1), .blockId = blockId, .face = (0x1), .vertexId = 1},

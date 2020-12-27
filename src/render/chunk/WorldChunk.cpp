@@ -292,6 +292,14 @@ bool WorldChunk::removeHighlight(const uint64_t id) {
     return success;
 }
 
+/**
+ * Sets the color of an existing highlight.
+ */
+void WorldChunk::setHighlightColor(const uint64_t id, const glm::vec4 &color) {
+    this->highlights[id].color = color;
+    this->highlightsNeedUpdate = true;
+}
+
 
 /**
  * Initializes highlight buffer and vertex arrays

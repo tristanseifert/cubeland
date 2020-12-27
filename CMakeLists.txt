@@ -102,6 +102,7 @@ add_executable(cubeland
     src/world/block/RegisterBuiltins.cpp
     src/world/block/TextureLoader.cpp
     src/world/generators/Terrain.cpp
+    src/world/tick/TickHandler.cpp
 # built in block types
     src/world/blockImpl/Dirt.cpp
 # inventory support

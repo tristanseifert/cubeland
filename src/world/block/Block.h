@@ -62,6 +62,17 @@ class Block {
             return this->inventoryIcon;
         }
 
+        /// Number of ticks required to destroy the block (0 = instant)
+        virtual const size_t destroyTicks() const {
+            return 0;
+        }
+
+        /**
+         * Called for every game tick. Any block specific things (such as aging blocks) should be
+         * performed in response.
+         */
+        virtual void tickHandler() {}
+
         /**
          * Returns the 16-bit block appearance to use for drawing the block at the given world
          * position. When invoked, the drawing code has already evaluated the UUID and determined

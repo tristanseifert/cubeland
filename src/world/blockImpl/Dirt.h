@@ -20,6 +20,10 @@ class Dirt: public Block {
         void chunkWasLoaded(std::shared_ptr<Chunk> chunk) override;
         void chunkWillUnload(std::shared_ptr<Chunk> chunk) override;
 
+        const size_t destroyTicks() const override {
+            return 10;
+        }
+
     private:
         static Dirt *gShared;
 

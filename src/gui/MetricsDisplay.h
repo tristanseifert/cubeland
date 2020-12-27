@@ -19,11 +19,15 @@ class MetricsDisplay: public GameWindow {
         ~MetricsDisplay();
 
         // Draw the controls desired here
-        virtual void draw(GameUI *gui);
+        virtual void draw(GameUI *gui) override;
 
-        virtual bool isVisible() const {
+        virtual bool isVisible() const override {
             return this->showMetrics || this->showFpsOverlay;
         }
+
+        bool usesGameStyle() const override {
+            return false;
+        } 
 
     private:
         void drawMetricsWindow(GameUI *ui);

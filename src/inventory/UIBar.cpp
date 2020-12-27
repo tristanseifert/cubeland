@@ -24,8 +24,10 @@ UIBar::UIBar(UI *_owner) : owner(_owner) {
 
 /**
  * Draws the inventory bar. It is always pinned to the bottom of the screen, at the center.
+ *
+ * @return Whether the bar was drawn or not
  */
-void UIBar::draw(gui::GameUI *ui) {
+bool UIBar::draw(gui::GameUI *ui, bool end) {
     // get fonts if needed
     if(!this->countFont) {
         this->countFont = ui->getFont(gui::GameUI::kGameFontBold);
@@ -36,12 +38,11 @@ void UIBar::draw(gui::GameUI *ui) {
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
     glm::vec2 windowPos(io.DisplaySize.x / 2., io.DisplaySize.y - kEdgePadding);
 
-    // ImGui::SetNextWindowSize(glm::vec2(250, 0));
     ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always, glm::vec2(.5, 1));
-
     ImGui::SetNextWindowBgAlpha(kOverlayAlpha);
-    if(!ImGui::Begin("Inventory", &this->showsOverlay, window_flags)) {
-        return;
+
+    if(!ImGui::Begin("Inventory Overlay", &this->showsOverlay, window_flags)) {
+        return false;
     }
 
     // draw each of the 10 inventory slots
@@ -62,7 +63,7 @@ void UIBar::draw(gui::GameUI *ui) {
     }
 
     // finish draw
-    ImGui::End();
+    return true;
 }
 
 /**

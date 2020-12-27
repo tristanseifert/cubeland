@@ -55,7 +55,7 @@ class Manager {
         /// total number of inventory slots
         constexpr static const size_t kNumInventorySlots = 50;
         /// maximum number of items per inventory slot
-        constexpr static const size_t kMaxItemsPerSlot = 10;
+        constexpr static const size_t kMaxItemsPerSlot = 99;
 
         static_assert(kNumInventorySlots % 10 == 0, "Number of inventory slots must be multiple of 10");
 

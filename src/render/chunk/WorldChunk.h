@@ -76,6 +76,7 @@ class WorldChunk: public Drawable {
         void markBlockChanged(const glm::ivec3 &pos);
 
         uint64_t addHighlight(const glm::vec3 &start, const glm::vec3 &end, const glm::vec4 &color = glm::vec4(0, 1, 0, .74));
+        void setHighlightColor(const uint64_t id, const glm::vec4 &color);
         bool removeHighlight(const uint64_t id);
 
         // whether this chunk needs to participate in the outline drawing process

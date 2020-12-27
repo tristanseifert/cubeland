@@ -6,6 +6,7 @@
 #include "world/WorldSource.h"
 #include "world/FileWorldReader.h"
 #include "world/generators/Terrain.h"
+#include "world/tick/TickHandler.h"
 
 #include "render/WorldRenderer.h"
 #include "render/chunk/WorldChunk.h"
@@ -29,6 +30,7 @@ using namespace render::scene;
  */
 SceneRenderer::SceneRenderer() {
     // force initialization of some stuff
+    world::TickHandler::init();
     world::BlockRegistry::init();
     world::RegisterBuiltinBlocks();
     chunk::ChunkWorker::init();
@@ -55,12 +57,15 @@ SceneRenderer::~SceneRenderer() {
 
     // shut down other systems of the engine
     world::BlockRegistry::shutdown();
+    world::TickHandler::shutdown();
 }
 
 /**
  * Invoke the start-of-frame handler on all drawables.
  */
 void SceneRenderer::startOfFrame() {
+    world::TickHandler::startOfFrame();
+
     this->chunkLoader->startOfFrame();
 
     this->projView = this->projectionMatrix * this->viewMatrix;
@@ -158,6 +163,25 @@ std::shared_ptr<world::Chunk> SceneRenderer::getChunk(const glm::ivec2 &pos) {
  */
 void SceneRenderer::forceSelectionUpdate() {
     this->chunkLoader->forceLookAtUpdate = true;
+}
+
+/**
+ * Updates the color of the current selection.
+ *
+ * @note This will not apply to the next new selection, e.g. when the user moves.
+ */
+void SceneRenderer::setSelectionColor(const glm::vec4 &color) {
+    // try to get the chunk
+    auto pos = this->chunkLoader->lookAtSelectionMarker->first;
+    if(!this->chunkLoader->chunks.contains(pos)) {
+        return;
+    }
+
+    auto info = this->chunkLoader->chunks[pos];
+    auto chunk = info.wc;
+    if(!chunk) return;
+
+    chunk->setHighlightColor(this->chunkLoader->lookAtSelectionMarker->second, color);
 }
 
 /**

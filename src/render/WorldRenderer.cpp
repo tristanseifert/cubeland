@@ -113,9 +113,10 @@ void WorldRenderer::willBeginFrame() {
         this->debugger->draw();
     }
 
-    // increment time (XXX: debug testing)
+    // increment time (XXX: make this more accurate)
     if(!this->paused) {
-        this->time += 1./3600.;
+        // @60fps: 60 sec * 24 min
+        this->time += 1./(3600. * 24);
     }
 }
 

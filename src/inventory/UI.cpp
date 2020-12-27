@@ -72,8 +72,12 @@ void UI::uploadAtlasTexture() {
  * only the bar is drawn.
  */
 void UI::draw(gui::GameUI *ui) {
+    // draw the bar at the bottom
+    bool showDetail = (this->showsDetail | this->shouldClose);
+    bool toClose = this->bar->draw(ui, !showsDetail);
+
     // begin a modal session above which to draw all the things
-    if(this->showsDetail || this->shouldClose) {
+    if(showDetail) {
         glm::vec2 center(ImGui::GetIO().DisplaySize.x * .5, ImGui::GetIO().DisplaySize.y * .5);
         ImGui::SetNextWindowPos(center, ImGuiCond_Always, glm::vec2(.5, .5));
 
@@ -89,9 +93,10 @@ void UI::draw(gui::GameUI *ui) {
             ImGui::EndPopup();
         }
     }
-    // otherwise, draw the bar only
-    else {
-        this->bar->draw(ui);
+
+    // close out window context
+    if(toClose) {
+        ImGui::End();
     }
 }
 
