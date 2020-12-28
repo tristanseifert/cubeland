@@ -29,7 +29,6 @@ using namespace world;
 void FileWorldReader::writeChunk(std::shared_ptr<Chunk> chunk) {
     PROFILE_SCOPE(WriteChunk);
 
-    bool blockMapDirty = false;
     int chunkId = -1;
     int err;
     sqlite3_stmt *stmt = nullptr;
@@ -66,7 +65,7 @@ void FileWorldReader::writeChunk(std::shared_ptr<Chunk> chunk) {
             this->bindColumn(stmt, 2, (int64_t) chunkId);
             err = sqlite3_step(stmt);
 
-            if(err != SQLITE_DONE) {
+            if(err != SQLITE_DONE && err != SQLITE_ROW) {
                 sqlite3_finalize(stmt);
                 throw std::runtime_error(f("Failed to update chunk timestamp: {}", err));
             }
@@ -91,12 +90,6 @@ void FileWorldReader::writeChunk(std::shared_ptr<Chunk> chunk) {
         // get its inserted ID
         chunkId = sqlite3_last_insert_rowid(this->db);
         sqlite3_finalize(stmt);
-    }
-
-    // TODO: update block type map, if needed
-    
-    if(blockMapDirty) {
-        this->writeBlockTypeMap();
     }
 
     // extract block metadata on a per slice basis
@@ -126,6 +119,9 @@ void FileWorldReader::writeChunk(std::shared_ptr<Chunk> chunk) {
             }
         }
     }
+
+    // write out the block type map if required (after writing slices which may add to it!)
+    this->writeBlockTypeMap();
 }
 /**
  * Gets all slices for the given chunk. A map of Y -> slice ID is filled.
@@ -165,7 +161,7 @@ void FileWorldReader::serializeChunkMeta(std::shared_ptr<Chunk> chunk, std::vect
 
     // serialize the meatadata into a ceral stream
     std::stringstream stream;
-    
+
     {
         PROFILE_SCOPE(Archive);
         cereal::PortableBinaryOutputArchive arc(stream);
@@ -302,7 +298,20 @@ void FileWorldReader::serializeSliceBlocks(std::shared_ptr<Chunk> chunk, const i
             if(BlockRegistry::isAirBlock(uuid)) continue;
 
             // look it up otherwise
-            ids[i] = fileIdMap.at(uuid);
+            if(fileIdMap.contains(uuid)) {
+                ids[i] = fileIdMap.at(uuid);
+            }
+            // allocate a new block ID map entry
+            else {
+                const auto newId = this->blockIdMapNext++;
+                this->blockIdMap[newId] = uuid;
+                this->blockIdMapDirty = true;
+
+                fileIdMap[uuid] = newId;
+                ids[i] = newId;
+
+                Logging::trace("Allocated new file id map entry: {} -> {}", newId, uuids::to_string(uuid));
+            }
         }
 
         chunkIdMaps.push_back(ids);

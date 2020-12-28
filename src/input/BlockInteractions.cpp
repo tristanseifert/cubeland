@@ -127,17 +127,6 @@ void BlockInteractions::destroyBlock() {
         this->destroyPos = *sel;
         this->destroyTimerActive = true;
     }
-
-    // TODO: drop old one as item
-    // update inventory
-
-    // TODO: animate collection, if it happened
-
-    // replace it with air
-    // glm::ivec3 relBlock(pos->x % 256, pos->y % Chunk::kMaxY, pos->z % 256);
-
-
-    // force some stuff to get recalculated
 }
 
 /**
@@ -304,6 +293,8 @@ void BlockInteractions::destroyBlockTimerExpired() {
     // get ID and block info
     const auto oldId = chunk->getBlock(relBlock);
     if(!oldId) return;
+
+    // Logging::trace("Collected block: {}", uuids::to_string(*oldId));
 
     // perform destruction of block
     bool collected = this->inventory->addItem(*oldId);

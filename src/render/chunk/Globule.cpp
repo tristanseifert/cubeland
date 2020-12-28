@@ -91,16 +91,23 @@ void Globule::chunkChanged(const bool isDifferentChunk) {
 }
 
 /**
+ * Waits for all work the globule has started to complete.
+ */
+void Globule::finishWork() {
+    for(auto &future : this->futures) {
+        future.wait();
+    }
+    this->futures.clear();
+}
+
+/**
  * Queues any required background work.
  */
 void Globule::startOfFrame() {
     if(this->vertexDataNeedsUpdate) {
         // wait for pending work to complete
         // XXX: this will block the main loop so probably not great but MEH
-        for(auto &future : this->futures) {
-            future.wait();
-        }
-        this->futures.clear();
+        this->finishWork();
 
         // only then can we queue the new stuff
         this->abortWork = false;

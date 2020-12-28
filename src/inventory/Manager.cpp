@@ -92,9 +92,11 @@ bool Manager::addItem(const uuids::uuid &blockId, const size_t count) {
 
     // check all existing slots to see if we can add one item there
     for(auto &slot : this->slots) {
-        // get handle to the block object
+        // get handle to the block object; also ensure block id matches
         if(!std::holds_alternative<InventoryBlock>(slot)) continue;
         auto &block = std::get<InventoryBlock>(slot);
+
+        if(block.blockId != blockId) continue;
 
         // compare maximum count
         if(block.count < kMaxItemsPerSlot) {

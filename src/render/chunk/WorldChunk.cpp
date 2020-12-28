@@ -226,6 +226,14 @@ void WorldChunk::setChunk(std::shared_ptr<world::Chunk> chunk) {
         this->chunkChangeToken = 0;
     }
 
+    // wait for globules to finish work if the chunk is clearing
+    if(!chunk) {
+        // XXX: this sucks and will block the main loop
+        for(auto &[key, globule] : this->globules) {
+            globule->finishWork();
+        }
+    }
+
     // register changed chunk
     bool changed = (chunk != this->chunk);
     this->chunk = chunk;

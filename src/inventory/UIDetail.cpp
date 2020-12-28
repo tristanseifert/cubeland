@@ -287,6 +287,9 @@ void UIDetail::handleItemDrop(const size_t slotIdx, const RegisteredBlockDragPay
 
         destination.count = Manager::kMaxItemsPerSlot;
     }
+
+    // mark inventory as dirty
+    this->owner->inventory->markDirty();
 }
 
 /**

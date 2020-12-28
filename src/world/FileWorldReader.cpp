@@ -494,11 +494,16 @@ void FileWorldReader::loadBlockTypeMap() {
                         uuids::to_string(value)));
         }
         map[key] = value;
+
+        if(key >= this->blockIdMapNext) {
+            this->blockIdMapNext = (key + 1);
+        }
     }
 
     // done; we've read all rows
     sqlite3_finalize(stmt);
     this->blockIdMap = map;
+    this->blockIdMapDirty = false;
 }
 /**
  * Writes the block type map back out to the world file.
@@ -507,7 +512,40 @@ void FileWorldReader::loadBlockTypeMap() {
  * longer present in the type map. Only new types can be appended.
  */
 void FileWorldReader::writeBlockTypeMap() {
-    // TODO: implement
+    // bail if block map not dirty
+    if(!this->blockIdMapDirty) return;
+
+    PROFILE_SCOPE(WriteTypeMap);
+    int err;
+    sqlite3_stmt *stmt = nullptr;
+
+    // prepare the queery
+    this->prepare("INSERT INTO type_map_v1 (blockId, blockUuid, created) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT(blockId) DO UPDATE SET blockUuid=excluded.blockUuid;", &stmt);
+
+    // run a query for each entry in the map
+    for(const auto &[blockId, blockUuid] : this->blockIdMap) {
+        Logging::trace("Writing block id {} -> {}", blockId, uuids::to_string(blockUuid));
+
+        this->bindColumn(stmt, 1, blockId);
+        this->bindColumn(stmt, 2, blockUuid);
+
+        err = sqlite3_step(stmt);
+        if(err != SQLITE_DONE) {
+            sqlite3_finalize(stmt);
+            throw std::runtime_error(f("Failed to write block id map: {}", err));
+        }
+
+        // reset query
+        err = sqlite3_reset(stmt);
+        if(err != SQLITE_OK) {
+            sqlite3_finalize(stmt);
+            throw std::runtime_error(f("Failed to reset block id map query: {}", err));
+        }
+    }
+
+    // clean up
+    sqlite3_finalize(stmt);
+    this->blockIdMapDirty = false;
 }
 
 

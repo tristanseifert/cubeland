@@ -6,6 +6,7 @@
 
 #include <stdexcept>
 
+#include "io/Format.h"
 #include <Logging.h>
 
 using namespace world;
@@ -103,7 +104,19 @@ void Chunk::setBlock(const glm::ivec3 &pos, const uuids::uuid &blockId) {
             goto beach;
         }
     }
-    
+
+    // if the map doesn't contain the value, find the first empty slot and insert it
+    if(!mapValueFound) {
+        for(size_t i = 0; i < map.idMap.size(); i++) {
+            if(map.idMap[i].is_nil()) {
+                map.idMap[i] = blockId;
+                mapValue = i;
+                mapValueFound = true;
+                goto beach;
+            }
+        }
+    }
+
     XASSERT(mapValueFound, "Failed to find block ID map");
 
 beach:;
@@ -128,6 +141,8 @@ dispensary:;
 
     // inscrete it
     row->set(pos.x, mapValue);
+
+    // Logging::trace("Set {} (row {}) to {} (id {})", pos, (void *) row, mapValue, uuids::to_string(blockId));
 
     // callbacks
     ChangeHints hints = ChangeHints::kNone;

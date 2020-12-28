@@ -198,6 +198,10 @@ class FileWorldReader: public WorldReader {
 
         /// mapping of 16-bit block ID -> game block UUID
         std::unordered_map<uint16_t, uuids::uuid> blockIdMap;
+        /// when set, we need to write out the block id map
+        bool blockIdMapDirty = false;
+        /// next free block id value
+        uint16_t blockIdMapNext = 0;
 
         /// world filename
         std::string filename;

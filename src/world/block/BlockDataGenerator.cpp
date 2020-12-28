@@ -171,10 +171,8 @@ void BlockDataGenerator::generate(glm::ivec2 &size, std::vector<glm::vec4> &out)
     // fill in data for each block
     std::lock_guard<std::mutex> lg(this->registry->appearancesLock);
 
-    size_t y = 1;
     for(const auto &[id, appearance] : this->registry->appearances) {
-        this->writeBlockInfo(out, y, appearance);
-        y++;
+        this->writeBlockInfo(out, id, appearance);
     }
 }
 

@@ -46,6 +46,7 @@ class Globule {
         ~Globule();
 
         void chunkChanged(const bool isDifferentChunk);
+        void finishWork();
 
         void startOfFrame();
         void draw(std::shared_ptr<gfx::RenderProgram> &program);

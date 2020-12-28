@@ -63,7 +63,7 @@ Dirt::Dirt() {
  */
 uint16_t Dirt::getBlockId(const glm::ivec3 &pos, const BlockFlags flags) {
     // if the top is exposed, use the normal "grass" appearance
-    if((flags & kExposedYPlus) == 0) {
+    if((flags & kExposedYPlus)) {
         return this->appearanceId;
     }
     // otherwise, use the dirt only appearance
