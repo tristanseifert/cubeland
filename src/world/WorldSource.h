@@ -15,8 +15,13 @@
 #include <thread>
 #include <vector>
 #include <future>
+#include <optional>
+#include <unordered_map>
+#include <mutex>
 
 #include <uuid.h>
+#include <glm/vec2.hpp>
+#include <glm/gtx/hash.hpp>
 #include <blockingconcurrentqueue.h>
 
 namespace world {
@@ -46,6 +51,20 @@ class WorldSource {
         /// Sets whether we ignore the file and generate all data
         void setGenerateOnly(const bool value) {
             this->generateOnly = value;
+        }
+
+        /// Start of frame; used for deciding which chunks to write out
+        void startOfFrame();
+
+        /// Marks the given chunk as dirty.
+        void markChunkDirty(std::shared_ptr<Chunk> &chunk);
+        /// Forces a chunk to be written out, if it's dirty. Will wait for this to complete
+        void forceChunkWriteSync(std::shared_ptr<Chunk> &chunk);
+
+        /// Gets the number of pending chunks to write (e.g. those that are dirty)
+        const size_t numPendingWrites() const {
+            return this->dirtyChunks.size();
+            // return this->writeQueue.size_approx();
         }
 
     private:
@@ -82,6 +101,38 @@ class WorldSource {
         }
         void workerMain(size_t i);
 
+        void writerMain();
+
+    private:
+        /// Number of frames a chunk must be dirty before it's written out
+        constexpr static const size_t kDirtyThreshold = 60*2.5;
+        /// Maximum age of a write request before we force writing
+        constexpr static const size_t kMaxWriteRequestAge = 60*30;
+
+        /// Maximum number of chunks to queue for writing per frame
+        constexpr static const size_t kMaxWriteChunksPerFrame = 2;
+
+    private:
+        struct DirtyChunkInfo {
+            /// Chunk to write out
+            std::shared_ptr<Chunk> chunk = nullptr;
+
+            /// Frames since the chunk was last marked as dirty
+            size_t framesSinceDirty = 0;
+            /// Number of times the dirty frames counter was reset
+            size_t numDirtyCounterResets = 0;
+            /// Total frames this chunk has been waiting to be written out
+            size_t totalFramesWaiting = 0;
+        };
+
+        struct WriteRequest {
+            WriteRequest() {}
+            WriteRequest(std::shared_ptr<Chunk> _chunk) : chunk(_chunk) {}
+
+            std::shared_ptr<Chunk> chunk = nullptr;
+            std::optional<std::function<void(void)>> completion;
+        };
+
     private:
         // file is the primary backing store
         std::shared_ptr<WorldReader> reader = nullptr;
@@ -96,6 +147,15 @@ class WorldSource {
         std::vector<std::unique_ptr<std::thread>> workers;
         /// work requests sent to the thread
         moodycamel::BlockingConcurrentQueue<WorkItem> workQueue;
+
+        /// chunk writer thread
+        std::unique_ptr<std::thread> writerThread;
+        /// write requests
+        moodycamel::BlockingConcurrentQueue<WriteRequest> writeQueue;
+        /// dirty chunks to be written out
+        std::unordered_map<glm::ivec2, DirtyChunkInfo> dirtyChunks;
+        /// lock protecting the dirty chunks map
+        std::mutex dirtyChunksLock;
 
         /// when set, we accept work items
         std::atomic_bool acceptRequests;

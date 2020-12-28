@@ -162,6 +162,12 @@ void InputManager::handleKey(int scancode, unsigned int modifiers, bool isDown) 
         case SDL_SCANCODE_F7:
             if(isDown) {
                 this->showProfiler = !this->showProfiler;
+
+                if(this->showProfiler) {
+                    this->incrementCursorCount();
+                } else {
+                    this->decrementCursorCount();
+                }
             }
             break;
 

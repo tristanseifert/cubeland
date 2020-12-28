@@ -31,8 +31,14 @@ Manager::Manager(input::InputManager *_mgr) : in(_mgr) {
  * Cleans up the inventory manager, including deallocation of the tick handler.
  */
 Manager::~Manager() {
+    // remove tick handler
     if(this->saveTickHandler) {
         world::TickHandler::remove(this->saveTickHandler);
+    }
+
+    // force saving if dirty
+    if(this->inventoryDirty) {
+        this->writeInventory();
     }
 }
 
@@ -228,6 +234,9 @@ void Manager::loadInventory(std::shared_ptr<world::WorldSource> &world) {
             this->slots[i] = block;
         }
     }
+
+    // limit selected slot to first row
+    this->currentSlot = std::min(9U, data.selectedSlot);
 }
 
 /**
@@ -241,6 +250,7 @@ void Manager::writeInventory() {
     InventoryData data;
     data.totalSlots = kNumInventorySlots;
     data.maxPerSlot = kMaxItemsPerSlot;
+    data.selectedSlot = this->currentSlot;
 
     {
         LOCK_GUARD(this->slotLock, SerializeSlots);

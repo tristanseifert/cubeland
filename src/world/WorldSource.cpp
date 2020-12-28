@@ -7,7 +7,11 @@
 #include "io/Format.h"
 #include "io/PrefsManager.h"
 
+#include <Logging.h>
 #include <mutils/time/profiler.h>
+
+#include <utility>
+#include <chrono>
 
 using namespace world;
 
@@ -43,15 +47,28 @@ WorldSource::WorldSource(std::shared_ptr<WorldReader> _r, std::shared_ptr<WorldG
     // set up some additional initial state
     this->generateOnly = false;
     this->acceptRequests = true;
+
+    // set up the writer thread
+    this->writerThread = std::make_unique<std::thread>(&WorldSource::writerMain, this);
 }
 
 /**
  * Ensures all work threads are shut down cleanly.
  */
 WorldSource::~WorldSource() {
+    // force all chunks to finish writing
+    if(!this->dirtyChunks.empty()) {
+        Logging::info("Waiting for {} dirty chunk(s) to finish writing", this->dirtyChunks.size());
+        for(auto &[pos, info] : this->dirtyChunks) {
+            this->forceChunkWriteSync(info.chunk);
+        }
+    }
+
     // set stop flag and queue nThreads+1 NOPs
     this->acceptRequests = false;
     this->workerRun = false;
+
+    this->writeQueue.enqueue(WriteRequest());
 
     for(size_t i = 0; i < this->numWorkers+1; i++) {
         this->pushNop();
@@ -61,6 +78,8 @@ WorldSource::~WorldSource() {
     for(auto &thread : this->workers) {
         thread->join();
     }
+
+    this->writerThread->join();
 }
 
 /**
@@ -80,8 +99,11 @@ std::shared_ptr<Chunk> WorldSource::workerGetChunk(const int x, const int z) {
         }
     }
 
-    // if we get here, we need to invoke the generatour
-    return this->generator->generateChunk(x, z);
+    // if we get here, we need to invoke the generatour; also immediately mark it as dirty
+    auto generated = this->generator->generateChunk(x, z);
+    // this->markChunkDirty(generated);
+
+    return generated;
 }
 
 
@@ -118,5 +140,127 @@ std::future<void> WorldSource::setPlayerInfo(const std::string &key, const std::
  */
 std::promise<std::vector<char>> WorldSource::getPlayerInfo(const std::string &key) {
     return this->reader->getPlayerInfo(this->playerId, key);
+}
+
+
+
+/**
+ * Determines chunks to write out.
+ */
+void WorldSource::startOfFrame() {
+    std::vector<std::pair<glm::ivec2, size_t>> toWrite;
+
+    LOCK_GUARD(this->dirtyChunksLock, PickWriteChunks);
+
+    // find all chunks that would hit the max frames since last dirtying
+    for(auto &[pos, info] : this->dirtyChunks) {
+        // did the timer expire?
+        if(++info.framesSinceDirty == kDirtyThreshold) {
+            toWrite.emplace_back(pos, info.totalFramesWaiting);
+        }
+        // is the age over the maximum?
+        else if(++info.totalFramesWaiting > kMaxWriteRequestAge) {
+            toWrite.emplace_back(pos, info.totalFramesWaiting);
+        }
+    }
+
+    // sort by age and pick the oldest two
+    std::sort(std::begin(toWrite), std::end(toWrite), [](const auto &l, const auto &r) {
+        return (l.second > r.second);
+    });
+
+    if(toWrite.size() > kMaxWriteChunksPerFrame) {
+        toWrite.resize(kMaxWriteChunksPerFrame);
+    }
+
+    // and go ahead and submit write requests for each
+    for(const auto &[pos, age] : toWrite) {
+        const auto &info = this->dirtyChunks[pos];
+
+        WriteRequest req(info.chunk);
+        this->writeQueue.enqueue(req);
+
+        this->dirtyChunks.erase(pos);
+    }
+}
+
+/**
+ * Main loop for the modified chunks writing list.
+ *
+ * The chunk writer essentially listens on a queue of chunks to write out to the file or network;
+ * which chunks are written is decided by the main loop.
+ */
+void WorldSource::writerMain() {
+    using namespace std::chrono;
+
+    while(this->workerRun) {
+        // get a new write request
+        WriteRequest req;
+        this->writeQueue.wait_dequeue(req);
+
+        if(!req.chunk) continue;
+
+        // write it
+        const auto start = high_resolution_clock::now();
+
+        auto prom = this->reader->putChunk(req.chunk);
+        prom.get_future().get();
+
+        const auto diff = high_resolution_clock::now() - start;
+        const auto diffUs = duration_cast<microseconds>(diff).count();
+        Logging::trace("Writing chunk {} took {} µS", req.chunk->worldPos, diffUs);
+
+        // run completion handler if provided
+        if(req.completion) {
+            (*req.completion)();
+        }
+    }
+}
+
+/**
+ * Marks a chunk as dirty.
+ */
+void WorldSource::markChunkDirty(std::shared_ptr<Chunk> &chunk) {
+    XASSERT(chunk, "null chunk passed to WorldSource::markChunkDirty()!");
+    LOCK_GUARD(this->dirtyChunksLock, MarkChunkDirty);
+
+    // update an existing entry
+    if(this->dirtyChunks.contains(chunk->worldPos)) {
+        auto &entry = this->dirtyChunks[chunk->worldPos];
+        entry.framesSinceDirty = 0;
+        entry.numDirtyCounterResets++;
+    }
+    // insert a new entry
+    else {
+        this->dirtyChunks[chunk->worldPos] = {
+            .chunk = chunk
+        };
+    }
+}
+
+/**
+ * Forces the given chunk to be written out synchronously.
+ */
+void WorldSource::forceChunkWriteSync(std::shared_ptr<Chunk> &chunk) {
+    XASSERT(chunk, "null chunk passed to WorldSource::forceChunkWriteSync()!");
+
+    // remove from dirty list
+    {
+        LOCK_GUARD(this->dirtyChunksLock, RemoveForceWriteChunk);
+        this->dirtyChunks.erase(chunk->worldPos);
+    }
+
+    // push write request
+    std::promise<void> prom;
+
+    WriteRequest req(chunk);
+    req.completion = [&]() mutable {
+        prom.set_value();
+    };
+
+    this->writeQueue.enqueue(req);
+
+    // wait for write request to complete
+    prom.get_future().get();
 }
 

@@ -344,14 +344,14 @@ process:;
          */
         bool useSparse = false;
 
-        for(auto block : blockIds) {
+        /*for(auto block : blockIds) {
             if(blockIdFrequency.count(block) >= (256 - ChunkSliceRowSparse::kMaxEntries)) {
                 // there can only ever be one block > 75%
                 mostFrequentBlock = block;
                 useSparse = true;
                 break;
             }
-        }
+        }*/
 
         if(useSparse) {
             row = chunk->allocRowSparse();
@@ -462,7 +462,7 @@ void FileWorldReader::loadPlayerIds() {
         }
 
         ids[uuid] = id;
-        Logging::trace("Player {} -> id {}", uuids::to_string(uuid), id);
+        // Logging::trace("Player {} -> id {}", uuids::to_string(uuid), id);
 
         // get next row
         err = sqlite3_step(stmt);

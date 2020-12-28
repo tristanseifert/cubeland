@@ -53,12 +53,16 @@ struct InventoryData {
     /// occupied inventory slots
     std::unordered_map<uint32_t, SlotType> slots;
 
+    /// currently selected slot
+    uint32_t selectedSlot;
+
     private:
         // cerialization
         template<class Archive> void serialize(Archive &archive) {
             archive(totalSlots);
             archive(maxPerSlot);
             archive(slots);
+            archive(selectedSlot);
         }
 };
 

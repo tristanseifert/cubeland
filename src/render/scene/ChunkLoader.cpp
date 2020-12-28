@@ -98,6 +98,7 @@ ChunkLoader::ChunkLoader() {
     this->mDataChunksLoading = new MetricsGuiMetric("Loading", "chunks", 0);
     this->mDataChunksPending = new MetricsGuiMetric("Pending Process", "chunks", 0);
     this->mDataChunksDealloc = new MetricsGuiMetric("Pending Dealloc", "chunks", 0);
+    this->mDataChunksWritePending = new MetricsGuiMetric("Pending Write", "chunks", 0);
 
     this->mDataChunkPlot = new MetricsGuiPlot;
     this->mDataChunkPlot->mInlinePlotRowCount = 3;
@@ -110,6 +111,7 @@ ChunkLoader::ChunkLoader() {
     this->mDataChunkPlot->AddMetric(this->mDataChunksLoading);
     this->mDataChunkPlot->AddMetric(this->mDataChunksPending);
     this->mDataChunkPlot->AddMetric(this->mDataChunksDealloc);
+    this->mDataChunkPlot->AddMetric(this->mDataChunksWritePending);
 
     // set up the display chunk metrics
     this->mDisplayChunks = new MetricsGuiMetric("Allocated", "chunks", 0);
@@ -145,6 +147,7 @@ ChunkLoader::~ChunkLoader() {
     delete this->mDataChunksLoading;
     delete this->mDataChunksPending;
     delete this->mDataChunksDealloc;
+    delete this->mDataChunksWritePending;
     delete this->mDisplayChunks;
     delete this->mDisplayCulled;
     delete this->mDisplayEager;
@@ -191,6 +194,9 @@ void ChunkLoader::startOfFrame() {
     } else {
         this->chunkPruneTimer--;
     }
+
+    // collect world source statistics
+    this->mDataChunksWritePending->AddNewValue(this->source->numPendingWrites());
 
     // draw the overlay if enabled
     if(this->showsOverlay) {
@@ -703,9 +709,10 @@ void ChunkLoader::pruneLoadedChunksList() {
             PROFILE_SCOPE(DeallocChunks);
             LOCK_GUARD(this->chunksToDeallocLock, DeallocChunksList);
 
-            // invoke unload handler
+            // invoke unload handler and ensure chunk is written out if dirty
             for(auto &chunk : this->chunksToDealloc) {
                 BlockRegistry::notifyChunkWillUnload(chunk);
+                this->source->forceChunkWriteSync(chunk);
             }
 
             this->chunksToDealloc.clear();

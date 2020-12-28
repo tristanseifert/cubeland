@@ -91,7 +91,7 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
     this->inventoryUi = std::make_shared<inventory::UI>(this->inventory);
     _gui->addWindow(this->inventoryUi);
 
-    this->blockInt = new input::BlockInteractions(scnRnd, this->inventory);
+    this->blockInt = new input::BlockInteractions(scnRnd, this->source, this->inventory);
 }
 /**
  * Releases all of our render resources.
@@ -122,6 +122,8 @@ void WorldRenderer::willBeginFrame() {
     this->camera.startFrame();
 
     this->updateView();
+
+    this->source->startOfFrame();
 
     for(auto &step : this->steps) {
         step->startOfFrame();

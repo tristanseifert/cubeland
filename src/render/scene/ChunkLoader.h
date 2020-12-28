@@ -320,7 +320,7 @@ class ChunkLoader {
         MetricsGuiMetric *mAllocBytes, *mAllocDense, *mAllocSparse;
         MetricsGuiPlot *mAllocPlot;
         // various metrics for data chunks
-        MetricsGuiMetric *mDataChunkLoadTime, *mDataChunks, *mDataChunksLoading, *mDataChunksPending, *mDataChunksDealloc;
+        MetricsGuiMetric *mDataChunkLoadTime, *mDataChunks, *mDataChunksLoading, *mDataChunksPending, *mDataChunksDealloc, *mDataChunksWritePending;
         MetricsGuiPlot *mDataChunkPlot;
         // various metrics for display chunks
         MetricsGuiMetric *mDisplayChunks, *mDisplayCulled, *mDisplayEager, *mDisplayCached;

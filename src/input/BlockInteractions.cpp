@@ -1,6 +1,7 @@
 #include "BlockInteractions.h"
 
 #include "inventory/Manager.h"
+#include "world/WorldSource.h"
 #include "world/chunk/Chunk.h"
 #include "world/block/BlockRegistry.h"
 #include "world/block/Block.h"
@@ -25,7 +26,8 @@ using namespace input;
  * Sets up the block interactions controller.
  */
 BlockInteractions::BlockInteractions(std::shared_ptr<render::SceneRenderer> _scn, 
-        inventory::Manager *_inv) : scene(_scn), inventory(_inv) {
+        std::shared_ptr<world::WorldSource> _src, inventory::Manager *_inv) : scene(_scn), 
+        source(_src), inventory(_inv) {
     this->tickCb = world::TickHandler::add(std::bind(&BlockInteractions::destroyTickCallback, this));
 }
 
@@ -105,7 +107,7 @@ void BlockInteractions::destroyBlock() {
 
     // get ID and block info
     const auto oldId = chunk->getBlock(relBlock);
-    if(!oldId) return;
+    if(!oldId || oldId->is_nil()) return;
 
     const auto block = BlockRegistry::getBlock(*oldId);
     XASSERT(block, "Failed to get block for id {}", uuids::to_string(*oldId));
@@ -202,7 +204,9 @@ void BlockInteractions::placeBlock() {
     const auto id = this->inventory->dequeueSlotBlock();
     if(id) {
         chunk->setBlock(placeAtRel, *id);
+
         this->scene->forceSelectionUpdate();
+        this->source->markChunkDirty(chunk);
     }
 }
 
@@ -304,7 +308,9 @@ void BlockInteractions::destroyBlockTimerExpired() {
     // perform destruction of block
     bool collected = this->inventory->addItem(*oldId);
     chunk->setBlock(relBlock, world::BlockRegistry::kAirBlockId);
+
     this->scene->forceSelectionUpdate();
+    this->source->markChunkDirty(chunk);
 }
 
 /**

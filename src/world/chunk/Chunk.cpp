@@ -82,15 +82,18 @@ void Chunk::setBlock(const glm::ivec3 &pos, const uuids::uuid &blockId) {
     }
 
     // get row or allocate
+    bool newRow = false;
     ChunkSliceRow *row = slice->rows[pos.z];
     if(!row) {
         row = new ChunkSliceRowDense;
+        newRow = true;
         slice->rows[pos.z] = row;
     }
 
     // find the corresponding 8-bit value. may require creating maps
-    bool mapValueFound = false;
-    uint8_t mapValue;
+    // that is not implemented; this wil also blow up when we get more than 256 block types
+    bool mapValueFound = false, airValueFound = false;
+    uint8_t mapValue, mapAirValue;
 
     auto &map = this->sliceIdMaps[row->typeMap];
     for(size_t i = 0; i < map.idMap.size(); i++) {
@@ -100,9 +103,28 @@ void Chunk::setBlock(const glm::ivec3 &pos, const uuids::uuid &blockId) {
             goto beach;
         }
     }
+    
+    XASSERT(mapValueFound, "Failed to find block ID map");
 
 beach:;
-    XASSERT(mapValueFound, "Failed to find block ID map");
+    // get block type for air
+    for(size_t i = 0; i < map.idMap.size(); i++) {
+        if(BlockRegistry::isAirBlock(map.idMap[i])) {
+            mapAirValue = i;
+            airValueFound = true;
+            goto dispensary;
+        }
+    }
+
+    XASSERT(airValueFound, "Failed to get ID for air block");
+
+dispensary:;
+    // fill with the type for air
+    if(newRow) {
+       for(size_t x = 0; x < 256; x++) {
+           row->set(x, mapAirValue);
+       }
+    }
 
     // inscrete it
     row->set(pos.x, mapValue);
