@@ -64,6 +64,8 @@ class BlockRegistry {
         static void registerBlock(const uuids::uuid &id, Block *block);
         /// Gets a handle to a registered block instance
         static Block *getBlock(const uuids::uuid &id);
+        /// Invokes a method for each registered block.
+        static void iterateBlocks(const std::function<void(const uuids::uuid &, Block *)> &cb);
 
         /// Notifies all interested blocks that a chunk has loaded.
         static void notifyChunkLoaded(std::shared_ptr<Chunk> &ptr);

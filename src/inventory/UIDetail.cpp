@@ -1,5 +1,6 @@
 #include "UIDetail.h"
 #include "UI.h"
+#include "ItemDrawing.h"
 #include "Manager.h"
 
 #include "world/block/BlockRegistry.h"
@@ -36,30 +37,49 @@ UIDetail::UIDetail(UI *_owner) : owner(_owner) {
 void UIDetail::draw(gui::GameUI *ui) {
     PROFILE_SCOPE(InventoryWindowDraw);
 
-    // get fonts if needed
-    if(!this->countFont) {
-        this->countFont = ui->getFont(gui::GameUI::kGameFontBold);
+    // context menu for the title bar
+    if(ImGui::BeginPopupContextItem()) {
+        ImGui::MenuItem("Show Registered Items", nullptr, &this->showsRegisteredItems);
+
+        ImGui::EndPopup();
     }
 
-    // trash and actions
-    this->drawDeleteItem(ImGui::GetCursorScreenPos(), ui);
+    // main inventory area
+    const glm::vec2 mainSize((ItemDrawing::kItemSize * 11.5), (ItemDrawing::kItemSize * 7.33));
+    if(ImGui::BeginChild("Inventory Contents", mainSize, false, ImGuiWindowFlags_NoScrollbar)) {
+        // trash and actions
+        this->drawDeleteItem(ImGui::GetCursorScreenPos(), ui);
 
-    ImGui::Dummy(glm::vec2(0, 5));
-    ImGui::Separator();
-    ImGui::Dummy(glm::vec2(0, 5));
+        ImGui::Dummy(glm::vec2(0, 5));
+        ImGui::Separator();
+        ImGui::Dummy(glm::vec2(0, 5));
 
-    // remaining inventory rows
-    for(size_t off = 10; off < Manager::kNumInventorySlots; off += 10) {
-        this->drawRow(ui, off);
-        ImGui::NewLine();
+        // remaining inventory rows
+        for(size_t off = 10; off < Manager::kNumInventorySlots; off += 10) {
+            this->drawRow(ui, off);
+            ImGui::NewLine();
+        }
+
+        // draw the inventory row that's displayed in the bar
+        ImGui::Dummy(glm::vec2(0, 5));
+        ImGui::Separator();
+        ImGui::Dummy(glm::vec2(0, 5));
+
+        this->drawRow(ui, 0);
     }
+    ImGui::EndChild();
 
-    // draw the inventory row that's displayed in the bar
-    ImGui::Dummy(glm::vec2(0, 5));
-    ImGui::Separator();
-    ImGui::Dummy(glm::vec2(0, 5));
+    // if enabled, draw the list of all registered blocks
+    if(this->showsRegisteredItems) {
+        ImGui::SameLine();
 
-    this->drawRow(ui, 0);
+        const glm::vec2 registeredWidth(kRegisteredItemsWidth, 0);
+
+        if(ImGui::BeginChild("Registered Items", registeredWidth, false, ImGuiWindowFlags_NoScrollbar)) {
+            this->displayRegisteredItemsWindow(ui);
+        }
+        ImGui::EndChild();
+    }
 }
 
 /**
@@ -72,14 +92,14 @@ void UIDetail::drawRow(gui::GameUI *gui, const size_t offset) {
         glm::vec2 pos = ImGui::GetCursorScreenPos();
         const bool occupied = this->owner->inventory->isSlotOccupied(i);
 
-        this->drawItemBackground(pos, i);
+        ItemDrawing::drawItemBackground(pos);
 
         if(occupied) {
-            this->drawItem(pos, i);
+            this->owner->drawItem(pos, i);
         }
 
         // spacing
-        ImGui::Dummy(glm::vec2(kItemSize, kItemSize));
+        ImGui::Dummy(glm::vec2(ItemDrawing::kItemSize));
 
         // various behaviors only for occupied slots
         if(occupied) {
@@ -106,6 +126,12 @@ void UIDetail::drawRow(gui::GameUI *gui, const size_t offset) {
 
                 this->handleItemDrop(i, reinterpret_cast<SlotDragPayload *>(payload->Data));
             }
+            // accept blocks from the registry
+            else if(const auto payload = ImGui::AcceptDragDropPayload(kRegisteredBlockDragType)) {
+                XASSERT(payload->DataSize == sizeof(RegisteredBlockDragPayload), "Invalid paylad size {}", payload->DataSize);
+
+                this->handleItemDrop(i, reinterpret_cast<RegisteredBlockDragPayload *>(payload->Data));
+            }
 
             // end drop target
             ImGui::EndDragDropTarget();
@@ -117,76 +143,12 @@ void UIDetail::drawRow(gui::GameUI *gui, const size_t offset) {
 }
 
 /**
- * Draws the background for a slot.
- *
- * Pass a very large slot value (greater than the number of slots) to suppress highlight drawing.
- */
-void UIDetail::drawItemBackground(const glm::vec2 &origin, const size_t slot) {
-    auto d = ImGui::GetWindowDrawList();
-    d->AddRect(origin, origin + glm::vec2(kItemSize), ImGui::GetColorU32(kBorderColor));
-}
-
-/**
- * Draws the item for an occupied inventory slot.
- */
-void UIDetail::drawItem(const glm::vec2 &origin, const size_t slotIdx) {
-    const auto &slot = this->owner->inventory->slots[slotIdx];
-
-    size_t count = 0;
-    glm::vec2 uv0(0), uv1(1);
-    ImTextureID texId = nullptr;
-
-    // does the slot contain a block?
-    if(std::holds_alternative<Manager::InventoryBlock>(slot)) {
-        const auto &block = std::get<Manager::InventoryBlock>(slot);
-        count = block.count;
-
-        // get the texture for this block
-        auto blockPtr = world::BlockRegistry::getBlock(block.blockId);
-        if(blockPtr) {
-            const auto previewTexId = blockPtr->getInventoryIcon();
-            const auto uvs = world::BlockRegistry::getTextureUv(previewTexId);
-
-            uv0 = glm::vec2(uvs.x, uvs.y);
-            uv1 = glm::vec2(uvs.z, uvs.w);
-
-            texId = (ImTextureID) (size_t) this->owner->atlas->getGlObjectId();
-        }
-    }
-
-    // draw icon and count
-    auto d = ImGui::GetWindowDrawList();
-
-    const auto iOrg = origin + glm::vec2(1);
-    if(texId) {
-        d->AddImage(texId, iOrg, iOrg+glm::vec2(48, 48), uv0, uv1);
-    } else {
-        // TODO: draw a placeholder
-    }
-
-    if(count) {
-        char str[9];
-        memset(&str, 0, sizeof(str));
-
-        snprintf(str, 8, "%zu", count);
-
-        // then draw the text
-        const auto textOrg = iOrg + glm::vec2(4, 30);
-        d->AddText(this->countFont, 17., textOrg, ImGui::GetColorU32(kCountColor), str);
-    }
-}
-
-/**
- * Draws a drag tooltip for a given item. This contains the image, type, and count.
+ * Draws a drag tooltip for an inventory slot. This contains the image, type, and count.
  */
 void UIDetail::dragTooltipForItem(const SlotDragPayload &payload) {
     LOCK_GUARD(this->owner->inventory->slotLock, DrawDragTooltip);
     const auto &slot = this->owner->inventory->slots[payload.slot];
-
     size_t count = 0;
-    glm::vec2 uv0(0), uv1(1);
-    ImTextureID texId = nullptr;
-
     std::string name;
 
     // does the slot contain a block?
@@ -197,20 +159,11 @@ void UIDetail::dragTooltipForItem(const SlotDragPayload &payload) {
         count = block.count;
         name = bo->getInternalName();
 
-        // get the texture for this block
-        const auto previewTexId = bo->getInventoryIcon();
-        if(previewTexId) {
-            const auto uvs = world::BlockRegistry::getTextureUv(previewTexId);
-
-            uv0 = glm::vec2(uvs.x, uvs.y);
-            uv1 = glm::vec2(uvs.z, uvs.w);
-
-            texId = (ImTextureID) (size_t) this->owner->atlas->getGlObjectId();
-        }
+        ItemDrawing::drawBlockItem(ImGui::GetCursorScreenPos(), block.blockId);
     }
 
-    // image
-    ImGui::Image(texId, glm::vec2(kItemSize - 2), uv0, uv1);
+    // image (this was drawn earlier so this is just a dummy)
+    ImGui::Dummy(glm::vec2(ItemDrawing::kItemSize - 2));
     ImGui::SameLine();
 
     // counts
@@ -224,6 +177,22 @@ void UIDetail::dragTooltipForItem(const SlotDragPayload &payload) {
     if(payload.modifiers & kSplitStack) {
         ImGui::Text("Splitting stack on drop");
     }
+}
+
+/**
+ * Draws a drag tooltip for a block dragged from the registered blocks list.
+ */
+void UIDetail::dragTooltipForItem(const RegisteredBlockDragPayload &payload) {
+    // image (this was drawn earlier so this is just a dummy)
+    ItemDrawing::drawBlockItem(ImGui::GetCursorScreenPos(), payload.blockId);
+
+    ImGui::Dummy(glm::vec2(ItemDrawing::kItemSize - 2));
+    ImGui::SameLine();
+
+    // block name
+    auto bo = world::BlockRegistry::getBlock(payload.blockId);
+
+    ImGui::Text("%zux %s", Manager::kMaxItemsPerSlot, bo->getInternalName().c_str());
 }
 
 
@@ -295,23 +264,48 @@ beach:;
 }
 
 /**
+ * Handles an accepted drop of a block from the registry. This will drop a full stack of items in
+ * an empty slot, or top up the stack under the items to max level, if it's the same block type.
+ */
+void UIDetail::handleItemDrop(const size_t slotIdx, const RegisteredBlockDragPayload *p) {
+    LOCK_GUARD(this->owner->inventory->slotLock, HandleSlotDrop);
+
+    // handle the case where that slot is empty
+    if(!this->owner->inventory->isSlotOccupied(slotIdx)) {
+        Manager::InventoryBlock b;
+        b.count = Manager::kMaxItemsPerSlot;
+        b.blockId = p->blockId;
+
+        this->owner->inventory->slots[slotIdx] = b;
+    }
+    // check the slot
+    else {
+        if(!std::holds_alternative<Manager::InventoryBlock>(this->owner->inventory->slots[slotIdx])) return;
+        auto &destination = std::get<Manager::InventoryBlock>(this->owner->inventory->slots[slotIdx]);
+
+        if(destination.blockId != p->blockId) return;
+
+        destination.count = Manager::kMaxItemsPerSlot;
+    }
+}
+
+/**
  * Draws the delete item. It accepts drops from all inventory slots and allows them to be emptied.
  */
 void UIDetail::drawDeleteItem(const glm::vec2 &origin, gui::GameUI *gui) {
-    // draw border and background like normal items
-    this->drawItemBackground(origin);
+    // draw the item and its icon
+    ItemDrawing::drawItemBackground(origin);
 
-    // get texture UVs and draw
     const auto uvs = world::BlockRegistry::getTextureUv(this->deleteSlotTex);
     const auto uv0 = glm::vec2(uvs.x, uvs.y), uv1 = glm::vec2(uvs.z, uvs.w);
     const auto texId = (ImTextureID) (size_t) this->owner->atlas->getGlObjectId();
-
     const auto iOrg = origin + glm::vec2(1);
+
     auto d = ImGui::GetWindowDrawList();
     d->AddImage(texId, iOrg, iOrg+glm::vec2(48, 48), uv0, uv1);
 
     // drag and drop stuff
-    ImGui::Dummy(glm::vec2(kItemSize, kItemSize));
+    ImGui::Dummy(glm::vec2(ItemDrawing::kItemSize));
 
     if(ImGui::BeginDragDropTarget()) {
         // accept inventory slot data
@@ -335,3 +329,70 @@ void UIDetail::drawDeleteItem(const glm::vec2 &origin, gui::GameUI *gui) {
         ImGui::EndDragDropTarget();
     }
 }
+
+
+
+/**
+ * Displays the panel that lists all registered items.
+ */
+void UIDetail::displayRegisteredItemsWindow(gui::GameUI *ui) {
+    if(ImGui::BeginTabBar("Registered Items", 0)) {
+        // blocks
+        if(ImGui::BeginTabItem("Blocks")) {
+            this->drawRegisteredBlocksTable(ui);
+            ImGui::EndTabItem();
+        }
+
+        ImGui::EndTabBar();
+    }
+}
+
+/**
+ * Draws the table listing all registered block types.
+ */
+void UIDetail::drawRegisteredBlocksTable(gui::GameUI *ui) {
+    // begin table
+    ImVec2 outerSize(0, -1);
+    if(!ImGui::BeginTable("Blocks", 2, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
+        return;
+    }
+
+    // header
+    ImGui::TableSetupScrollFreeze(0, 1);
+    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 34);
+    ImGui::TableSetupColumn("Name");
+    ImGui::TableHeadersRow();
+
+    // registered blocks
+    world::BlockRegistry::iterateBlocks([&](const auto &uuid, const auto block) {
+        const auto uuidStr = uuids::to_string(uuid);
+
+        ImGui::TableNextRow();
+        ImGui::PushID(uuidStr.c_str());
+
+        // icon
+        ImGui::TableNextColumn();
+        ItemDrawing::drawBlockIcon(ImGui::GetCursorScreenPos(), uuid, glm::vec2(38.), false);
+
+        // dragging support
+        if(ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
+            RegisteredBlockDragPayload p;
+            p.blockId = uuid;
+
+            ImGui::SetDragDropPayload(kRegisteredBlockDragType, &p, sizeof(p));
+
+            this->dragTooltipForItem(p);
+            ImGui::EndDragDropSource();
+        }
+
+        // name
+        ImGui::TableNextColumn();
+        ImGui::Text("%s\n%s", block->getInternalName().c_str(), uuidStr.c_str());
+
+        ImGui::PopID();
+    });
+
+    // done
+    ImGui::EndTable();
+}
+

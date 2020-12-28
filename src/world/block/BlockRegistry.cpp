@@ -77,6 +77,16 @@ Block *BlockRegistry::getBlock(const uuids::uuid &id) {
     return gShared->blocks[id].block;
 }
 
+/**
+ * Iterates over all blocks.
+ */
+void BlockRegistry::iterateBlocks(const std::function<void(const uuids::uuid &, Block *)> &cb) {
+    for(const auto &[uuid, info] : gShared->blocks) {
+        if(!info.block) continue;
+        cb(uuid, info.block);
+    }
+}
+
 
 
 /**

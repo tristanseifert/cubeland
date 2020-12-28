@@ -5,6 +5,7 @@
 
 #include <cstddef>
 
+#include <uuid.h>
 #include <glm/vec2.hpp>
 #include <glm/vec4.hpp>
 
@@ -24,16 +25,13 @@ class UIDetail {
         void draw(gui::GameUI *gui);
 
     private:
-        /// square size of an item
-        constexpr static const float kItemSize = 50;
-
-        /// color of the item borders
-        constexpr static const glm::vec4 kBorderColor = glm::vec4(0.33, 0.33, 0.33, 1);
-        /// Text color for the item stack count
-        constexpr static const glm::vec4 kCountColor = glm::vec4(1, 1, 1, 1);
-
         /// drag payload type for slots in inventory
         constexpr static const char *kInventorySlotDragType = "InventoryCell";
+        /// drag payload type for blocks dragged from the registered blocks list
+        constexpr static const char *kRegisteredBlockDragType = "RegisteredBlock";
+
+        /// width of the registered items section
+        constexpr static const float kRegisteredItemsWidth = 335.;
 
     private:
         /// modifiers in inventory slot dragging
@@ -42,28 +40,38 @@ class UIDetail {
             kSplitStack
         };
 
-        /// payload of drags of inventory slots
-        struct SlotDragPayload {
-            size_t slot;
+        struct DragPayload {
             SlotDragModifiers modifiers = kNoModifiers;
+        };
+
+        /// payload of drags of inventory slots
+        struct SlotDragPayload: public DragPayload {
+            size_t slot;
+        };
+
+        /// payload of drags from registered blocks pane
+        struct RegisteredBlockDragPayload: public DragPayload {
+            uuids::uuid blockId;
         };
 
     private:
         void drawRow(gui::GameUI *gui, const size_t offset);
-        void drawItemBackground(const glm::vec2 &, const size_t = 999999);
-        void drawItem(const glm::vec2 &, const size_t);
+        void drawDeleteItem(const glm::vec2&, gui::GameUI *);
 
         void dragTooltipForItem(const SlotDragPayload &);
-
         void handleItemDrop(const size_t, const SlotDragPayload *);
 
-        void drawDeleteItem(const glm::vec2&, gui::GameUI *);
+        void dragTooltipForItem(const RegisteredBlockDragPayload &);
+        void handleItemDrop(const size_t, const RegisteredBlockDragPayload *);
+
+        void displayRegisteredItemsWindow(gui::GameUI *);
+        void drawRegisteredBlocksTable(gui::GameUI *);
 
     private:
         UI *owner = nullptr;
 
-        /// font for displaying the count of items
-        ImFont *countFont = nullptr;
+        /// should the list of registered blocks/items be shown?
+        bool showsRegisteredItems = true;
 
         /// texture ID for the delete slot
         world::BlockRegistry::TextureId deleteSlotTex = 0;

@@ -105,6 +105,7 @@ add_executable(cubeland
     src/world/blockImpl/Dirt.cpp
 # inventory support
     src/inventory/Manager.cpp
+    src/inventory/ItemDrawing.cpp
     src/inventory/UI.cpp
     src/inventory/UIBar.cpp
     src/inventory/UIDetail.cpp

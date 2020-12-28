@@ -1,6 +1,7 @@
 #include "UI.h"
 #include "UIBar.h"
 #include "UIDetail.h"
+#include "ItemDrawing.h"
 #include "Manager.h"
 
 #include "gui/GameUI.h"
@@ -50,17 +51,18 @@ void UI::uploadAtlasTexture() {
     glm::ivec2 atlasSize;
     std::vector<std::byte> data;
 
-    // generate the data and upload it
+    // generate the data and upload it; then generate mipmaps
     world::BlockRegistry::generateInventoryTextureAtlas(atlasSize, data);
 
     this->atlas->allocateBlank(atlasSize.x, atlasSize.y, gfx::Texture2D::RGBA16F);
     this->atlas->bufferSubData(atlasSize.x, atlasSize.y, 0, 0,  gfx::Texture2D::RGBA16F, data.data());
 
-    // generate mipmaps
     this->atlas->bind();
     gl::glGenerateMipmap(gl::GL_TEXTURE_2D);
     gl::glTexParameterf(gl::GL_TEXTURE_2D, gl::GL_TEXTURE_MAX_ANISOTROPY_EXT, 4.f);
     gl::glTexParameteri(gl::GL_TEXTURE_2D, gl::GL_TEXTURE_MIN_FILTER, gl::GL_LINEAR_MIPMAP_LINEAR);
+
+    ItemDrawing::setAtlasTexture(this->atlas);
 }
 
 
@@ -72,6 +74,12 @@ void UI::uploadAtlasTexture() {
  * only the bar is drawn.
  */
 void UI::draw(gui::GameUI *ui) {
+    // update fonts if needed
+    if(this->needsFontUpdate) {
+        ItemDrawing::setCountFont(ui->getFont(gui::GameUI::kGameFontBold));
+        this->needsFontUpdate = false;
+    }
+
     // draw the bar at the bottom
     bool showDetail = (this->showsDetail | this->shouldClose);
     bool toClose = this->bar->draw(ui, !showsDetail);
@@ -97,6 +105,22 @@ void UI::draw(gui::GameUI *ui) {
     // close out window context
     if(toClose) {
         ImGui::End();
+    }
+}
+
+/**
+ * Draws an inventory item at the given position. Assumes the frame (if any) has already been
+ * drawn before.
+ *
+ * @note Assumes the slots are locked or otherwise allowed to be accessed unconditionally
+ */
+void UI::drawItem(const glm::vec2 &origin, const size_t slotIdx) {
+    const auto &slot = this->inventory->slots[slotIdx];
+
+    // a stack of blocks
+    if(std::holds_alternative<Manager::InventoryBlock>(slot)) {
+        const auto &block = std::get<Manager::InventoryBlock>(slot);
+        ItemDrawing::drawBlockItem(origin, block.blockId, block.count);
     }
 }
 

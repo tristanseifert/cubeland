@@ -7,6 +7,8 @@
 
 #include "gui/GameWindow.h"
 
+#include <glm/vec2.hpp>
+
 namespace gfx {
 class Texture2D;
 }
@@ -47,6 +49,8 @@ class UI: public gui::GameWindow {
     private:
         void uploadAtlasTexture();
 
+        void drawItem(const glm::vec2 &, const size_t);
+
     private:
         Manager *inventory = nullptr;
 
@@ -55,6 +59,8 @@ class UI: public gui::GameWindow {
 
         bool shouldClose = false;
         bool showsDetail = false;
+
+        bool needsFontUpdate = true;
 
         /// texture atlas for inventory images
         gfx::Texture2D *atlas = nullptr;
