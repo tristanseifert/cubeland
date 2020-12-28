@@ -42,7 +42,7 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
         auto gen = std::make_shared<world::Terrain>(420);
 
         this->source = std::make_shared<world::WorldSource>(file, gen);
-        this->source->setGenerateOnly(true);
+        // this->source->setGenerateOnly(true);
     } catch(std::exception &e) {
         Logging::error("Failed to open world: {}", e.what());
         exit(-1);
@@ -86,6 +86,7 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
 
     // interactions and some game UI
     this->inventory = new inventory::Manager(this->input);
+    this->inventory->loadInventory(this->source);
 
     this->inventoryUi = std::make_shared<inventory::UI>(this->inventory);
     _gui->addWindow(this->inventoryUi);
@@ -110,6 +111,7 @@ WorldRenderer::~WorldRenderer() {
     this->steps.clear();
 
     delete this->input;
+    this->source = nullptr;
 }
 
 /**

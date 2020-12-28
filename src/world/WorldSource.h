@@ -16,6 +16,7 @@
 #include <vector>
 #include <future>
 
+#include <uuid.h>
 #include <blockingconcurrentqueue.h>
 
 namespace world {
@@ -36,6 +37,11 @@ class WorldSource {
                 return this->workerGetChunk(x, z);
             });
         }
+
+        /// Set the value of a player info key.
+        std::future<void> setPlayerInfo(const std::string &key, const std::vector<char> &value);
+        /// Reads the value of a player info key.
+        std::promise<std::vector<char>> getPlayerInfo(const std::string &key);
 
         /// Sets whether we ignore the file and generate all data
         void setGenerateOnly(const bool value) {
@@ -96,6 +102,9 @@ class WorldSource {
 
         /// when set, we go directly to the generator for all chunks
         std::atomic_bool generateOnly;
+
+        /// UUID of the current player
+        uuids::uuid playerId;
 };
 }
 

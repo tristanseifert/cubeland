@@ -61,6 +61,7 @@ FileWorldReader::FileWorldReader(const std::string &path, const bool create) : w
     // perform some mandatory initialization
     this->initializeSchema();
     this->loadBlockTypeMap();
+    this->loadPlayerIds();
 
     // set up the worker thread
     this->workerRun = true;
@@ -508,3 +509,49 @@ void FileWorldReader::loadBlockTypeMap() {
 void FileWorldReader::writeBlockTypeMap() {
     // TODO: implement
 }
+
+
+
+/**
+ * Reads a player info key.
+ */
+std::promise<std::vector<char>> FileWorldReader::getPlayerInfo(const uuids::uuid &player,
+        const std::string &key) {
+    this->canAcceptRequests();
+    std::promise<std::vector<char>> prom;
+
+    this->workQueue.enqueue({ .f = [&, player, key]{
+        try {
+            // TODO: figure out a better way to return "not found" than a 0 byte result
+            std::vector<char> data;
+            bool found = this->readPlayerInfo(player, key, data);
+            prom.set_value(data);
+        } catch (std::exception &e) {
+            Logging::error("Failed to read player info: {}", e.what());
+            prom.set_exception(std::current_exception());
+        }
+    }});
+
+    return prom;
+}
+
+/**
+ * Writes player info. Note that we must have a mapping from player id to row id.
+ */
+std::promise<void> FileWorldReader::setPlayerInfo(const uuids::uuid &player, const std::string &key, const std::vector<char> &data) {
+    this->canAcceptRequests();
+    std::promise<void> prom;
+
+    this->workQueue.enqueue({ .f = [&, player, key, data]{
+        try {
+            this->updatePlayerInfo(player, key, data);
+            prom.set_value();
+        } catch (std::exception &e) {
+            Logging::error("Failed to write player info: {}", e.what());
+            prom.set_exception(std::current_exception());
+        }
+    }});
+
+    return prom;
+}
+

@@ -3,7 +3,9 @@
 
 #include <future>
 #include <memory>
+#include <vector>
 
+#include <uuid.h>
 #include <glm/vec4.hpp>
 
 namespace world {
@@ -48,6 +50,16 @@ class WorldReader {
          * @return A promise that indicates whether the chunk was written or not.
          */
         virtual std::promise<bool> putChunk(std::shared_ptr<Chunk> chunk) = 0;
+
+        /**
+         * Reads a player info key for the given player and key name pair.
+         */
+        virtual std::promise<std::vector<char>> getPlayerInfo(const uuids::uuid &player, const std::string &key) = 0;
+
+        /**
+         * Sets a given player's player info key value.
+         */
+        virtual std::promise<void> setPlayerInfo(const uuids::uuid &player, const std::string &key, const std::vector<char> &data) = 0;
 };
 }
 

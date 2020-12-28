@@ -415,3 +415,36 @@ void FileWorldReader::extractBlockMeta(std::shared_ptr<Chunk> chunk, std::array<
     }
 }
 
+
+
+/**
+ * Writes the given value into a player info key, overwriting the key if it already exists.
+ */
+void FileWorldReader::updatePlayerInfo(const uuids::uuid &player, const std::string &key, const std::vector<char> &data) {
+    int err;
+    sqlite3_stmt *stmt = nullptr;
+
+    // get player id
+    if(!this->playerIds.contains(player)) {
+        throw std::runtime_error("Unknown player id");
+    }
+    const auto playerId = this->playerIds[player];
+
+    // prepare the query
+    this->prepare("INSERT INTO playerinfo_v1 (playerId, name, value) VALUES (?, ?, ?) ON CONFLICT(playerId, name) DO UPDATE SET value=excluded.value, modified=CURRENT_TIMESTAMP;", &stmt);
+
+    this->bindColumn(stmt, 1, playerId);
+    this->bindColumn(stmt, 2, key);
+    this->bindColumn(stmt, 3, data);
+
+    // execute
+    err = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if(err != SQLITE_DONE && err != SQLITE_ROW) {
+        throw std::runtime_error(f("Failed to write player info: {}", err));
+    }
+
+    // we're done
+}
+

@@ -439,3 +439,79 @@ beach:;
     // last, store the row in the slice
     slice->rows[z] = std::move(row);
 }
+
+/**
+ * Gets all players from the database and builds a mapping of UUID -> object ID.
+ */
+void FileWorldReader::loadPlayerIds() {
+    std::unordered_map<uuids::uuid, int64_t> ids;
+    int err;
+    sqlite3_stmt *stmt = nullptr;
+
+    // build query
+    this->prepare("SELECT id,uuid FROM player_v1;", &stmt);
+
+    err = sqlite3_step(stmt);
+    while(err == SQLITE_ROW) {
+        // get UUID and ID
+        int64_t id;
+        uuids::uuid uuid;
+
+        if(!this->getColumn(stmt, 0, id) || !this->getColumn(stmt, 1, uuid)) {
+            throw std::runtime_error("Failed to get player id or uuid");
+        }
+
+        ids[uuid] = id;
+        Logging::trace("Player {} -> id {}", uuids::to_string(uuid), id);
+
+        // get next row
+        err = sqlite3_step(stmt);
+    }
+
+    // clean up
+    sqlite3_finalize(stmt);
+    this->playerIds = ids;
+}
+
+/**
+ * Reads a player info key, if it exists.
+ *
+ * @return Whether the key exists or not. Allows to distinguish between 0-byte and nonexistent
+ * player info keys.
+ */
+bool FileWorldReader::readPlayerInfo(const uuids::uuid &player, const std::string &key,
+        std::vector<char> &data) {
+    int err;
+    sqlite3_stmt *stmt = nullptr;
+
+    // get player id
+    if(!this->playerIds.contains(player)) {
+        throw std::runtime_error("Unknown player id");
+    }
+    const auto playerId = this->playerIds[player];
+
+    // prepare the query
+    this->prepare("SELECT value FROM playerinfo_v1 WHERE playerId = ? AND name = ?;", &stmt);
+
+    this->bindColumn(stmt, 1, playerId);
+    this->bindColumn(stmt, 2, key);
+
+    // execute
+    err = sqlite3_step(stmt);
+    if(err != SQLITE_DONE && err != SQLITE_ROW) {
+        sqlite3_finalize(stmt);
+        throw std::runtime_error(f("Failed to read player info: {}", err));
+    }
+
+    if(err == SQLITE_ROW) {
+        if(!this->getColumn(stmt, 0, data)) {
+            sqlite3_finalize(stmt);
+            throw std::runtime_error("Failed to get player info value");
+        }
+    }
+
+    // clean up
+    sqlite3_finalize(stmt);
+    return (err == SQLITE_ROW);
+}
+

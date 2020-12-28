@@ -49,10 +49,13 @@ class FileWorldReader: public WorldReader {
     public:
         std::promise<size_t> getDbSize();
 
-        std::promise<bool> chunkExists(int x, int z);
-        std::promise<glm::vec4> getWorldExtents();
-        std::promise<std::shared_ptr<Chunk>> getChunk(int x, int z);
-        std::promise<bool> putChunk(std::shared_ptr<Chunk> chunk);
+        std::promise<bool> chunkExists(int x, int z) override;
+        std::promise<glm::vec4> getWorldExtents() override;
+        std::promise<std::shared_ptr<Chunk>> getChunk(int x, int z) override;
+        std::promise<bool> putChunk(std::shared_ptr<Chunk> chunk) override;
+
+        std::promise<std::vector<char>> getPlayerInfo(const uuids::uuid &player, const std::string &key) override;
+        std::promise<void> setPlayerInfo(const uuids::uuid &player, const std::string &key, const std::vector<char> &data) override;
 
     // these are the DB-context relative functions of the above
     private:
@@ -101,6 +104,10 @@ class FileWorldReader: public WorldReader {
     private:
         void loadBlockTypeMap();
         void writeBlockTypeMap();
+
+        void loadPlayerIds();
+        void updatePlayerInfo(const uuids::uuid &player, const std::string &key, const std::vector<char> &data);
+        bool readPlayerInfo(const uuids::uuid &player, const std::string &key, std::vector<char> &data);
 
     private:
         class DbError: public std::runtime_error {
@@ -201,6 +208,9 @@ class FileWorldReader: public WorldReader {
         std::array<uint16_t, (256*256)> sliceTempGrid;
         /// decompression scratch buffer
         std::vector<char> scratch;
+
+        // cache of all player uuid -> player object IDs
+        std::unordered_map<uuids::uuid, int64_t> playerIds;
 
         /// used for decompressing/compressing block data
         std::unique_ptr<util::LZ4> compressor;

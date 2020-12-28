@@ -28,7 +28,7 @@ WorldSource::WorldSource(std::shared_ptr<WorldReader> _r, std::shared_ptr<WorldG
     if(!numThreads) {
         numThreads = io::PrefsManager::getUnsigned("world.sourceWorkThreads", 2);
     }
-    
+
     this->numWorkers = numThreads;
     this->workerRun = true;
 
@@ -36,6 +36,9 @@ WorldSource::WorldSource(std::shared_ptr<WorldReader> _r, std::shared_ptr<WorldG
         auto worker = std::make_unique<std::thread>(&WorldSource::workerMain, this, i);
         this->workers.push_back(std::move(worker));
     }
+
+    // set up default player id
+    this->playerId = uuids::uuid::from_string("B8B0B551-8BF5-4F06-9C56-3A540120E8E5");
 
     // set up some additional initial state
     this->generateOnly = false;
@@ -72,7 +75,8 @@ std::shared_ptr<Chunk> WorldSource::workerGetChunk(const int x, const int z) {
         auto exists = this->reader->chunkExists(x, z);
         if(exists.get_future().get()) {
             auto chunk = this->reader->getChunk(x, z);
-            return chunk.get_future().get();
+            auto future = chunk.get_future();
+            return future.get();
         }
     }
 
@@ -96,5 +100,23 @@ void WorldSource::workerMain(size_t i) {
         this->workQueue.wait_dequeue(item);
         item();
     }
+}
+
+/**
+ * Writes some player info data. This will go directly to the world reader.
+ */
+std::future<void> WorldSource::setPlayerInfo(const std::string &key, const std::vector<char> &value) {
+    return this->work([&, key, value] {
+        auto promise = this->reader->setPlayerInfo(this->playerId, key, value);
+        auto future = promise.get_future();
+        future.get();
+    });
+}
+
+/**
+ * Returns the player info value for the given key.
+ */
+std::promise<std::vector<char>> WorldSource::getPlayerInfo(const std::string &key) {
+    return this->reader->getPlayerInfo(this->playerId, key);
 }
 

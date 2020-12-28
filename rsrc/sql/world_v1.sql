@@ -41,6 +41,7 @@ CREATE TABLE playerinfo_v1 (
     value BLOB,
     modified DATETIME DEFAULT CURRENT_TIMESTAMP,
 
+    UNIQUE(playerId, name) ON CONFLICT ABORT,
     FOREIGN KEY(playerId) REFERENCES player_v1(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 CREATE INDEX playerinfo_playerid ON playerinfo_v1(playerId);

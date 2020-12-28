@@ -180,6 +180,7 @@ void UIDetail::drawItem(const glm::vec2 &origin, const size_t slotIdx) {
  * Draws a drag tooltip for a given item. This contains the image, type, and count.
  */
 void UIDetail::dragTooltipForItem(const SlotDragPayload &payload) {
+    LOCK_GUARD(this->owner->inventory->slotLock, DrawDragTooltip);
     const auto &slot = this->owner->inventory->slots[payload.slot];
 
     size_t count = 0;
@@ -231,6 +232,8 @@ void UIDetail::dragTooltipForItem(const SlotDragPayload &payload) {
  * Handles an accepted drop of an inventory slot.
  */
 void UIDetail::handleItemDrop(const size_t dstSlot, const SlotDragPayload *p) {
+    LOCK_GUARD(this->owner->inventory->slotLock, HandleSlotDrop);
+
     // get source slot info
     auto &source = std::get<Manager::InventoryBlock>(this->owner->inventory->slots[p->slot]);
 
@@ -288,6 +291,7 @@ swap:;
 beach:;
     // finished, clean up empty slots
     this->owner->inventory->removeEmptySlots();
+    this->owner->inventory->markDirty();
 }
 
 /**
@@ -315,7 +319,16 @@ void UIDetail::drawDeleteItem(const glm::vec2 &origin, gui::GameUI *gui) {
             XASSERT(payload->DataSize == sizeof(SlotDragPayload), "Invalid paylad size {}", payload->DataSize);
 
             const auto fromSlot = reinterpret_cast<SlotDragPayload *>(payload->Data);
-            this->owner->inventory->slots[fromSlot->slot] = std::monostate();
+
+            LOCK_GUARD(this->owner->inventory->slotLock, DeleteSlot);
+            if(fromSlot->modifiers & kSplitStack) {
+                auto &source = std::get<Manager::InventoryBlock>(this->owner->inventory->slots[fromSlot->slot]);
+                source.count /= 2;
+            } else {
+                this->owner->inventory->slots[fromSlot->slot] = std::monostate();
+            }
+
+            this->owner->inventory->markDirty();
         }
 
         // end drop target

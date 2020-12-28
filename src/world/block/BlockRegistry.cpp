@@ -36,8 +36,6 @@ void BlockRegistry::init() {
  * Sets up the block registry.
  */
 BlockRegistry::BlockRegistry() {
-    Logging::debug("Air block id: {}", uuids::to_string(kAirBlockId));
-
     this->dataGen = new BlockDataGenerator(this);
 }
 /**
