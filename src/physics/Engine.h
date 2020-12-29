@@ -44,9 +44,9 @@ class Engine {
         /// Gravity vector (defined in m/s)
         static const Eigen::Vector3d kGravity;
         /// Mass of the player (in kg)
-        constexpr static const double kPlayerMass = 15.;
+        constexpr static const double kPlayerMass = 5;
         /// Velocity to apply when jumping
-        constexpr static const double kJumpVelocity = 35.;
+        constexpr static const double kJumpVelocity = 2.;
 
     private:
         /// Applies a velocity to the player
@@ -88,6 +88,7 @@ class Engine {
         Eigen::Vector3d playerVelocity = Eigen::Vector3d(0,0,0);
         /// Whether the player is falling, e,g. whether below us is a solid block or not
         bool playerFalling = false;
+        bool inhibitJankyFix = false;
 };
 }
 

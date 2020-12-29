@@ -66,10 +66,6 @@ void Engine::setPlayerPosition(const glm::vec3 &newPos) {
 void Engine::playerJump() {
     if(!this->playerFalling) {
         this->physEvents.enqueue(PlayerVelocity(Eigen::Vector3d(0, kJumpVelocity, 0)));
-        Logging::trace("jumpendir");
-
-        /// XXX: hax alert
-        this->playerFalling = true;
     }
 }
 
@@ -97,7 +93,9 @@ void Engine::main() {
             const auto &v = std::get<PlayerVelocity>(e);
 
             this->playerVelocity += v.velocity;
-            Logging::trace("Applying impulse: {} {} {}", this->playerVelocity(0), this->playerVelocity(1), this->playerVelocity(2));
+            /// XXX: hax alert
+            this->inhibitJankyFix = true;
+            Logging::trace("Appplied impulse: {} {} {}", this->playerVelocity(0), this->playerVelocity(1), this->playerVelocity(2));
         }
     }
 
@@ -146,7 +144,6 @@ void Engine::checkPlayerFalling() {
     // grab the block below us
     auto chunk = this->scene->getChunk(chunkPos);
     if(!chunk) {
-        Logging::trace("Not falling because chunk not found: {}", chunkPos);
         this->playerFalling = false;
         return;
     }
@@ -170,9 +167,9 @@ void Engine::updatePlayerVelocities(const float h) {
     auto velocity = this->playerVelocity;
 
     // apply gravity; if not falling, we just apply an equal opposite force
-    velocity = h * kPlayerMass * kGravity;
+    velocity += h * kPlayerMass * kGravity;
 
-    if(!this->playerFalling) {
+    if(!this->playerFalling && !this->inhibitJankyFix) {
     //    velocity = h * kPlayerMass * -kGravity;
         velocity(1) = std::max(0., velocity(1));
     }
@@ -182,11 +179,13 @@ void Engine::updatePlayerVelocities(const float h) {
     const auto delta = h * velocity;
     const auto yDelta = delta(1);
 
-    Logging::trace("Player velocity: {}, pos delta: {} falling {}", velocity(1), delta(1), this->playerFalling);
 
     if(yDelta) {
+        Logging::trace("Player velocity: {}, pos delta: {} falling {}", velocity(1), delta(1), this->playerFalling);
         world::TickHandler::defer([&, yDelta] {
             this->camera->applyRawDeltas(glm::vec3(0, yDelta, 0));
         });
     }
+
+    this->inhibitJankyFix = false;
 }

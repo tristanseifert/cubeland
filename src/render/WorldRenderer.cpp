@@ -268,7 +268,7 @@ void WorldRenderer::updateView() {
     // give each of the stages some information from the camera for rendering
     for(auto stage : this->steps) {
         stage->viewMatrix = this->camera.getViewMatrix();
-        stage->viewPosition = this->camera.getCameraPosition();
+        stage->viewPosition = this->camera.getShiftedCameraPosition();
         stage->viewLookAt = this->camera.getCameraLookAt();
         stage->viewDirection = this->camera.getCameraFront();
         stage->viewUp = this->camera.getCameraUp();

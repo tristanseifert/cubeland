@@ -19,6 +19,9 @@ class Camera {
             return this->view;
         }
 
+        const glm::vec3 getShiftedCameraPosition(void) const {
+            return this->cameraPosition + glm::vec3(0, this->yOffset, 0);
+        }
         const glm::vec3 getCameraPosition(void) const {
             return this->cameraPosition;
         }

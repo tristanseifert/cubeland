@@ -66,7 +66,7 @@ bool PlayerWorldCollisionHandler::isPositionOk(const glm::vec3 &pos) {
 
                     // check if the block is air type
                     if(world::BlockRegistry::isCollidableBlock(*block)) {
-                        Logging::trace("Intersecting with solid block {} -> chunk {}, offset {}", blockLb, chunkPos, blockOff);
+                        // Logging::trace("Intersecting with solid block {} -> chunk {}, offset {}", blockLb, chunkPos, blockOff);
                         return false;
                     }
 
