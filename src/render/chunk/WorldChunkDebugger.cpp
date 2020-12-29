@@ -160,7 +160,7 @@ void WorldChunkDebugger::drawHighlightsList() {
     ImGui::TableHeadersRow();
 
     size_t i = 0;
-    for(const auto info : this->chunk->highlightData) {
+    for(const auto &info : this->chunk->highlightData) {
         ImGui::TableNextRow();
         ImGui::PushID(i);
 

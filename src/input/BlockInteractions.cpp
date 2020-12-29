@@ -27,7 +27,7 @@ using namespace input;
  */
 BlockInteractions::BlockInteractions(std::shared_ptr<render::SceneRenderer> _scn, 
         std::shared_ptr<world::WorldSource> _src, inventory::Manager *_inv) : scene(_scn), 
-        source(_src), inventory(_inv) {
+        inventory(_inv), source(_src) {
     this->tickCb = world::TickHandler::add(std::bind(&BlockInteractions::destroyTickCallback, this));
 }
 

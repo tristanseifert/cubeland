@@ -88,7 +88,6 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
 
     // interactions and some game UI
     this->physics = new physics::Engine(scnRnd, &this->camera);
-    this->playerCollision = new physics::PlayerWorldCollisionHandler(scnRnd);
 
     this->inventory = new inventory::Manager(this->input);
     this->inventory->loadInventory(this->source);
@@ -113,7 +112,6 @@ WorldRenderer::~WorldRenderer() {
     }
 
     delete this->posSaver;
-    delete this->playerCollision;
 
     delete this->blockInt;
     delete this->physics;
@@ -133,11 +131,21 @@ WorldRenderer::~WorldRenderer() {
  * Prepare the world for rendering.
  */
 void WorldRenderer::willBeginFrame() {
+    // update the inputs and camera as well as camera display angles
     this->input->startFrame();
     this->camera.startFrame();
 
+    // pass position deltas to the physics engine for the player physics; then update view
+    const glm::vec3 angles = this->input->getEulerAngles();
+    const glm::vec3 deltas = this->input->getMovementDelta();
+
+    this->camera.updateAngles(angles, this->input->getNonpitchEulerAngles());
+
+    this->physics->movePlayer(deltas, this->input->shouldJump());
+
     this->updateView();
 
+    // start of frame for render steps
     this->source->startOfFrame();
     this->posSaver->startOfFrame(this->camera.getCameraPosition());
 
@@ -235,25 +243,6 @@ bool WorldRenderer::handleEvent(const SDL_Event &event) {
  */
 void WorldRenderer::updateView() {
     PROFILE_SCOPE(UpdateView);
-
-    // update camera with Euler angles
-    const glm::vec3 angles = this->input->getEulerAngles();
-    const glm::vec3 deltas = this->input->getMovementDelta();
-
-    this->camera.updateAngles(angles, this->input->getNonpitchEulerAngles());
-
-    // apply jump if needed
-    if(this->input->shouldJump()) {
-        this->physics->playerJump();
-    }
-
-    // then, check to see whether the calculated next position is ok (collision wise)
-    const auto nextPos = this->camera.deltasToPos(deltas);
-    if(this->playerCollision->isPositionOk(nextPos)) {
-        this->camera.updatePosition(deltas);
-    }
-
-    this->physics->setPlayerPosition(this->camera.getCameraPosition());
 
     // finally, update camera view matrix and the projection matrix
     this->camera.updateViewMatrix();

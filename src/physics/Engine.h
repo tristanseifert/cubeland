@@ -14,56 +14,55 @@
 #include <Eigen/Eigen>
 #include <blockingconcurrentqueue.h>
 
+namespace reactphysics3d {
+class PhysicsCommon;
+class PhysicsWorld;
+}
+
 namespace render {
 class SceneRenderer;
 class Camera;
 }
 
 namespace physics {
+class PlayerWorldCollisionHandler;
+
 class Engine {
     public:
         Engine(std::shared_ptr<render::SceneRenderer> &scene, render::Camera *cam);
         ~Engine();
 
-        void playerJump();
-        void setPlayerPosition(const glm::vec3 &newPos);
+        void startOfFrame();
+
+        void movePlayer(const glm::vec3 &deltas, const bool jump);
 
     private:
         void notifyTick();
 
         void main();
-        void step();
-
-        void checkPlayerFalling();
-        void updatePlayerVelocities(const float h);
 
     private:
         /// bias value added to the current Y position when checking floating state
-        constexpr static const double kYBias = -0.2;
+        constexpr static const double kYBias = -0.25;
 
         /// Gravity vector (defined in m/s)
         static const Eigen::Vector3d kGravity;
         /// Mass of the player (in kg)
-        constexpr static const double kPlayerMass = 5;
+        constexpr static const double kPlayerMass = 3.33;
         /// Velocity to apply when jumping
         constexpr static const double kJumpVelocity = 2.;
 
     private:
-        /// Applies a velocity to the player
-        struct PlayerVelocity {
-            PlayerVelocity(const Eigen::Vector3d &_v) : velocity(_v) {}
-
-            Eigen::Vector3d velocity;
-        };
-
-        /// Indicates a tick occurred
-        struct TickEvent {
-            uint8_t dummy = 0;
-        };
-
-        using Event = std::variant<std::monostate, TickEvent, PlayerVelocity>;
+        using Event = std::variant<std::monostate>;
 
     private:
+        PlayerWorldCollisionHandler *playerCollision = nullptr;
+
+        /// this is the source of all data for the physics engine
+        reactphysics3d::PhysicsCommon *common = nullptr;
+        /// actual physics world that all the things take place in
+        reactphysics3d::PhysicsWorld *world = nullptr;
+
         /// get chunk data from this scene
         std::shared_ptr<render::SceneRenderer> scene = nullptr;
         /// camera for viewing
@@ -79,16 +78,14 @@ class Engine {
         /// id of the tick handler. this forwards the event to the physics engine
         uint32_t tickHandler = 0;
 
-        /// time at which the last physics step took place
-        std::chrono::high_resolution_clock::time_point lastPhysStep;
-
+        /// time of the last player update
+        std::chrono::high_resolution_clock::time_point lastPlayerStep;
         /// position of the player
         glm::vec3 playerPosition;
         /// Velocity of the player
         Eigen::Vector3d playerVelocity = Eigen::Vector3d(0,0,0);
         /// Whether the player is falling, e,g. whether below us is a solid block or not
         bool playerFalling = false;
-        bool inhibitJankyFix = false;
 };
 }
 

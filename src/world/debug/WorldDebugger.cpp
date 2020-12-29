@@ -68,7 +68,7 @@ void WorldDebugger::draw(gui::GameUI *ui) {
     // current loader
     ImGui::TextUnformatted("World: ");
     ImGui::SameLine();
-    ImGui::Text("%p", this->world.get());
+    ImGui::Text("%p", (void *) this->world.get());
     ImGui::TextUnformatted("Implementation: ");
     ImGui::SameLine();
     ImGui::Text("%s", typeid(this->world.get()).name());
@@ -432,7 +432,7 @@ void WorldDebugger::drawChunkViewer(gui::GameUI *ui) {
     // main details of chunk
     ImGui::TextUnformatted("Instance: ");
     ImGui::SameLine();
-    ImGui::Text("%p", this->chunk.get());
+    ImGui::Text("%p", (void *) this->chunk.get());
 
     ImGui::TextUnformatted("Metadata: ");
     ImGui::SameLine();
@@ -581,7 +581,7 @@ void WorldDebugger::drawChunkRows(gui::GameUI *ui) {
     ImGui::SameLine();
 
     auto slice = this->chunk->slices[this->viewerState.currentSlice];
-    ImGui::Text("%p", slice);
+    ImGui::Text("%p", (void *) slice);
 
     // bail if there is no slice
     if(!slice) {
@@ -600,7 +600,7 @@ void WorldDebugger::drawChunkRows(gui::GameUI *ui) {
     ImGui::SameLine();
 
     auto row = slice->rows[this->viewerState.currentRow];
-    ImGui::Text("%p", row);
+    ImGui::Text("%p", (void *) row);
 
     if(row) {
         ImGui::TextUnformatted("ID Map: ");
@@ -771,8 +771,6 @@ void WorldDebugger::resetChunkViewer() {
  * Worker thread main loop
  */
 void WorldDebugger::workerMain() {
-    int err;
-
     MUtils::Profiler::NameThread("World Debugger");
 
     // wait for work to come in

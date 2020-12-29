@@ -122,7 +122,8 @@ add_executable(cubeland
 SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -mavx")
 
 # warnings
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-anon-enum-enum-conversion")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wpedantic")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-anon-enum-enum-conversion -Wno-defaulted-function-deleted -Wno-gnu-zero-variadic-macro-arguments -Wno-reorder-ctor")
 
 # platform-specific stuff
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
@@ -330,6 +331,12 @@ target_include_directories(cubeland PRIVATE libs/cereal/include)
 target_link_libraries(cubeland PRIVATE FastNoise)
 target_link_directories(cubeland PRIVATE libs/fastnoise2/build/src)
 target_include_directories(cubeland PRIVATE libs/fastnoise2/include)
+
+# ReactPhysics (you must build this in its directory)
+target_link_directories(cubeland PRIVATE libs/reactphysics3d/build)
+target_include_directories(cubeland PRIVATE libs/reactphysics3d/include)
+
+target_link_libraries(cubeland PRIVATE reactphysics3d)
 
 ###################################################################################################
 #### platform-specific libraries

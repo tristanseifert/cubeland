@@ -26,8 +26,8 @@
 
 #include "util/ThreadPool.h"
 
-class MetricsGuiMetric;
-class MetricsGuiPlot;
+struct MetricsGuiMetric;
+struct MetricsGuiPlot;
 
 namespace util {
 class Frustum;

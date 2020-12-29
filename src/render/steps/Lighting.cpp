@@ -33,28 +33,6 @@
 
 using namespace render;
 
-// test data
-static const glm::vec3 cubeLightColors[] = {
-	glm::vec3(1.0f, 0.0f, 0.0f),
-	glm::vec3(0.0f, 1.0f, 0.0f),
-	glm::vec3(0.0f, 0.0f, 1.0f),
-	glm::vec3(1.0f, 0.5f, 0.0f) * 10.f,
-/*	glm::vec3(176.f/255.f, 23.f/255.f, 31.f/255.f),
-	glm::vec3(0.5f, 0.0f, 0.5f),
-	glm::vec3(0.0f, 1.0f, 1.0f),
-	glm::vec3(1.0f, 1.0f, 0.0f),
-	glm::vec3(1.0f, 0.5f, 0.0f),
-	glm::vec3(113.f/255.f, 198.f/255.f, 113.f/255.f),
-	glm::vec3(1.0f, 0.8f, 0.8f),*/
-};
-
-static const glm::vec3 cubeLightPositions[] = {
-    glm::vec3( 1.5f,  2.0f, -2.5f),
-    glm::vec3( 1.5f,  0.2f, -1.5f),
-    glm::vec3(-1.3f,  1.0f, -1.5f),
-    glm::vec3( 1.5f,  2.0f, -1.5f)
-};
-
 // vertices for a full-screen quad
 static const gl::GLfloat kQuadVertices[] = {
     -1.0f,  1.0f, 0.0f,		0.0f, 1.0f,
@@ -236,7 +214,7 @@ void Lighting::generateSkyNoise() {
     std::vector<float> data;
     data.resize(this->skyNoiseTextureSize * this->skyNoiseTextureSize);
 
-    auto range = g->GenTileable2D(data.data(), this->skyNoiseTextureSize, this->skyNoiseTextureSize,
+    g->GenTileable2D(data.data(), this->skyNoiseTextureSize, this->skyNoiseTextureSize,
             this->skyNoiseFrequency, this->skyNoiseSeed);
 
     // transfer it to the texture (fresh allocation _may_ help some drivers)
@@ -536,7 +514,7 @@ void Lighting::renderSky(WorldRenderer *r) {
     // bind program
     this->skyProgram->bind();
 
-    glm::mat4 newView = glm::mat4(glm::mat3(this->viewMatrix));
+    // glm::mat4 newView = glm::mat4(glm::mat3(this->viewMatrix));
     this->skyProgram->setUniformMatrix("view", this->viewMatrix);
     this->skyProgram->setUniformMatrix("projection", this->projectionMatrix);
     this->skyProgram->setUniform1f("time", r->getTime());
@@ -847,7 +825,6 @@ void Lighting::drawLightsTable() {
             ImGui::TableNextRow();
 
             // labels for each component
-            char labelDiff[32], labelSpec[32], labelPos[32], labelDir[32];
             ImGui::PushID(i++);
 
             // render based on light type

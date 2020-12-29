@@ -25,7 +25,7 @@ class UI: public gui::GameWindow {
 
     public:
         UI(Manager *invMgr);
-        ~UI();
+        virtual ~UI();
 
         void draw(gui::GameUI *gui) override;
 

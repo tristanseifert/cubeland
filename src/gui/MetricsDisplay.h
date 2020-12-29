@@ -3,8 +3,8 @@
 
 #include "GameWindow.h"
 
-class MetricsGuiMetric;
-class MetricsGuiPlot;
+struct MetricsGuiMetric;
+struct MetricsGuiPlot;
 
 namespace io {
 class MetricsManager;
@@ -16,7 +16,7 @@ class MetricsDisplay: public GameWindow {
 
     public:
         MetricsDisplay();
-        ~MetricsDisplay();
+        virtual ~MetricsDisplay();
 
         // Draw the controls desired here
         virtual void draw(GameUI *gui) override;

@@ -385,7 +385,7 @@ void ChunkLoader::updateLookAtBlock() {
     });
 
     // try to find the first non-air block
-    for(const auto [blockPos, distance] : distances) {
+    for(const auto &[blockPos, distance] : distances) {
         // convert the block position to a chunk position and try to get the chunk
         glm::vec2 chunkPosF = glm::vec2(blockPos.x, blockPos.z) / glm::vec2(256., 256.);
         glm::ivec2 chunkPos = glm::ivec2(glm::floor(chunkPosF));
@@ -1086,7 +1086,7 @@ void ChunkLoader::drawChunkList() {
         ImGui::Text("%d,%d", (int) position.x, (int) position.y);
 
         ImGui::TableNextColumn();
-        ImGui::Text("%p", info.wc.get());
+        ImGui::Text("%p", (void *) info.wc.get());
 
         ImGui::TableNextColumn();
         const auto alloc = info.wc->chunk->poolAllocSpace();
