@@ -21,9 +21,6 @@ class PlayerWorldCollisionHandler {
         bool isPositionOk(const glm::vec3 &pos);
 
     private:
-        static void absoluteToRelative(const glm::ivec3 &pos, glm::ivec2 &chunkPos, glm::ivec3 &blockPos);
-
-    private:
         /// get chunk data from this scene
         std::shared_ptr<render::SceneRenderer> scene = nullptr;
 };

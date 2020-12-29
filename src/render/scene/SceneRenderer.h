@@ -57,7 +57,7 @@ class SceneRenderer: public RenderStep {
         std::optional<std::pair<glm::ivec3, glm::ivec3>> getSelectedBlockPos() const;
         // std::optional<glm::ivec3> getSelectedBlockPos() const;
         std::shared_ptr<world::Chunk> getChunk(const glm::ivec2 &pos);
-        glm::vec3 getCameraPos() const;
+        const glm::vec3 getCameraPos() const;
 
         void forceSelectionUpdate();
         void setSelectionColor(const glm::vec4 &color);

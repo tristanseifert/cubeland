@@ -184,7 +184,7 @@ void SceneRenderer::setSelectionColor(const glm::vec4 &color) {
 /**
  * Returns the most recent camera position.
  */
-glm::vec3 SceneRenderer::getCameraPos() const {
+const glm::vec3 SceneRenderer::getCameraPos() const {
     return this->chunkLoader->lastPos;
 }
 

@@ -83,7 +83,9 @@ void PlayerPosPersistence::tick() {
     if(this->dirtyTicks++ < kSaveDelayTicks) return;
 
     // write it out and reset dirty flag
-    this->writePosition();
+    this->saveWorker.queueWorkItem([&]{
+        this->writePosition();
+    });
 
     this->dirty = false;
     this->dirtyTicks = 0;

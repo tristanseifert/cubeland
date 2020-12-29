@@ -94,6 +94,8 @@ void Globule::chunkChanged(const bool isDifferentChunk) {
  * Waits for all work the globule has started to complete.
  */
 void Globule::finishWork() {
+    PROFILE_SCOPE_STR("GlobuleWaitWork", 0xFF0000FF);
+
     for(auto &future : this->futures) {
         future.wait();
     }

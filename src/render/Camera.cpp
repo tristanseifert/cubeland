@@ -12,7 +12,7 @@ using namespace render;
  * Sets up default camera parameters.
  */
 Camera::Camera() {
-    this->cameraPosition = glm::vec3(0, 83, 0);
+    this->cameraPosition = glm::vec3(-10, 100, 0);
     this->cameraFront = glm::vec3(-0.689, -0.022, 0.724);
     this->worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
 }
@@ -53,6 +53,13 @@ glm::vec3 Camera::deltasToPos(const glm::vec3 &deltas) {
  */
 void Camera::updatePosition(const glm::vec3 &deltas) {
     this->cameraPosition = this->deltasToPos(deltas);
+}
+
+/**
+ * Updates the raw deltas directly against the position vector.
+ */
+void Camera::applyRawDeltas(const glm::vec3 &deltas) {
+    this->cameraPosition += deltas;
 }
 
 /**

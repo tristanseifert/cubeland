@@ -10,6 +10,8 @@
 #include <glm/vec3.hpp>
 #include <glm/vec2.hpp>
 
+#include "util/ThreadPool.h"
+
 namespace world {
 class WorldSource;
 }
@@ -53,6 +55,8 @@ class PlayerPosPersistence {
             }
         };
 
+        using WorkQueue = util::ThreadPool<std::function<void(void)>>;
+
     private:
         InputManager *input = nullptr;
         std::shared_ptr<world::WorldSource> source = nullptr;
@@ -64,6 +68,9 @@ class PlayerPosPersistence {
 
         glm::vec3 lastPosition = glm::vec3(0);
         glm::vec2 lastAngles = glm::vec2(0);
+
+        // all saving happens on this background queue
+        WorkQueue saveWorker = WorkQueue(1);
 };
 
 }

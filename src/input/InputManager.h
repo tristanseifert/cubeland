@@ -45,6 +45,11 @@ class InputManager {
             return this->movementDelta;
         }
 
+        /// Returns whether we want to jump or not
+        const bool shouldJump() const {
+            return this->wantsJump;
+        }
+
         void incrementCursorCount();
         void decrementCursorCount();
 
@@ -54,13 +59,15 @@ class InputManager {
 
     private:
         enum Keys {
-            KeyMoveLeft     = 0,
-            KeyMoveRight    = 1,
-            KeyMoveFront    = 2,
-            KeyMoveBack     = 3,
+            KeyMoveLeft         = 0,
+            KeyMoveRight        = 1,
+            KeyMoveFront        = 2,
+            KeyMoveBack         = 3,
 
-            KeyMoveUp       = 4,
-            KeyMoveDown     = 5,
+            KeyMoveUp           = 4,
+            KeyMoveDown         = 5,
+
+            KeyJump             = 6,
         };
 
     private:
@@ -119,6 +126,9 @@ class InputManager {
 
         // cursor reference count; when 0, no mouse cursor is shown
         size_t cursorRefCount = 0;
+
+        // whether we want to be jumping if not on the ground
+        bool wantsJump = false;
 
     private:
         double mouseDeltaX = 0., mouseDeltaY = 0.;

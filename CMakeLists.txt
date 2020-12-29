@@ -112,6 +112,7 @@ add_executable(cubeland
     src/inventory/UIBar.cpp
     src/inventory/UIDetail.cpp
 # physics-y stuff (if you can call it that lol)
+    src/physics/Engine.cpp
     src/physics/PlayerWorldCollisionHandler.cpp
 # resources and other misc stuff
     ${version_file}
@@ -119,6 +120,9 @@ add_executable(cubeland
 
 # optimize to have at least AVX
 SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -mavx")
+
+# warnings
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-anon-enum-enum-conversion")
 
 # platform-specific stuff
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")

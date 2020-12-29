@@ -39,8 +39,6 @@ class BlockInteractions {
 
         bool allowPlacementAt(const glm::ivec3 &pos);
 
-        void absoluteToRelative(const glm::ivec3 &pos, glm::ivec2 &chunkPos, glm::ivec3 &blockPos);
-
         void destroyTickCallback();
         void destroyBlockTimerExpired();
 

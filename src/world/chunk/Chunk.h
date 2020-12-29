@@ -152,6 +152,10 @@ struct Chunk {
         }
 
     public:
+        /// Converts an absolute world space block position into a chunk and local block offset
+        static void absoluteToRelative(const glm::ivec3 &pos, glm::ivec2 &chunkPos, glm::ivec3 &blockPos);
+
+    public:
         /// Adds a function to invoke any time blocks inside this chunk are changed
         ChangeToken registerChangeCallback(const ChangeCallback &callback);
         /// Removes a previously registered block change callback

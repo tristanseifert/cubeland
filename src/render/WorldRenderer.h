@@ -30,6 +30,7 @@ class WorldSource;
 }
 
 namespace physics {
+class Engine;
 class PlayerWorldCollisionHandler;
 }
 
@@ -88,6 +89,7 @@ class WorldRenderer: public gui::RunLoopStep {
 
         std::shared_ptr<gui::GameUI> gui;
 
+        physics::Engine *physics = nullptr;
         physics::PlayerWorldCollisionHandler *playerCollision = nullptr;
 
     private:

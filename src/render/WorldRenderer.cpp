@@ -11,6 +11,7 @@
 #include "world/FileWorldReader.h"
 #include "world/WorldSource.h"
 #include "world/generators/Terrain.h"
+#include "physics/Engine.h"
 #include "physics/PlayerWorldCollisionHandler.h"
 #include "inventory/Manager.h"
 #include "inventory/UI.h"
@@ -21,7 +22,7 @@
 #include "steps/SSAO.h"
 
 #include "gfx/gl/buffer/FrameBuffer.h"
-
+#include "io/Format.h"
 #include <Logging.h>
 
 #include <mutils/time/profiler.h>
@@ -86,6 +87,9 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
 #endif
 
     // interactions and some game UI
+    this->physics = new physics::Engine(scnRnd, &this->camera);
+    this->playerCollision = new physics::PlayerWorldCollisionHandler(scnRnd);
+
     this->inventory = new inventory::Manager(this->input);
     this->inventory->loadInventory(this->source);
 
@@ -99,8 +103,6 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
     if(this->posSaver->loadPosition(loadedPos)) {
         this->camera.setCameraPosition(loadedPos);
     }
-
-    this->playerCollision = new physics::PlayerWorldCollisionHandler(scnRnd);
 }
 /**
  * Releases all of our render resources.
@@ -114,9 +116,10 @@ WorldRenderer::~WorldRenderer() {
     delete this->playerCollision;
 
     delete this->blockInt;
+    delete this->physics;
+
     this->gui->removeWindow(this->inventoryUi);
     this->inventoryUi = nullptr;
-
     delete this->inventory;
 
     gSceneRenderer = nullptr;
@@ -239,11 +242,18 @@ void WorldRenderer::updateView() {
 
     this->camera.updateAngles(angles, this->input->getNonpitchEulerAngles());
 
+    // apply jump if needed
+    if(this->input->shouldJump()) {
+        this->physics->playerJump();
+    }
+
     // then, check to see whether the calculated next position is ok (collision wise)
     const auto nextPos = this->camera.deltasToPos(deltas);
     if(this->playerCollision->isPositionOk(nextPos)) {
         this->camera.updatePosition(deltas);
     }
+
+    this->physics->setPlayerPosition(this->camera.getCameraPosition());
 
     // finally, update camera view matrix and the projection matrix
     this->camera.updateViewMatrix();

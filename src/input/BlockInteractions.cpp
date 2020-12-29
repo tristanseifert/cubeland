@@ -181,7 +181,7 @@ void BlockInteractions::placeBlock() {
     glm::ivec2 placeAtChunk;
     glm::ivec3 placeAtRel;
 
-    this->absoluteToRelative(placeAt, placeAtChunk, placeAtRel);
+    world::Chunk::absoluteToRelative(placeAt, placeAtChunk, placeAtRel);
 
     // get the chunk for that block position and place the block
     // Logging::trace("Selection {}, place at {} (chunk {} rel {})", selectionPos, placeAt, placeAtChunk, placeAtRel);
@@ -209,7 +209,7 @@ bool BlockInteractions::allowPlacementAt(const glm::ivec3 &pos) {
     glm::ivec2 chunkPos;
     glm::ivec3 blockPos;
 
-    this->absoluteToRelative(pos, chunkPos, blockPos);
+    world::Chunk::absoluteToRelative(pos, chunkPos, blockPos);
 
     // get the chunk
     auto chunk = this->scene->getChunk(chunkPos);
@@ -229,26 +229,6 @@ bool BlockInteractions::allowPlacementAt(const glm::ivec3 &pos) {
     const auto id = map.idMap[temp];
 
     return BlockRegistry::isAirBlock(id);
-}
-
-
-/**
- * Decomposes an absolute world space block position to a chunk position and a block position
- * inside that chunk.
- */
-void BlockInteractions::absoluteToRelative(const glm::ivec3 &pos, glm::ivec2 &chunkPos, glm::ivec3 &blockPos) {
-    // get chunk pos
-    chunkPos = glm::ivec2(floor(pos.x / 256.), floor(pos.z / 256.)); 
-
-    // block pos
-    int zOff = (pos.z % 256), xOff = (pos.x % 256);
-    if(zOff < 0) {
-        zOff = 256 - abs(zOff);
-    } if(xOff < 0) {
-        xOff = 256 - abs(xOff);
-    }
-
-    blockPos = glm::ivec3(xOff, pos.y, zOff);
 }
 
 

@@ -36,6 +36,9 @@ class Camera {
             return this->yOffset;
         }
 
+        /// Applies a raw vector offset to the camera position.
+        void applyRawDeltas(const glm::vec3 &deltas);
+
         /// Sets the camera Y offset
         void setCameraYOffset(const float newOffset) {
             this->yOffset = newOffset;

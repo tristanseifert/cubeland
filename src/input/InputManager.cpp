@@ -105,6 +105,9 @@ void InputManager::updatePosition() {
 
     // create a vector
     this->movementDelta = glm::vec3(xOffset, yOffset, zOffset);
+
+    // jumping
+    this->wantsJump = this->keys[KeyJump];
 }
 
 /**
@@ -200,7 +203,6 @@ void InputManager::handleKey(int scancode, unsigned int modifiers, bool isDown) 
 
 
         // these below items are for flying
-/*
         case SDL_SCANCODE_UP:
             this->keys[KeyMoveUp] = isDown;
             break;
@@ -208,7 +210,11 @@ void InputManager::handleKey(int scancode, unsigned int modifiers, bool isDown) 
         case SDL_SCANCODE_DOWN:
             this->keys[KeyMoveDown] = isDown;
             break;
-*/
+
+        // jumping
+        case SDL_SCANCODE_SPACE:
+            this->keys[KeyJump] = isDown;
+            break;
 
         default:
             break;

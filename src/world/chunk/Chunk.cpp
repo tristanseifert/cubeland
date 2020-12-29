@@ -161,3 +161,21 @@ dispensary:;
     }
 }
 
+/**
+ * Decomposes an absolute world space block position to a chunk position and a block position
+ * inside that chunk.
+ */
+void Chunk::absoluteToRelative(const glm::ivec3 &pos, glm::ivec2 &chunkPos, glm::ivec3 &blockPos) {
+    // get chunk pos
+    chunkPos = glm::ivec2(floor(pos.x / 256.), floor(pos.z / 256.)); 
+
+    // block pos
+    int zOff = (pos.z % 256), xOff = (pos.x % 256);
+    if(zOff < 0) {
+        zOff = 256 - abs(zOff);
+    } if(xOff < 0) {
+        xOff = 256 - abs(xOff);
+    }
+
+    blockPos = glm::ivec3(xOff, pos.y, zOff);
+}
