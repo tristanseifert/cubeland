@@ -9,6 +9,7 @@
 #include "gui/GameUI.h"
 #include "gfx/gl/texture/Texture2D.h"
 
+#include "io/Format.h"
 #include <mutils/time/profiler.h>
 #include <Logging.h>
 
@@ -157,7 +158,12 @@ void UIDetail::dragTooltipForItem(const SlotDragPayload &payload) {
         auto bo = world::BlockRegistry::getBlock(block.blockId);
 
         count = block.count;
-        name = bo->getInternalName();
+
+        if(bo) {
+            name = bo->getInternalName();
+        } else {
+            name = f("unknown<{}>", uuids::to_string(block.blockId));
+        }
 
         ItemDrawing::drawBlockItem(ImGui::GetCursorScreenPos(), block.blockId);
     }

@@ -52,6 +52,7 @@ add_executable(cubeland
 # input
     src/input/InputManager.cpp
     src/input/BlockInteractions.cpp
+    src/input/PlayerPosPersistence.cpp
 # GL wrappers
     src/gfx/gl/texture/Texture.cpp
     src/gfx/gl/texture/Texture2D.cpp

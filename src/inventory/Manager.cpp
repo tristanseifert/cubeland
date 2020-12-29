@@ -85,6 +85,8 @@ bool Manager::handleEvent(const SDL_Event &event) {
  * Adds `count` occurrences of the block `blockId` to the inventory.
  */
 bool Manager::addItem(const uuids::uuid &blockId, const size_t count) {
+    if(blockId.is_nil()) return false;
+
     XASSERT(count && count < kMaxItemsPerSlot, "Invalid count: {}", count);
     LOCK_GUARD(this->slotLock, AddItem);
 

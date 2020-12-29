@@ -22,6 +22,7 @@ class UI;
 namespace input {
 class InputManager;
 class BlockInteractions;
+class PlayerPosPersistence;
 }
 
 namespace world {
@@ -72,6 +73,7 @@ class WorldRenderer: public gui::RunLoopStep {
     private:
         // used for keyboard/game controller input
         input::InputManager *input = nullptr;
+        input::PlayerPosPersistence *posSaver = nullptr;
         // debugging
         WorldRendererDebugger *debugger = nullptr;
 

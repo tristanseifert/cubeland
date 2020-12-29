@@ -5,7 +5,9 @@
 #define IO_SERIALIZATION_H
 
 #include <cereal/types/array.hpp>
-
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 #include <uuid.h>
 
 #include <cstddef>
@@ -26,6 +28,25 @@ template<class Archive> void load(Archive &archive, uuids::uuid &uuid) {
     archive(read);
 
     uuid = uuids::uuid(read);
+}
+
+/// Archives a 2 component vector
+template<class Archive> void serialize(Archive &archive, glm::vec2 &vec) {
+    archive(vec.x);
+    archive(vec.y);
+}
+/// Archives a 3 component vector
+template<class Archive> void serialize(Archive &archive, glm::vec3 &vec) {
+    archive(vec.x);
+    archive(vec.y);
+    archive(vec.z);
+}
+/// Archives a 4 component vector
+template<class Archive> void serialize(Archive &archive, glm::vec4 &vec) {
+    archive(vec.x);
+    archive(vec.y);
+    archive(vec.z);
+    archive(vec.w);
 }
 }
 

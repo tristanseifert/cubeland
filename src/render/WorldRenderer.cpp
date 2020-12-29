@@ -5,6 +5,7 @@
 
 #include "input/InputManager.h"
 #include "input/BlockInteractions.h"
+#include "input/PlayerPosPersistence.h"
 #include "gui/GameUI.h"
 
 #include "world/FileWorldReader.h"
@@ -92,6 +93,12 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
     _gui->addWindow(this->inventoryUi);
 
     this->blockInt = new input::BlockInteractions(scnRnd, this->source, this->inventory);
+
+    glm::vec3 loadedPos;
+    this->posSaver = new input::PlayerPosPersistence(this->input, source);
+    if(this->posSaver->loadPosition(loadedPos)) {
+        this->camera.setCameraPosition(loadedPos);
+    }
 }
 /**
  * Releases all of our render resources.
@@ -100,6 +107,8 @@ WorldRenderer::~WorldRenderer() {
     if(this->debugger) {
         delete this->debugger;
     }
+
+    delete this->posSaver;
 
     delete this->blockInt;
     this->gui->removeWindow(this->inventoryUi);
@@ -124,6 +133,7 @@ void WorldRenderer::willBeginFrame() {
     this->updateView();
 
     this->source->startOfFrame();
+    this->posSaver->startOfFrame(this->camera.getCameraPosition());
 
     for(auto &step : this->steps) {
         step->startOfFrame();

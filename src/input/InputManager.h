@@ -17,6 +17,8 @@ class MainWindow;
 
 namespace input {
 class InputManager {
+    friend class PlayerPosPersistence;
+
     public:
         InputManager(gui::MainWindow *);
 
