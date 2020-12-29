@@ -29,6 +29,10 @@ namespace world {
 class WorldSource;
 }
 
+namespace physics {
+class PlayerWorldCollisionHandler;
+}
+
 namespace render {
 class RenderStep;
 class Lighting;
@@ -83,6 +87,8 @@ class WorldRenderer: public gui::RunLoopStep {
         std::shared_ptr<inventory::UI> inventoryUi = nullptr;
 
         std::shared_ptr<gui::GameUI> gui;
+
+        physics::PlayerWorldCollisionHandler *playerCollision = nullptr;
 
     private:
         /**

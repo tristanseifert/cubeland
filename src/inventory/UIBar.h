@@ -36,7 +36,7 @@ class UIBar {
         bool showsOverlay = true;
 
         /// when set, the items are shown horizontally; otherwise, they're vertical
-        bool isHorizontal = true;
+        bool isHorizontal = false;
 };
 }
 

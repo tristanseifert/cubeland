@@ -68,6 +68,10 @@ void InputManager::updateAngles() {
     this->eulerAngles.x = cos(glm::radians(this->pitch)) * cos(glm::radians(this->yaw));
     this->eulerAngles.y = sin(glm::radians(this->pitch));
     this->eulerAngles.z = cos(glm::radians(this->pitch)) * sin(glm::radians(this->yaw));
+
+    this->eulerAnglesNoPitch.x = cos(glm::radians(0.)) * cos(glm::radians(this->yaw));
+    this->eulerAnglesNoPitch.y = sin(glm::radians(0.));
+    this->eulerAnglesNoPitch.z = cos(glm::radians(0.)) * sin(glm::radians(this->yaw));
 }
 
 /**
@@ -195,6 +199,8 @@ void InputManager::handleKey(int scancode, unsigned int modifiers, bool isDown) 
             break;
 
 
+        // these below items are for flying
+/*
         case SDL_SCANCODE_UP:
             this->keys[KeyMoveUp] = isDown;
             break;
@@ -202,6 +208,7 @@ void InputManager::handleKey(int scancode, unsigned int modifiers, bool isDown) 
         case SDL_SCANCODE_DOWN:
             this->keys[KeyMoveDown] = isDown;
             break;
+*/
 
         default:
             break;

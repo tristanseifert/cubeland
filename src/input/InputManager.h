@@ -29,15 +29,19 @@ class InputManager {
         /**
          * Gets the Euler angles.
          */
-        glm::vec3 getEulerAngles() const {
+        const glm::vec3 getEulerAngles() const {
             return this->eulerAngles;
+        }
+        /// Gets the non-pitched Euler angles.
+        const glm::vec3 getNonpitchEulerAngles() const {
+            return this->eulerAnglesNoPitch;
         }
 
         /**
          * Gets the velocity with which the camera should move in each of
          * the three axes.
          */
-        glm::vec3 getMovementDelta() const {
+        const glm::vec3 getMovementDelta() const {
             return this->movementDelta;
         }
 
@@ -73,7 +77,7 @@ class InputManager {
          * Depending on how the camera is configured, this will eventually get turned into the
          * look angle.
          */
-        glm::vec3 eulerAngles;
+        glm::vec3 eulerAngles, eulerAnglesNoPitch;
 
         /**
          * Pitch, yaw and roll values for the camera. They are in degrees.

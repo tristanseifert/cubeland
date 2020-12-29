@@ -6,11 +6,29 @@
 
 #include <cmath>
 
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
 namespace util {
 class Intersect {
     public:
+        /// Whether the two vectors (of min,max layout) overlap.
+        static bool isOverlapping1D(const glm::vec2 &box1, const glm::vec2 &box2) {
+            return (box1.y >= box2.x) && (box2.y >= box1.x);
+        }
+
+        /**
+         * Checks whether there is an intersection by two boxes in 3D space, described by their
+         * minimum and maximum coordinates.
+         */
+        static bool boxBox(const glm::vec3 &lb1, const glm::vec3 &rt1, const glm::vec3 &lb2,
+                const glm::vec3 &rt2) {
+            return isOverlapping1D(glm::vec2(lb1.x, rt1.x), glm::vec2(lb2.x, rt2.x)) &&
+                isOverlapping1D(glm::vec2(lb1.y, rt1.y), glm::vec2(lb2.y, rt2.y)) &&
+                isOverlapping1D(glm::vec2(lb1.z, rt1.z), glm::vec2(lb2.z, rt2.z));
+        }
+
+
         /**
          * Checks whether the ray starting at `origin` with the inverse direction `dirfrac`
          * intersects the rectangular region described by minimum coordinate `lb` and maximum `rt`.

@@ -131,7 +131,7 @@ class Lighting : public RenderStep {
         // number of cumulus cloud drawing layers
         int skyCumulusLayers = 3;
         // cloud velocity factors (x = cirrus, y = cumulus)
-        glm::vec2 skyCloudVelocities = glm::vec2(2.74, 1.74);
+        glm::vec2 skyCloudVelocities = glm::vec2(30., 25.);
 
         // nitrogen scattering coefficients (color)
         glm::vec3 skyNitrogenCoeff = glm::vec3(0.650, 0.570, 0.475);

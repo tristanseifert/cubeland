@@ -111,6 +111,8 @@ add_executable(cubeland
     src/inventory/UI.cpp
     src/inventory/UIBar.cpp
     src/inventory/UIDetail.cpp
+# physics-y stuff (if you can call it that lol)
+    src/physics/PlayerWorldCollisionHandler.cpp
 # resources and other misc stuff
     ${version_file}
 )
@@ -251,9 +253,10 @@ target_include_directories(cubeland PRIVATE libs/ImGuiFileDialog)
 target_include_directories(cubeland PRIVATE src/3rdparty)
 
 # GLM
-#find_package(glm REQUIRED)
-#target_link_libraries(cubeland PRIVATE glm::glm)
 target_include_directories(cubeland PRIVATE libs/glm)
+
+# Eigen
+target_include_directories(cubeland PRIVATE libs/eigen)
 
 # SOIL (image loading)
 add_library(soil OBJECT

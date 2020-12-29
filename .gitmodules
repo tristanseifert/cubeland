@@ -46,3 +46,6 @@
 [submodule "libs/fastnoise2"]
 	path = libs/fastnoise2
 	url = git@github.com:Auburn/FastNoise2.git
+[submodule "libs/eigen"]
+	path = libs/eigen
+	url = https://gitlab.com/libeigen/eigen

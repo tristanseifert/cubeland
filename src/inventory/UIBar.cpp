@@ -35,9 +35,15 @@ bool UIBar::draw(gui::GameUI *ui, bool end) {
     // always centered at bottom middle
     ImGuiIO& io = ImGui::GetIO();
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
-    glm::vec2 windowPos(io.DisplaySize.x / 2., io.DisplaySize.y - kEdgePadding);
 
-    ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always, glm::vec2(.5, 1));
+    if(this->isHorizontal) {
+        glm::vec2 windowPos(io.DisplaySize.x / 2., io.DisplaySize.y - kEdgePadding);
+        ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always, glm::vec2(.5, 1));
+    } else {
+        glm::vec2 windowPos(kEdgePadding, io.DisplaySize.y / 2.);
+        ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always, glm::vec2(0, .5));
+    }
+
     ImGui::SetNextWindowBgAlpha(kOverlayAlpha);
 
     if(!ImGui::Begin("Inventory Overlay", &this->showsOverlay, window_flags)) {

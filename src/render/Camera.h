@@ -9,27 +9,41 @@ class Camera {
     public:
         Camera();
 
-        void updateViewMatrix(const glm::vec3 &euler, float xDelta, float zDelta, float yDelta = 0);
+        void updateAngles(const glm::vec3 &euler, const glm::vec3 &eulerNoPitch);
+        void updatePosition(const glm::vec3 &deltas);
+        glm::vec3 deltasToPos(const glm::vec3 &deltas);
 
-        glm::mat4 getViewMatrix(void) const {
+        void updateViewMatrix();
+
+        const glm::mat4 getViewMatrix(void) const {
             return this->view;
         }
 
-        glm::vec3 getCameraPosition(void) const {
-            return this->camera_position;
+        const glm::vec3 getCameraPosition(void) const {
+            return this->cameraPosition;
         }
-        glm::vec3 getCameraFront(void) const {
-            return this->camera_front;
+        const glm::vec3 getCameraFront(void) const {
+            return this->cameraFront;
         }
-        glm::vec3 getCameraLookAt(void) const {
-            return this->camera_look_at;
+        const glm::vec3 getCameraLookAt(void) const {
+            return this->cameraLookAt;
         }
-        glm::vec3 getCameraUp(void) const {
+        const glm::vec3 getCameraUp(void) const {
             return this->up;
         }
 
+        const float getYOffset() const {
+            return this->yOffset;
+        }
+
+        /// Sets the camera Y offset
+        void setCameraYOffset(const float newOffset) {
+            this->yOffset = newOffset;
+        }
+
+        /// Sets the position of the camera
         void setCameraPosition(glm::vec3 position) {
-            this->camera_position = position;
+            this->cameraPosition = position;
         }
 
         void startFrame();
@@ -38,15 +52,18 @@ class Camera {
         void drawDebugWindow();
 
     private:
-        glm::vec3 camera_position;
-        glm::vec3 camera_front;
-        glm::vec3 camera_look_at;
+        glm::vec3 cameraPosition;
+        glm::vec3 cameraFront, cameraFrontNoPitch;
+        glm::vec3 cameraLookAt;
 
         glm::vec3 up;
         glm::vec3 right;
-        glm::vec3 world_up;
+        glm::vec3 worldUp;
 
         glm::mat4 view;
+
+        // Y offset of the actual view position
+        float yOffset = 1.74f;
 
         // when set, the camera debug window is visible
         bool showDebugWindow = false;

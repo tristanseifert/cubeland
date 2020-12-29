@@ -12,44 +12,57 @@ using namespace render;
  * Sets up default camera parameters.
  */
 Camera::Camera() {
-    // default camera position
-    // this->camera_position = glm::vec3(15.6459, 25.0754, -14.6763);
-    // this->camera_front = glm::vec3(-0.99, 0.06, -0.14);
-    
-    // this->camera_position = glm::vec3(139.045, 69.297, -27.079);
-    this->camera_position = glm::vec3(0, 83, 0);
-    this->camera_front = glm::vec3(-0.689, -0.022, 0.724);
-    this->world_up = glm::vec3(0.0f, 1.0f, 0.0f);
+    this->cameraPosition = glm::vec3(0, 83, 0);
+    this->cameraFront = glm::vec3(-0.689, -0.022, 0.724);
+    this->worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
 }
 
 /**
- * Updates the camera matrix, based on the camera position, and the "look at" vector, given the
- * Euler angles, and X/Z delta from the last invocation.
+ * Updates the angles used by the camera to determine which direction to look.
  */
-void Camera::updateViewMatrix(const glm::vec3 &euler, float xDelta, float zDelta, float yDelta) {
+void Camera::updateAngles(const glm::vec3 &euler, const glm::vec3 &eulerNoPitch) {
     // Update the camera front vector
-    this->camera_front = normalize(euler);
+    this->cameraFront = normalize(euler);
+    this->cameraFrontNoPitch = normalize(eulerNoPitch);
 
     // Also recalculate the Up and Right vectors
-    this->right = normalize(cross(this->camera_front, this->world_up));
-    this->up = normalize(cross(this->right, this->camera_front));
+    this->right = normalize(cross(this->cameraFront, this->worldUp));
+    this->up = normalize(cross(this->right, this->cameraFront));
+}
 
-    if(xDelta != 0.f) {
-        this->camera_position += this->right * xDelta;
-    }
+/**
+ * Returns the new camera position based on the given deltas. This doesn't actually perform any
+ * changes yet.
+ */
+glm::vec3 Camera::deltasToPos(const glm::vec3 &deltas) {
+    auto position = this->cameraPosition;
 
-    if(zDelta != 0.f) {
-        this->camera_position += this->camera_front * zDelta;
-    }
+    const auto nRight = normalize(cross(this->cameraFront, this->worldUp));
+    const auto nUp = normalize(cross(this->right, this->cameraFront));
 
-    // Ensure the camera stays at ground level
-    this->camera_position.y += yDelta;
+    position += nRight * deltas.x;
+    position += this->cameraFrontNoPitch * deltas.z;
+    // position += this->cameraFront * deltas.z;
+    position.y += deltas.y;
 
-    // Re-calculate the look-at vector
-    this->camera_look_at = this->camera_position + this->camera_front;
+    return position;
+}
 
-    // recalculate the view matrix
-    this->view = glm::lookAt(this->camera_position, this->camera_look_at, this->up);
+/**
+ * Updates the camera position.
+ */
+void Camera::updatePosition(const glm::vec3 &deltas) {
+    this->cameraPosition = this->deltasToPos(deltas);
+}
+
+/**
+ * Recalculates the view matrix.
+ */
+void Camera::updateViewMatrix() {
+    const auto shiftedPos = this->cameraPosition + glm::vec3(0, this->yOffset, 0);
+    this->cameraLookAt = shiftedPos + this->cameraFront;
+
+    this->view = glm::lookAt(shiftedPos, this->cameraLookAt, this->up);
 }
 
 /**
@@ -71,9 +84,9 @@ void Camera::drawDebugWindow() {
 
     ImGui::PushItemWidth(225);
 
-    ImGui::DragFloat3("Position", &this->camera_position.x);
-    ImGui::DragFloat3("Front", &this->camera_front.x);
-    ImGui::DragFloat3("Look-at", &this->camera_look_at.x);
+    ImGui::DragFloat3("Position", &this->cameraPosition.x);
+    ImGui::DragFloat3("Front", &this->cameraFront.x);
+    ImGui::DragFloat3("Look-at", &this->cameraLookAt.x);
 
     ImGui::PopItemWidth();
 

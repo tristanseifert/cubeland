@@ -11,7 +11,7 @@
 #include "world/FileWorldReader.h"
 #include "world/WorldSource.h"
 #include "world/generators/Terrain.h"
-
+#include "physics/PlayerWorldCollisionHandler.h"
 #include "inventory/Manager.h"
 #include "inventory/UI.h"
 
@@ -99,6 +99,8 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
     if(this->posSaver->loadPosition(loadedPos)) {
         this->camera.setCameraPosition(loadedPos);
     }
+
+    this->playerCollision = new physics::PlayerWorldCollisionHandler(scnRnd);
 }
 /**
  * Releases all of our render resources.
@@ -109,6 +111,7 @@ WorldRenderer::~WorldRenderer() {
     }
 
     delete this->posSaver;
+    delete this->playerCollision;
 
     delete this->blockInt;
     this->gui->removeWindow(this->inventoryUi);
@@ -228,13 +231,23 @@ bool WorldRenderer::handleEvent(const SDL_Event &event) {
  * Updates the world view matrices.
  */
 void WorldRenderer::updateView() {
+    PROFILE_SCOPE(UpdateView);
+
     // update camera with Euler angles
-    glm::vec3 angles = this->input->getEulerAngles();
-    glm::vec3 deltas = this->input->getMovementDelta();
+    const glm::vec3 angles = this->input->getEulerAngles();
+    const glm::vec3 deltas = this->input->getMovementDelta();
 
-    this->camera.updateViewMatrix(angles, deltas.x, deltas.z, deltas.y);
+    this->camera.updateAngles(angles, this->input->getNonpitchEulerAngles());
 
-    // calculate projection matrix
+    // then, check to see whether the calculated next position is ok (collision wise)
+    const auto nextPos = this->camera.deltasToPos(deltas);
+    if(this->playerCollision->isPositionOk(nextPos)) {
+        this->camera.updatePosition(deltas);
+    }
+
+    // finally, update camera view matrix and the projection matrix
+    this->camera.updateViewMatrix();
+
     float width = (float) this->viewportWidth;
     float height = (float) this->viewportHeight;
 

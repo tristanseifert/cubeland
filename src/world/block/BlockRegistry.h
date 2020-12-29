@@ -54,6 +54,10 @@ class BlockRegistry {
         static bool isAirBlock(const uuids::uuid &id) {
             return (id == kAirBlockId);
         }
+        /// Determines whether a block can be collided with
+        static bool isCollidableBlock(const uuids::uuid &id) {
+            return !isAirBlock(id);
+        }
 
         /// Returns the total number of registered blocks
         static size_t getNumRegistered() {
