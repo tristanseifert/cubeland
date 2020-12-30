@@ -74,14 +74,14 @@ void WorldRendererDebugger::drawStepsTable() {
     ImGui::TableHeadersRow();
 
     size_t i = 0;
-    for(const auto info : this->renderer->steps) {
+    for(const auto &info : this->renderer->steps) {
         ImGui::TableNextRow();
         ImGui::PushID(i);
 
         ImGui::TableNextColumn();
         ImGui::Text("%lu", (i+1));
         ImGui::TableNextColumn();
-        ImGui::Text("%p", info.get());
+        ImGui::Text("%p", (void *) info.get());
 
         ImGui::TableNextColumn();
         ImGui::Checkbox("##debug", &info->showDebugWindow);

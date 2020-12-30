@@ -49,6 +49,22 @@ glm::vec3 Camera::deltasToPos(const glm::vec3 &deltas) {
 }
 
 /**
+ * Returns a direction vector in which to apply forces.
+ */
+glm::vec3 Camera::deltasToDirVec(const glm::vec3 &deltas) {
+    glm::vec3 position(0);
+
+    const auto nRight = normalize(cross(this->cameraFront, this->worldUp));
+    const auto nUp = normalize(cross(this->right, this->cameraFront));
+
+    position += nRight * deltas.x;
+    position += this->cameraFrontNoPitch * deltas.z;
+    position.y += deltas.y;
+
+    return normalize(position);
+}
+
+/**
  * Updates the camera position.
  */
 void Camera::updatePosition(const glm::vec3 &deltas) {

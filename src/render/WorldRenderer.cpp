@@ -97,10 +97,11 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
 
     this->blockInt = new input::BlockInteractions(scnRnd, this->source, this->inventory);
 
-    glm::vec3 loadedPos;
+    glm::vec3 loadedPos, loadedAngles;
     this->posSaver = new input::PlayerPosPersistence(this->input, source);
     if(this->posSaver->loadPosition(loadedPos)) {
-        this->camera.setCameraPosition(loadedPos);
+        // this->camera.setCameraPosition(loadedPos);
+        this->physics->setPlayerPosition(loadedPos);
     }
 }
 /**
@@ -142,6 +143,7 @@ void WorldRenderer::willBeginFrame() {
     this->camera.updateAngles(angles, this->input->getNonpitchEulerAngles());
 
     this->physics->movePlayer(deltas, this->input->shouldJump());
+    this->physics->startFrame();
 
     this->updateView();
 

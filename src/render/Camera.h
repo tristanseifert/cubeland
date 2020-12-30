@@ -13,6 +13,8 @@ class Camera {
         void updatePosition(const glm::vec3 &deltas);
         glm::vec3 deltasToPos(const glm::vec3 &deltas);
 
+        glm::vec3 deltasToDirVec(const glm::vec3 &deltas);
+
         void updateViewMatrix();
 
         const glm::mat4 getViewMatrix(void) const {
