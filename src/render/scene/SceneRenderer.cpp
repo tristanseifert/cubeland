@@ -197,3 +197,11 @@ const glm::vec3 SceneRenderer::getCameraPos() const {
 void SceneRenderer::setWorldSource(std::shared_ptr<world::WorldSource> &source) {
     this->chunkLoader->setSource(source);
 }
+
+/**
+ * Sets the physics engine pointer.
+ */
+void SceneRenderer::setPhysicsEngine(physics::Engine *engine) {
+    this->chunkLoader->physics = engine;
+}
+

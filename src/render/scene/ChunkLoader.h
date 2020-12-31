@@ -44,6 +44,9 @@ namespace render {
 class WorldChunk;
 class SceneRenderer;
 }
+namespace physics {
+class Engine;
+}
 
 namespace render::scene {
 class ChunkLoader {
@@ -325,6 +328,9 @@ class ChunkLoader {
         // various metrics for display chunks
         MetricsGuiMetric *mDisplayChunks, *mDisplayCulled, *mDisplayEager, *mDisplayCached;
         MetricsGuiPlot *mDisplayChunkPlot;
+
+        // pointer to physics engine (required for chunks)
+        physics::Engine *physics = nullptr;
 
         /// when set, the debug overlay is shown
         bool showsOverlay = true;

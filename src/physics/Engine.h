@@ -9,6 +9,7 @@
 #include <thread>
 #include <variant>
 #include <chrono>
+#include <mutex>
 
 #include <glm/vec3.hpp>
 
@@ -27,12 +28,18 @@ class Collider;
 namespace render {
 class SceneRenderer;
 class Camera;
+
+namespace chunk {
+class Globule;
+}
 }
 
 namespace physics {
 class EngineDebugRenderer;
 
 class Engine {
+    friend class render::chunk::Globule;
+
     public:
         Engine(std::shared_ptr<render::SceneRenderer> &scene, render::Camera *cam);
         ~Engine();
@@ -66,6 +73,8 @@ class Engine {
         using Event = std::variant<std::monostate>;
 
     private:
+        /// lock used for accessing the physics engine
+        std::mutex engineLock;
         /// this is the source of all data for the physics engine
         reactphysics3d::PhysicsCommon *common = nullptr;
         /// actual physics world that all the things take place in
@@ -102,7 +111,7 @@ class Engine {
         bool dbgDrawInfo = true;
         bool dbgDrawColliderAabb = false;
         bool dbgDrawColliderBroadphase = true;
-        bool dbgDrawCollisionShape = true;
+        bool dbgDrawCollisionShape = false;
         bool dbgDrawContactPoints = true;
         bool dbgDrawContactNormals = false;
 };

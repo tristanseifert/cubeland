@@ -632,7 +632,7 @@ std::shared_ptr<render::WorldChunk> ChunkLoader::makeWorldChunk() {
     }
 
     // fall back to allocation
-    return std::make_shared<WorldChunk>();
+    return std::make_shared<WorldChunk>(this->physics);
 }
 
 /**

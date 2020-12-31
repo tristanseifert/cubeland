@@ -99,7 +99,7 @@ std::shared_ptr<gfx::RenderProgram> WorldChunk::getShadowProgram() {
 /**
  * Sets up the static buffers used to draw the blocks in the world.
  */
-WorldChunk::WorldChunk() {
+WorldChunk::WorldChunk(physics::Engine *physics) {
     using namespace gfx;
 
     // set up the placeholder vertex array
@@ -129,7 +129,7 @@ WorldChunk::WorldChunk() {
             for(size_t x = 0; x < 256/kGlobuleSize; x++) {
                 const glm::ivec3 pos(x * kGlobuleSize, y * kGlobuleSize, z * kGlobuleSize);
 
-                auto glob = new Globule(this, pos);
+                auto glob = new Globule(this, pos, physics);
                 this->globules[pos] = glob;
             }
         }

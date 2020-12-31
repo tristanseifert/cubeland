@@ -261,7 +261,7 @@ void SSAO::postRender(WorldRenderer *) {
  * blurring the result.
  */
 void SSAO::render(WorldRenderer *renderer) {
-    PROFILE_SCOPE(SSAORender);
+    PROFILE_SCOPE(SSAO);
 
     using namespace gl;
 

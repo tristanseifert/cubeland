@@ -31,7 +31,6 @@ class WorldSource;
 
 namespace physics {
 class Engine;
-class PlayerWorldCollisionHandler;
 }
 
 namespace render {

@@ -142,16 +142,19 @@ void Engine::startFrame() {
     this->stepAccumulator += deltaTime;
 
     // perform physics steps as long as there are steps in the accumulator
-    while(this->stepAccumulator >= kTimeStep) {
-        PROFILE_SCOPE(Step);
+    {
+        LOCK_GUARD(this->engineLock, EngineLock);
+        while(this->stepAccumulator >= kTimeStep) {
+            PROFILE_SCOPE(Step);
 
-        const auto stepStart = high_resolution_clock::now();
-        this->world->update(kTimeStep);
-        const auto stepDiff = high_resolution_clock::now() - stepStart;
-        const auto stepSecs = ((float) duration_cast<microseconds>(stepDiff).count())/1000./ 1000.;
-        this->mStepTime->AddNewValue(stepSecs);
+            const auto stepStart = high_resolution_clock::now();
+            this->world->update(kTimeStep);
+            const auto stepDiff = high_resolution_clock::now() - stepStart;
+            const auto stepSecs = ((float) duration_cast<microseconds>(stepDiff).count())/1000./ 1000.;
+            this->mStepTime->AddNewValue(stepSecs);
 
-        this->stepAccumulator -= kTimeStep;
+            this->stepAccumulator -= kTimeStep;
+        }
     }
 
     this->mAccumulator->AddNewValue(this->stepAccumulator);

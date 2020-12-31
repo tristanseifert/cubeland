@@ -22,12 +22,14 @@ class WorldDebugger;
 class WorldSource;
 struct Chunk;
 }
+namespace physics {
+class Engine;
+}
 
 namespace render {
 namespace scene {
 class ChunkLoader;
 }
-
 class Drawable;
 class WorldChunk;
 
@@ -52,6 +54,7 @@ class SceneRenderer: public RenderStep {
         void reshape(int w, int h) {};
 
         void setWorldSource(std::shared_ptr<world::WorldSource> &source);
+        void setPhysicsEngine(physics::Engine *engine);
 
     public:
         std::optional<std::pair<glm::ivec3, glm::ivec3>> getSelectedBlockPos() const;

@@ -92,6 +92,7 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
     // interactions and some game UI
     this->physics = new physics::Engine(scnRnd, &this->camera);
     this->physics->setDebugRenderStep(physDbg);
+    scnRnd->setPhysicsEngine(this->physics);
 
     this->inventory = new inventory::Manager(this->input);
     this->inventory->loadInventory(this->source);
@@ -106,6 +107,8 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
     if(this->posSaver->loadPosition(loadedPos)) {
         // this->camera.setCameraPosition(loadedPos);
         this->physics->setPlayerPosition(loadedPos);
+    } else {
+        this->physics->setPlayerPosition(glm::vec3(-10, 80, -10));
     }
 }
 /**
@@ -119,14 +122,19 @@ WorldRenderer::~WorldRenderer() {
     delete this->posSaver;
 
     delete this->blockInt;
-    delete this->physics;
 
     this->gui->removeWindow(this->inventoryUi);
     this->inventoryUi = nullptr;
     delete this->inventory;
 
+    this->lighting = nullptr;
+    this->hdr = nullptr;
+    this->fxaa = nullptr;
+
     gSceneRenderer = nullptr;
     this->steps.clear();
+
+    delete this->physics;
 
     delete this->input;
     this->source = nullptr;

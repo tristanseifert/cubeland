@@ -20,6 +20,18 @@
 #include <glm/vec3.hpp>
 #include <glm/gtc/type_precision.hpp>
 
+namespace reactphysics3d {
+class TriangleVertexArray;
+class TriangleMesh;
+class ConcaveMeshShape;
+class RigidBody;
+class Collider;
+}
+
+namespace physics {
+class Engine;
+}
+
 namespace render {
 class WorldChunk;
 }
@@ -42,7 +54,7 @@ class Globule {
     friend class WorldChunkDebugger;
 
     public:
-        Globule(WorldChunk *chunk, const glm::ivec3 pos);
+        Globule(WorldChunk *chunk, const glm::ivec3 pos, physics::Engine *phys);
         ~Globule();
 
         void chunkChanged(const bool isDifferentChunk);
@@ -95,6 +107,9 @@ class Globule {
 
         int vertexIndexForBlock(const glm::ivec3 &blockOff);
 
+        void updatePhysicsBody();
+        void deallocPhysicsBody();
+
     private:
         // position of the globule, in block coordinates, relative to the chunk origin
         glm::ivec3 position;
@@ -102,7 +117,7 @@ class Globule {
         WorldChunk *chunk = nullptr;
 
         // vertex array used for rendering the block vertex data
-        std::shared_ptr<gfx::VertexArray> facesVao = nullptr;
+        gfx::VertexArray *facesVao = nullptr;
 
         // kicks off a globule buffer update when set at the beginning of the frame
         std::atomic_bool vertexDataNeedsUpdate = false;
@@ -112,14 +127,14 @@ class Globule {
         // when set, the vertex buffer must be reloaded
         std::atomic_bool vertexBufDirty = false;
         // block vertex buffer
-        std::shared_ptr<gfx::Buffer> vertexBuf = nullptr;
+        gfx::Buffer *vertexBuf = nullptr;
         // this buffer contains all the vertices to display
         std::vector<BlockVertex> vertexData;
 
         // when set, the vertex index buffer is uploaded to the GPU
         std::atomic_bool indexBufDirty = false;
         // buffer containing vertex index data
-        std::shared_ptr<gfx::Buffer> indexBuf = nullptr;
+        gfx::Buffer *indexBuf = nullptr;
         // index buffer for vertex data (TODO: use 16-bit values when possible)
         std::vector<gl::GLuint> indexData;
         // number of indices to render
@@ -151,6 +166,22 @@ class Globule {
         bool inhibitDrawing = false;
         /// visibility override flag
         bool isVisible = true;
+
+        /// pointer to the physics engine
+        physics::Engine *physics = nullptr;
+        /// triangle array mapping our internal vertex data for physics
+        reactphysics3d::TriangleVertexArray *physicsVertices = nullptr;
+        /// mesh wrapping the vertices
+        reactphysics3d::TriangleMesh *physicsMesh = nullptr;
+        /// the mesh shape for collision
+        reactphysics3d::ConcaveMeshShape *physicsShape = nullptr;
+        /// collider most recently created
+        reactphysics3d::Collider *physicsCollider = nullptr;
+        /// physics body used for collisions
+        reactphysics3d::RigidBody *physicsBody = nullptr;
+
+        /// whether the physics collision shape has changed
+        bool physicsBodyDirty = false;
 };
 };
 

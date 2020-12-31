@@ -327,7 +327,7 @@ void Lighting::preRender(WorldRenderer *renderer) {
  * Renders the lighting pass.
  */
 void Lighting::render(WorldRenderer *renderer) {
-    PROFILE_SCOPE(LightingRender);
+    PROFILE_SCOPE(Lighting);
 
     // prepare for rendering
     gl::glViewport(0, 0, this->viewportSize.x, this->viewportSize.y);

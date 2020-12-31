@@ -10,12 +10,21 @@
 #include "world/chunk/ChunkSlice.h"
 #include "world/block/BlockRegistry.h"
 #include "world/block/Block.h"
+#include "physics/Engine.h"
+#include "physics/Types.h"
 
 #include <Logging.h>
 #include <mutils/time/profiler.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_precision.hpp>
+
+// physics library has a few warnings that need to be fixed but we'll just suppress them for now
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnested-anon-types"
+#pragma GCC diagnostic ignored "-Wmismatched-tags"
+#include <reactphysics3d/reactphysics3d.h> 
+#pragma GCC diagnostic pop
 
 using namespace render::chunk;
 
@@ -28,14 +37,15 @@ using namespace render::chunk;
  * This allocates the vertex and index buffers, configures a vertex array that can be used for
  * drawing the globule.
  */
-Globule::Globule(WorldChunk *_chunk, const glm::ivec3 _pos) : position(_pos), chunk(_chunk) {
+Globule::Globule(WorldChunk *_c, const glm::ivec3 _pos, physics::Engine *_phys) : position(_pos), 
+    chunk(_c), physics(_phys) {
     using namespace gfx;
 
     // allocate buffers
-    this->vertexBuf = std::make_shared<Buffer>(Buffer::Array, Buffer::DynamicDraw);
-    this->indexBuf = std::make_shared<Buffer>(Buffer::ElementArray, Buffer::DynamicDraw);
+    this->vertexBuf = new Buffer(Buffer::Array, Buffer::DynamicDraw);
+    this->indexBuf = new Buffer(Buffer::ElementArray, Buffer::DynamicDraw);
 
-    this->facesVao = std::make_shared<VertexArray>();
+    this->facesVao = new VertexArray;
     this->facesVao->bind();
 
     this->vertexBuf->bind();
@@ -65,6 +75,14 @@ Globule::~Globule() {
         future.wait();
     }
     this->futures.clear();
+
+    // this->physicsCollider = nullptr;
+    // this->deallocPhysicsBody();
+
+    // GL resources
+    delete this->facesVao;
+    delete this->vertexBuf;
+    delete this->indexBuf;
 }
 
 /**
@@ -262,7 +280,6 @@ void Globule::fillBuffer() {
     // update the actual instance buffer itself
     for(size_t y = this->position.y; y <= std::min((size_t)this->position.y + 64, Chunk::kMaxY-1); y++) {
         PROFILE_SCOPE(ProcessSlice);
-        const size_t yOffset = static_cast<size_t>(y - this->position.y) * (64 * 64);
 
         // bail if needing to exit
         if(!this->chunk || !this->chunk->chunk) return;
@@ -283,7 +300,6 @@ void Globule::fillBuffer() {
             if(this->abortWork) return;
 
             // skip empty rows
-            const size_t zOffset = yOffset + (static_cast<size_t>(z - this->position.z) * 64);
             auto row = slice->rows[z];
             if(!row) {
                 continue;
@@ -384,6 +400,18 @@ nextRow:;
 
     this->vertexBufDirty = true;
     this->indexBufDirty = true;
+
+    // update physics
+    if(!this->vertexData.empty()) {
+        this->updatePhysicsBody();
+    } else {
+        this->deallocPhysicsBody();
+
+        if(this->physicsBody) {
+            this->physics->world->destroyRigidBody(this->physicsBody);
+            this->physicsBody = nullptr;
+        }
+    }
 }
 
 /**
@@ -430,9 +458,6 @@ void Globule::flagsForBlock(const AirMap &am, const size_t x, const size_t y, co
  * from the block info data texture.
  */
 void Globule::insertBlockVertices(const AirMap &am, const size_t x, const size_t y, const size_t z, const uint16_t blockId) {
-    const size_t yOff = (y & 0xFF) << 16;
-    const size_t zOff = yOff | (z & 0xFF) << 8;
-    const size_t xOff = zOff | (x & 0xFF);
     const size_t airMapOff = ((z & 0xFF) << 8) | (x & 0xFF);
 
     const glm::i16vec3 pos(x, y, z);
@@ -644,3 +669,72 @@ int Globule::vertexIndexForBlock(const glm::ivec3 &blockOff) {
     return -1;
 }
 
+/**
+ * Updates the physics body for this globule.
+ */
+void Globule::updatePhysicsBody() {
+    PROFILE_SCOPE(UpdatePhysicsBody);
+    using namespace reactphysics3d;
+
+    auto c = this->physics->common;
+
+    // create vertex array and mesh
+    const size_t numTris = this->indexData.size() / 3;
+    auto verts = new TriangleVertexArray(this->vertexData.size(),
+            this->vertexData.data(), sizeof(BlockVertex),
+            numTris, this->indexData.data(), sizeof(gl::GLuint),
+            TriangleVertexArray::VertexDataType::VERTEX_SHORT_TYPE,
+            TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE);
+
+    LOCK_GUARD(this->physics->engineLock, EngineLock);
+    this->deallocPhysicsBody();
+    this->physicsVertices = verts;
+
+    this->physicsMesh = c->createTriangleMesh();
+    this->physicsMesh->addSubpart(this->physicsVertices);
+
+    // then create a collision shape and update the body
+    this->physicsShape = c->createConcaveMeshShape(this->physicsMesh);
+
+    const auto chunkPos = glm::vec3(this->chunk->chunk->worldPos.x * 256, 0, 
+            this->chunk->chunk->worldPos.y * 256);
+    glm::vec3 pos = glm::vec3(this->position) + chunkPos;
+    Transform transform(physics::vec(pos), Quaternion::identity());
+
+    if(!this->physicsBody) {
+        this->physicsBody = this->physics->world->createRigidBody(transform);
+        this->physicsBody->setType(BodyType::STATIC);
+    } else {
+        this->physicsBody->setTransform(transform);
+    }
+
+    Transform cTrans(physics::vec(glm::vec3(-32.)), Quaternion::identity());
+
+    // auto col = this->physicsBody->addCollider(this->physicsShape, Transform::identity());
+    auto col = this->physicsBody->addCollider(this->physicsShape, cTrans);
+    this->physicsCollider = col;
+}
+
+/**
+ * Releases physics body resources.
+ */
+void Globule::deallocPhysicsBody() {
+    auto c = this->physics->common;
+
+    if(this->physicsCollider && this->physicsBody) {
+        this->physicsBody->removeCollider(this->physicsCollider);
+        this->physicsCollider = nullptr;
+    }
+    if(this->physicsShape) {
+        c->destroyConcaveMeshShape(this->physicsShape);
+        this->physicsShape = nullptr;
+    }
+    if(this->physicsMesh) {
+        c->destroyTriangleMesh(this->physicsMesh);
+        this->physicsMesh = nullptr;
+    }
+    if(this->physicsVertices) {
+        delete this->physicsVertices;
+        this->physicsVertices = nullptr;
+    }
+}
