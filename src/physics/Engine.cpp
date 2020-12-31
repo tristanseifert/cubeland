@@ -1,5 +1,6 @@
 #include "Engine.h"
 #include "Types.h"
+#include "EngineDebugRenderer.h"
 
 #include "util/Intersect.h"
 #include "render/Camera.h"
@@ -76,6 +77,7 @@ Engine::~Engine() {
 }
 
 
+
 /**
  * Sets the player position. A new translation for the player to bring it to the given position
  * (and angles) is created.
@@ -121,6 +123,10 @@ void Engine::startFrame() {
     PROFILE_SCOPE(Physics);
     using namespace std::chrono;
     using namespace reactphysics3d;
+
+    if(this->dbgUpdateNeeded) {
+        this->updateDebugFlags();
+    }
 
     // get current time, calculate deltas and add to accumulator. bail if first time through
     const auto now = high_resolution_clock::now();
@@ -172,6 +178,42 @@ void Engine::startFrame() {
     }
 }
 
+/**
+ * Sets physics engine debugging flags.
+ */
+void Engine::updateDebugFlags() {
+    using Item = reactphysics3d::DebugRenderer::DebugItem;
+
+    // clear update flags
+    this->dbgUpdateNeeded = false;
+
+    // set the physics world's debug flags
+    this->world->setIsDebugRenderingEnabled(this->dbgDrawInfo);
+    if(this->dbgStep) {
+        this->dbgStep->setDrawsDebugData(this->dbgDrawInfo);
+    }
+
+    if(!this->dbgDrawInfo) return;
+
+    // toggle the enabled views
+    auto &dr = this->world->getDebugRenderer();
+
+    dr.setIsDebugItemDisplayed(Item::COLLIDER_AABB, this->dbgDrawColliderAabb);
+    dr.setIsDebugItemDisplayed(Item::COLLIDER_BROADPHASE_AABB, this->dbgDrawColliderBroadphase);
+    dr.setIsDebugItemDisplayed(Item::COLLISION_SHAPE, this->dbgDrawCollisionShape);
+    dr.setIsDebugItemDisplayed(Item::CONTACT_POINT, this->dbgDrawContactPoints);
+    dr.setIsDebugItemDisplayed(Item::CONTACT_NORMAL, this->dbgDrawContactNormals);
+}
+
+/**
+ * Sets the renderer step to display physics engine data.
+ */
+void Engine::setDebugRenderStep(std::shared_ptr<EngineDebugRenderer> &dbg) {
+    dbg->world = this->world;
+
+    this->dbgStep = dbg;
+}
+
 
 
 /**
@@ -194,6 +236,43 @@ void Engine::drawDebugUi() {
     if(ImGui::CollapsingHeader("Metrics", ImGuiTreeNodeFlags_DefaultOpen)) {
         this->mPlot->DrawList();
     }
+
+    // debugging drawing options
+    if(ImGui::Checkbox("Draw Debugging Info", &this->dbgDrawInfo)) {
+        this->dbgUpdateNeeded = true;
+    }
+
+    ImGui::Indent();
+
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 255, 255));
+    if(ImGui::Checkbox("Collider AABBs", &this->dbgDrawColliderAabb)) {
+        this->dbgUpdateNeeded = true;
+    }
+    ImGui::PopStyleColor();
+
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 0, 255));
+    if(ImGui::Checkbox("Collider Broadphase AABBs", &this->dbgDrawColliderBroadphase)) {
+        this->dbgUpdateNeeded = true;
+    }
+    ImGui::PopStyleColor();
+
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
+    if(ImGui::Checkbox("Collision Shapes", &this->dbgDrawCollisionShape)) {
+        this->dbgUpdateNeeded = true;
+    }
+    ImGui::PopStyleColor();
+
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
+    if(ImGui::Checkbox("Contact Points", &this->dbgDrawContactPoints)) {
+        this->dbgUpdateNeeded = true;
+    }
+    ImGui::PopStyleColor();
+
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32_WHITE);
+    if(ImGui::Checkbox("Contact Normals", &this->dbgDrawContactNormals)) {
+        this->dbgUpdateNeeded = true;
+    }
+    ImGui::PopStyleColor();
 
     // end drawing
     ImGui::End();

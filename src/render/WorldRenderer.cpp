@@ -12,7 +12,7 @@
 #include "world/WorldSource.h"
 #include "world/generators/Terrain.h"
 #include "physics/Engine.h"
-#include "physics/PlayerWorldCollisionHandler.h"
+#include "physics/EngineDebugRenderer.h"
 #include "inventory/Manager.h"
 #include "inventory/UI.h"
 
@@ -63,6 +63,9 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
     auto ssao = std::make_shared<SSAO>();
     this->steps.push_back(ssao);
 
+    auto physDbg = std::make_shared<physics::EngineDebugRenderer>();
+    this->steps.push_back(physDbg);
+
     this->lighting = std::make_shared<Lighting>();
     this->steps.push_back(this->lighting);
 
@@ -88,6 +91,7 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
 
     // interactions and some game UI
     this->physics = new physics::Engine(scnRnd, &this->camera);
+    this->physics->setDebugRenderStep(physDbg);
 
     this->inventory = new inventory::Manager(this->input);
     this->inventory->loadInventory(this->source);

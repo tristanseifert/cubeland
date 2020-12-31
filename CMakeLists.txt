@@ -114,6 +114,7 @@ add_executable(cubeland
 # physics-y stuff (if you can call it that lol)
     src/physics/Engine.cpp
     src/physics/PlayerWorldCollisionHandler.cpp
+    src/physics/EngineDebugRenderer.cpp
 # resources and other misc stuff
     ${version_file}
 )

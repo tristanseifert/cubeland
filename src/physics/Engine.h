@@ -30,6 +30,8 @@ class Camera;
 }
 
 namespace physics {
+class EngineDebugRenderer;
+
 class Engine {
     public:
         Engine(std::shared_ptr<render::SceneRenderer> &scene, render::Camera *cam);
@@ -40,7 +42,10 @@ class Engine {
         void setPlayerPosition(const glm::vec3 &pos, const glm::vec3 &angles = glm::vec3(0));
         void movePlayer(const glm::vec3 &deltas, const bool jump);
 
+        void setDebugRenderStep(std::shared_ptr<EngineDebugRenderer> &dbg);
+
     private:
+        void updateDebugFlags();
         void drawDebugUi();
 
     private:
@@ -91,6 +96,15 @@ class Engine {
 
         MetricsGuiPlot *mPlot;
         MetricsGuiMetric *mAccumulator, *mStepTime;
+
+        std::shared_ptr<EngineDebugRenderer> dbgStep = nullptr;
+        bool dbgUpdateNeeded = true;
+        bool dbgDrawInfo = true;
+        bool dbgDrawColliderAabb = false;
+        bool dbgDrawColliderBroadphase = true;
+        bool dbgDrawCollisionShape = true;
+        bool dbgDrawContactPoints = true;
+        bool dbgDrawContactNormals = false;
 };
 }
 

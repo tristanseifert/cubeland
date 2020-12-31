@@ -199,6 +199,7 @@ void WorldSource::writerMain() {
         this->writeQueue.wait_dequeue(req);
 
         if(!req.chunk) continue;
+        if(this->generateOnly) continue;
 
         // write it
         const auto start = high_resolution_clock::now();
