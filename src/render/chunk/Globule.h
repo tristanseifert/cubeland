@@ -13,6 +13,7 @@
 #include <bitset>
 #include <array>
 #include <future>
+#include <variant>
 
 #include <glbinding/gl/types.h>
 
@@ -99,7 +100,7 @@ class Globule {
         void fillBuffer();
         void generateBlockIdMap();
         void flagsForBlock(const AirMap &am, const size_t x, const size_t y, const size_t z, world::Block::BlockFlags &flags);
-        void insertBlockVertices(const AirMap &am, const size_t x, const size_t y, const size_t z, const uint16_t blockDataId);
+        void insertBlockVertices(const AirMap &am, std::vector<gl::GLuint> &indices, const size_t x, const size_t y, const size_t z, const uint16_t blockDataId);
         void buildAirMap(world::ChunkSlice *slice, std::bitset<256*256> &map);
 
         int vertexIndexForBlock(const glm::ivec3 &blockOff);
@@ -129,8 +130,8 @@ class Globule {
         std::atomic_bool indexBufDirty = false;
         // buffer containing vertex index data
         gfx::Buffer *indexBuf = nullptr;
-        // index buffer for vertex data (TODO: use 16-bit values when possible)
-        std::vector<gl::GLuint> indexData;
+        // index buffer for vertex data 
+        std::variant<std::monostate, std::vector<gl::GLushort>, std::vector<gl::GLuint>> indexData;
         // number of indices to render
         size_t numIndices = 0;
 

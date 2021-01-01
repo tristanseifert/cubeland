@@ -183,5 +183,5 @@ void Chunk::absoluteToRelative(const glm::ivec3 &pos, glm::ivec2 &chunkPos, glm:
         xOff = 256 - abs(xOff);
     }
 
-    blockPos = glm::ivec3(xOff, pos.y, zOff);
+    blockPos = glm::ivec3(xOff, pos.y % 256, zOff);
 }

@@ -143,7 +143,11 @@ void Globule::draw(std::shared_ptr<gfx::RenderProgram> &program) {
         this->facesVao->bind();
         this->indexBuf->bind();
 
-        glDrawElements(GL_TRIANGLES, this->numIndices, GL_UNSIGNED_INT, nullptr);
+        if(std::holds_alternative<std::vector<gl::GLuint>>(this->indexData)) {
+            glDrawElements(GL_TRIANGLES, this->numIndices, GL_UNSIGNED_INT, nullptr);
+        } else if(std::holds_alternative<std::vector<gl::GLushort>>(this->indexData)) {
+            glDrawElements(GL_TRIANGLES, this->numIndices, GL_UNSIGNED_SHORT, nullptr);
+        }
 
         gfx::VertexArray::unbind();
     }
@@ -171,11 +175,25 @@ void Globule::transferBuffers() {
     }
     // index data for all exposed block faces
     if(this->indexBufDirty) {
-        const auto size = sizeof(gl::GLuint) * this->indexData.size();
+        void const *ptr = nullptr;
+        size_t size = 0;
+
+        if(std::holds_alternative<std::vector<gl::GLuint>>(this->indexData)) {
+            const auto &vec = std::get<std::vector<gl::GLuint>>(this->indexData);
+            this->numIndices = vec.size();
+            size = sizeof(gl::GLuint) * vec.size();
+            ptr = vec.data();
+        } else if(std::holds_alternative<std::vector<gl::GLushort>>(this->indexData)) {
+            const auto &vec = std::get<std::vector<gl::GLushort>>(this->indexData);
+            this->numIndices = vec.size();
+            size = sizeof(gl::GLushort) * vec.size();
+            ptr = vec.data();
+        }
+
         if(size) {
             PROFILE_SCOPE(XferIndexBuf);
             this->indexBuf->bind();
-            this->indexBuf->replaceData(size, this->indexData.data());
+            this->indexBuf->replaceData(size, ptr);
             this->indexBuf->unbind();
 
 #ifdef LOG_BUFFER_XFER
@@ -183,7 +201,6 @@ void Globule::transferBuffers() {
 #endif
         }
 
-        this->numIndices = this->indexData.size();
         this->indexBufDirty = false;
         this->inhibitDrawing = false;
     }
@@ -204,7 +221,7 @@ void Globule::fillBuffer() {
     auto c = this->chunk->chunk;
     if(!c) {
         this->vertexData.clear();
-        this->indexData.clear();
+        this->indexData = std::monostate();
         this->numIndices = 0;
 
         return;
@@ -219,7 +236,6 @@ void Globule::fillBuffer() {
 
         // TODO: should this be double buffered? transfer while we process could cause death
         this->vertexData.clear();
-        this->indexData.clear();
 
         this->exposureIdMaps.clear();
     }
@@ -255,6 +271,9 @@ void Globule::fillBuffer() {
             blockPtrMaps.push_back(list);
         }
     }
+
+    // temporary index data buffer. we'll either take this as-is or convert to 16-bit later
+    std::vector<gl::GLuint> indices;
 
     // initial air map filling
     AirMap am;
@@ -355,7 +374,7 @@ void Globule::fillBuffer() {
                 uint16_t type = block->getBlockId(worldPos, flags);
 
                 // append the vertices for this block
-                this->insertBlockVertices(am, x, y, z, type);
+                this->insertBlockVertices(am, indices, x, y, z, type);
             }
         }
 
@@ -380,10 +399,23 @@ nextRow:;
 #endif
     }
 
-    /*if(!this->indexData.empty() && this->indexData.size() < 65536) {
-        Logging::debug("Index data could use 16-bit: {} indices, {} B overhead", 
-                this->indexData.size(), this->indexData.size() * 2);
-    }*/
+    // convert indices to 16-bit quantity, if required
+    if(this->abortWork) return;
+
+    if(!indices.empty() && indices.size() < 65536) {
+        std::vector<gl::GLushort> shortIndices;
+        shortIndices.resize(indices.size());
+
+        for(size_t i = 0; i < indices.size(); i++) {
+            shortIndices[i] = indices[i];
+        }
+
+        this->indexData = std::move(shortIndices);
+        // Logging::debug("Index data could use 16-bit: {} indices, {} B overhead", 
+        //        this->indexData.size(), this->indexData.size() * 2);
+    } else {
+        this->indexData = std::move(indices);
+    }
 
     this->vertexBufDirty = true;
     this->indexBufDirty = true;
@@ -432,7 +464,7 @@ void Globule::flagsForBlock(const AirMap &am, const size_t x, const size_t y, co
  * and V is the vertex index for that face (0-3). This is used to look up per block information
  * from the block info data texture.
  */
-void Globule::insertBlockVertices(const AirMap &am, const size_t x, const size_t y, const size_t z, const uint16_t blockId) {
+void Globule::insertBlockVertices(const AirMap &am, std::vector<gl::GLuint> &indices, const size_t x, const size_t y, const size_t z, const uint16_t blockId) {
     const size_t airMapOff = ((z & 0xFF) << 8) | (x & 0xFF);
 
     const glm::i16vec3 pos(x, y, z);
@@ -447,7 +479,7 @@ void Globule::insertBlockVertices(const AirMap &am, const size_t x, const size_t
             {.p = pos + glm::i16vec3(1,0,1), .blockId = blockId, .face = (0x0), .vertexId = 2},
             {.p = pos + glm::i16vec3(0,0,1), .blockId = blockId, .face = (0x0), .vertexId = 3},
         });
-        this->indexData.insert(this->indexData.end(), 
+        indices.insert(indices.end(), 
                 {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
         iVtx += 4;
     }
@@ -459,7 +491,7 @@ void Globule::insertBlockVertices(const AirMap &am, const size_t x, const size_t
             {.p = pos + glm::i16vec3(1,1,0), .blockId = blockId, .face = (0x1), .vertexId = 2},
             {.p = pos + glm::i16vec3(0,1,0), .blockId = blockId, .face = (0x1), .vertexId = 3},
         });
-        this->indexData.insert(this->indexData.end(), 
+        indices.insert(indices.end(), 
                 {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
         iVtx += 4;
     }
@@ -471,7 +503,7 @@ void Globule::insertBlockVertices(const AirMap &am, const size_t x, const size_t
             {.p = pos + glm::i16vec3(0,1,0), .blockId = blockId, .face = (0x2), .vertexId = 2},
             {.p = pos + glm::i16vec3(0,0,0), .blockId = blockId, .face = (0x2), .vertexId = 3},
         });
-        this->indexData.insert(this->indexData.end(), 
+        indices.insert(indices.end(), 
                 {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
         iVtx += 4;
     }
@@ -483,7 +515,7 @@ void Globule::insertBlockVertices(const AirMap &am, const size_t x, const size_t
             {.p = pos + glm::i16vec3(1,1,1), .blockId = blockId, .face = (0x3), .vertexId = 2},
             {.p = pos + glm::i16vec3(1,0,1), .blockId = blockId, .face = (0x3), .vertexId = 3},
         });
-        this->indexData.insert(this->indexData.end(), 
+        indices.insert(indices.end(), 
                 {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
         iVtx += 4;
     }
@@ -495,7 +527,7 @@ void Globule::insertBlockVertices(const AirMap &am, const size_t x, const size_t
             {.p = pos + glm::i16vec3(1,0,0), .blockId = blockId, .face = (0x4), .vertexId = 2},
             {.p = pos + glm::i16vec3(0,0,0), .blockId = blockId, .face = (0x4), .vertexId = 3},
         });
-        this->indexData.insert(this->indexData.end(), 
+        indices.insert(indices.end(), 
                 {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
         iVtx += 4;
     }
@@ -507,7 +539,7 @@ void Globule::insertBlockVertices(const AirMap &am, const size_t x, const size_t
             {.p = pos + glm::i16vec3(1,1,1), .blockId = blockId, .face = (0x5), .vertexId = 2},
             {.p = pos + glm::i16vec3(0,1,1), .blockId = blockId, .face = (0x5), .vertexId = 3},
         });
-        this->indexData.insert(this->indexData.end(), 
+        indices.insert(indices.end(), 
                 {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
         iVtx += 4;
     }

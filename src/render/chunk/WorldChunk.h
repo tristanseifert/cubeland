@@ -131,9 +131,9 @@ class WorldChunk: public Drawable {
         // CPU buffer of highlight data
         std::vector<HighlightInstanceData> highlightData;
         // GPU buffer of highlight data
-        std::shared_ptr<gfx::Buffer> highlightBuf = nullptr;
+        gfx::Buffer *highlightBuf = nullptr;
         // vertex array for highlight data. it takes the same vertex data but uses a transform matrix
-        std::shared_ptr<gfx::VertexArray> highlightVao = nullptr;
+        gfx::VertexArray *highlightVao = nullptr;
         // number of highlights to draw
         size_t numHighlights = 0;
 
@@ -146,11 +146,11 @@ class WorldChunk: public Drawable {
         size_t chunkChangeToken = 0;
 
         // vertex array and buffer for a single cube
-        std::shared_ptr<gfx::VertexArray> placeholderVao = nullptr;
-        std::shared_ptr<gfx::Buffer> vbo = nullptr;
+        gfx::VertexArray *placeholderVao = nullptr;
+        gfx::Buffer *vbo = nullptr;
 
         // debugger for this world chunk
-        std::shared_ptr<chunk::WorldChunkDebugger> debugger = nullptr;
+        chunk::WorldChunkDebugger *debugger = nullptr;
         // when set, all chunks are drown in wireframe mode rather than solid
         bool drawWireframe = false;
 };

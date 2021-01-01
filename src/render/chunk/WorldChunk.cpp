@@ -103,12 +103,12 @@ WorldChunk::WorldChunk() {
     using namespace gfx;
 
     // set up the placeholder vertex array
-    this->vbo = std::make_shared<Buffer>(Buffer::Array, Buffer::StaticDraw);
+    this->vbo = new Buffer(Buffer::Array, Buffer::StaticDraw);
     this->vbo->bind();
     this->vbo->bufferData(sizeof(kCubeVertices), (void *) &kCubeVertices);
     this->vbo->unbind();
 
-    this->placeholderVao = std::make_shared<VertexArray>();
+    this->placeholderVao = new VertexArray;
 
     this->vbo->bind();
     this->placeholderVao->registerVertexAttribPointer(0, 3, VertexArray::Float, 8 * sizeof(gl::GLfloat), 
@@ -143,6 +143,15 @@ WorldChunk::~WorldChunk() {
     for(auto [key, globule] : this->globules) {
         delete globule;
     }
+
+    if(this->debugger) {
+        delete this->debugger;
+    }
+
+    delete this->highlightBuf;
+    delete this->highlightVao;
+    delete this->placeholderVao;
+    delete this->vbo;
 }
 
 /**
@@ -317,8 +326,8 @@ void WorldChunk::initHighlightBuffer() {
     using namespace gfx;
 
     // allocate them
-    this->highlightVao = std::make_shared<VertexArray>();
-    this->highlightBuf = std::make_shared<Buffer>(Buffer::Array, Buffer::DynamicDraw);
+    this->highlightVao = new VertexArray;
+    this->highlightBuf = new Buffer(Buffer::Array, Buffer::DynamicDraw);
 
     this->highlightVao->bind();
 

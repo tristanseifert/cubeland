@@ -387,8 +387,9 @@ void ChunkLoader::updateLookAtBlock() {
     // try to find the first non-air block
     for(const auto &[blockPos, distance] : distances) {
         // convert the block position to a chunk position and try to get the chunk
-        glm::vec2 chunkPosF = glm::vec2(blockPos.x, blockPos.z) / glm::vec2(256., 256.);
-        glm::ivec2 chunkPos = glm::ivec2(glm::floor(chunkPosF));
+        glm::ivec2 chunkPos;
+        glm::ivec3 blockOff;
+        Chunk::absoluteToRelative(blockPos, chunkPos, blockOff);
 
         if(!this->loadedChunks.contains(chunkPos)) {
             continue;
@@ -397,31 +398,22 @@ void ChunkLoader::updateLookAtBlock() {
         auto chunk = this->loadedChunks[chunkPos];
 
         // read the 8-bit ID of the block at this position
-        int zOff = (blockPos.z % 256), xOff = (blockPos.x % 256);
-        if(zOff < 0) {
-            zOff = 256 - abs(zOff);
-        } if(xOff < 0) {
-            xOff = 256 - abs(xOff);
-        }
-
-        auto slice = chunk->slices[blockPos.y];
+        auto slice = chunk->slices[blockOff.y];
         if(!slice) continue;
-        auto row = slice->rows[zOff];
+        auto row = slice->rows[blockOff.z];
         if(!row) continue;
 
-        const auto temp = row->at(xOff);
+        const auto temp = row->at(blockOff.x);
         const auto &map = chunk->sliceIdMaps[row->typeMap];
         const auto uuid = map.idMap[temp];
 
         if(!BlockRegistry::isAirBlock(uuid)) {
             // it is not air, we've found the block we're looking at
             this->lookAtBlock = glm::ivec3(blockPos);
-            this->lookAtBlockRelative = glm::ivec3(xOff, blockPos.y, zOff);
-            //Logging::trace("Look@ block {} (off {}, {}) chunk {}, dist {}, id {}", blockPos, xOff,
-            //        zOff, chunkPos, distance, uuids::to_string(uuid));
+            this->lookAtBlockRelative = glm::ivec3(blockOff.x, blockOff.y, blockOff.z);
 
             // update selection
-            this->updateLookAtSelection(chunkPos, glm::ivec3(xOff, blockPos.y, zOff));
+            this->updateLookAtSelection(chunkPos, glm::ivec3(blockOff.x, blockOff.y, blockOff.z));
             return;
         }
     }
