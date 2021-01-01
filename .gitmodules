@@ -51,4 +51,4 @@
 	url = https://gitlab.com/libeigen/eigen
 [submodule "libs/reactphysics3d"]
 	path = libs/reactphysics3d
-	url = git@github.com:DanielChappuis/reactphysics3d.git
+	url = git@github.com:tristanseifert/reactphysics3d.git
