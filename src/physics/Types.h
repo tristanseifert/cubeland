@@ -30,6 +30,9 @@ static inline const glm::vec3 vec(const reactphysics3d::Vector3 &in) {
 static inline const reactphysics3d::Vector3 vec(const glm::vec3 &in) {
     return reactphysics3d::Vector3(in.x, in.y, in.z);
 }
+static inline const reactphysics3d::Vector3 vec(const glm::ivec3 &in) {
+    return reactphysics3d::Vector3(in.x, in.y, in.z);
+}
 
 // converts a quaternion
 static inline const glm::quat vec(const reactphysics3d::Quaternion &in) {

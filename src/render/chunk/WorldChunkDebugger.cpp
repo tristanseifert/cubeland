@@ -63,7 +63,7 @@ void WorldChunkDebugger::draw() {
  * Render the exposure map controls.
  */
 void WorldChunkDebugger::drawExposureMap() {
-    auto &s = this->exposureMapState;
+    // auto &s = this->exposureMapState;
 
     // selecting the map to use
     ImGui::PushItemWidth(74);

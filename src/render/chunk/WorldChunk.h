@@ -41,10 +41,6 @@ namespace world {
 struct ChunkSlice;
 }
 
-namespace physics {
-class Engine;
-}
-
 namespace render {
 namespace chunk {
 class WorldChunkDebugger;
@@ -60,7 +56,7 @@ class WorldChunk: public Drawable {
     friend class scene::ChunkLoader;
 
     public:
-        WorldChunk(physics::Engine *physics);
+        WorldChunk();
         virtual ~WorldChunk();
 
         virtual void draw(std::shared_ptr<gfx::RenderProgram> &program);

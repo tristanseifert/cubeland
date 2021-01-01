@@ -28,9 +28,6 @@ class RigidBody;
 class Collider;
 }
 
-namespace physics {
-class Engine;
-}
 
 namespace render {
 class WorldChunk;
@@ -54,7 +51,7 @@ class Globule {
     friend class WorldChunkDebugger;
 
     public:
-        Globule(WorldChunk *chunk, const glm::ivec3 pos, physics::Engine *phys);
+        Globule(WorldChunk *chunk, const glm::ivec3 pos);
         ~Globule();
 
         void chunkChanged(const bool isDifferentChunk);
@@ -106,9 +103,6 @@ class Globule {
         void buildAirMap(world::ChunkSlice *slice, std::bitset<256*256> &map);
 
         int vertexIndexForBlock(const glm::ivec3 &blockOff);
-
-        void updatePhysicsBody();
-        void deallocPhysicsBody();
 
     private:
         // position of the globule, in block coordinates, relative to the chunk origin
@@ -166,22 +160,6 @@ class Globule {
         bool inhibitDrawing = false;
         /// visibility override flag
         bool isVisible = true;
-
-        /// pointer to the physics engine
-        physics::Engine *physics = nullptr;
-        /// triangle array mapping our internal vertex data for physics
-        reactphysics3d::TriangleVertexArray *physicsVertices = nullptr;
-        /// mesh wrapping the vertices
-        reactphysics3d::TriangleMesh *physicsMesh = nullptr;
-        /// the mesh shape for collision
-        reactphysics3d::ConcaveMeshShape *physicsShape = nullptr;
-        /// collider most recently created
-        reactphysics3d::Collider *physicsCollider = nullptr;
-        /// physics body used for collisions
-        reactphysics3d::RigidBody *physicsBody = nullptr;
-
-        /// whether the physics collision shape has changed
-        bool physicsBodyDirty = false;
 };
 };
 

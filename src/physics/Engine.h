@@ -36,9 +36,10 @@ class Globule;
 
 namespace physics {
 class EngineDebugRenderer;
+class BlockCollision;
 
 class Engine {
-    friend class render::chunk::Globule;
+    friend class BlockCollision;
 
     public:
         Engine(std::shared_ptr<render::SceneRenderer> &scene, render::Camera *cam);
@@ -52,6 +53,8 @@ class Engine {
         void setDebugRenderStep(std::shared_ptr<EngineDebugRenderer> &dbg);
 
     private:
+        void singleStep();
+
         void updateDebugFlags();
         void drawDebugUi();
 
@@ -60,14 +63,17 @@ class Engine {
         constexpr static const float kTimeStep = 1./60.;
 
         /// Force, in Newtons, to apply as movement.
-        constexpr static const float kMovementForce = 25.;
+        constexpr static const float kMovementForce = 2000.;
+        /// Force to apply when jumping in the +Y direction (in N)
+        constexpr static const double kJumpForce = 25000.;
 
         /// Height of the player, in meters
         constexpr static const double kPlayerHeight = 1.92;
         /// Mass of the player (in kg)
         constexpr static const double kPlayerMass = 87.5;
-        /// Velocity to apply when jumping
-        constexpr static const double kJumpVelocity = 2.;
+        /// Linear damping factor for player movement
+        constexpr static const double kPlayerLinearDamping = 0.33;
+
 
     private:
         using Event = std::variant<std::monostate>;
@@ -92,12 +98,18 @@ class Engine {
         /// camera for viewing
         render::Camera *camera = nullptr;
 
+        /// handler for block collisions
+        BlockCollision *blockCol = nullptr;
+
         /// number of physics steps executed
         size_t numSteps = 0;
         /// time of the last physics engine step
         std::chrono::high_resolution_clock::time_point lastFrameTime;
         /// frame difference accumulator, in seconds
         float stepAccumulator = 0.;
+
+        /// jump inhibit flag
+        bool jump = false;
 
     private:
         /// whether the debug UI is shown
@@ -110,8 +122,8 @@ class Engine {
         bool dbgUpdateNeeded = true;
         bool dbgDrawInfo = true;
         bool dbgDrawColliderAabb = false;
-        bool dbgDrawColliderBroadphase = true;
-        bool dbgDrawCollisionShape = false;
+        bool dbgDrawColliderBroadphase = false;
+        bool dbgDrawCollisionShape = true;
         bool dbgDrawContactPoints = true;
         bool dbgDrawContactNormals = false;
 };

@@ -162,12 +162,18 @@ dispensary:;
 }
 
 /**
+ * Gets the chunk that contains a particular block.
+ */
+void Chunk::absoluteToRelative(const glm::ivec3 &pos, glm::ivec2 &chunkPos) {
+    chunkPos = glm::ivec2(floor(pos.x / 256.), floor(pos.z / 256.)); 
+}
+
+/**
  * Decomposes an absolute world space block position to a chunk position and a block position
  * inside that chunk.
  */
 void Chunk::absoluteToRelative(const glm::ivec3 &pos, glm::ivec2 &chunkPos, glm::ivec3 &blockPos) {
-    // get chunk pos
-    chunkPos = glm::ivec2(floor(pos.x / 256.), floor(pos.z / 256.)); 
+    absoluteToRelative(pos, chunkPos);
 
     // block pos
     int zOff = (pos.z % 256), xOff = (pos.x % 256);

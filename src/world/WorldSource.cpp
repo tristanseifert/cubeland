@@ -57,7 +57,7 @@ WorldSource::WorldSource(std::shared_ptr<WorldReader> _r, std::shared_ptr<WorldG
  */
 WorldSource::~WorldSource() {
     // force all chunks to finish writing
-    if(!this->dirtyChunks.empty()) {
+    if(!this->dirtyChunks.empty() && !this->generateOnly) {
         Logging::info("Waiting for {} dirty chunk(s) to finish writing", this->dirtyChunks.size());
         for(auto &[pos, info] : this->dirtyChunks) {
             this->forceChunkWriteSync(info.chunk);

@@ -1,6 +1,7 @@
 #include "Engine.h"
 #include "Types.h"
 #include "EngineDebugRenderer.h"
+#include "BlockCollision.h"
 
 #include "util/Intersect.h"
 #include "render/Camera.h"
@@ -43,11 +44,16 @@ Engine::Engine(std::shared_ptr<render::SceneRenderer> &_scene, render::Camera *_
     this->playerBody = this->world->createRigidBody(transform);
 
     this->playerBody->setMass(kPlayerMass);
+    this->playerBody->setAngularDamping(1.); // no rotational shit allowed
+    this->playerBody->setLinearDamping(kPlayerLinearDamping);
     this->playerBody->enableGravity(false);
 
     auto shapnes = this->common->createBoxShape(Vector3(1, kPlayerHeight, 1));
     Transform shapnesT(Vector3(0, -kPlayerHeight/2., 0), Quaternion::identity());
     this->playerCollider = this->playerBody->addCollider(shapnes, shapnesT);
+
+    // various other components
+    this->blockCol = new BlockCollision(this);
 
     // then set up the UI for metrics
     this->mAccumulator = new MetricsGuiMetric("Accumulator", "s", MetricsGuiMetric::USE_SI_UNIT_PREFIX);
@@ -67,6 +73,9 @@ Engine::Engine(std::shared_ptr<render::SceneRenderer> &_scene, render::Camera *_
  * Shuts down the physics engine worker thread.
  */
 Engine::~Engine() {
+    // various components of the engine
+    delete this->blockCol;
+
     // all physics resources will automatically be deallocated from this :D
     delete this->common;
 
@@ -96,16 +105,24 @@ void Engine::setPlayerPosition(const glm::vec3 &pos, const glm::vec3 &angles) {
  * itself as the application of some forces to the player body.
  */
 void Engine::movePlayer(const glm::vec3 &deltas, const bool jump) {
-    // const auto nextPos = this->camera->deltasToPos(deltas);
+    // create movement force vector
     const auto dir = this->camera->deltasToDirVec(deltas);
+    auto force = dir * glm::vec3(kMovementForce, 0, kMovementForce);
 
-    // create force vector
-    const auto force = dir * glm::vec3(kMovementForce, 0, kMovementForce);
-
-    if(!glm::any(glm::isnan(force))) {
-        this->playerBody->applyForceToCenterOfMass(vec(force));
-        Logging::trace("Forces: {}", force);
+    if(glm::any(glm::isnan(force))) {
+        force = glm::vec3(0);
     }
+
+    // apply force for jumping if needed
+    if(jump && !this->jump) {
+        force += glm::vec3(0, kJumpForce, 0);
+        this->jump = true;
+    } else if(!jump) {
+        this->jump = false;
+    }
+
+    // apply force
+    this->playerBody->applyForceToCenterOfMass(vec(force));
 
     // Logging::debug("Deltas {} -> position {} direction {}", deltas, nextPos, dir);
     // this->camera->updatePosition(deltas);
@@ -128,6 +145,8 @@ void Engine::startFrame() {
         this->updateDebugFlags();
     }
 
+    this->blockCol->startFrame();
+
     // get current time, calculate deltas and add to accumulator. bail if first time through
     const auto now = high_resolution_clock::now();
     if(this->numSteps++ == 0) {
@@ -148,7 +167,9 @@ void Engine::startFrame() {
             PROFILE_SCOPE(Step);
 
             const auto stepStart = high_resolution_clock::now();
-            this->world->update(kTimeStep);
+
+            this->singleStep();
+
             const auto stepDiff = high_resolution_clock::now() - stepStart;
             const auto stepSecs = ((float) duration_cast<microseconds>(stepDiff).count())/1000./ 1000.;
             this->mStepTime->AddNewValue(stepSecs);
@@ -179,6 +200,24 @@ void Engine::startFrame() {
     if(this->showDebugWindow) {
         this->drawDebugUi();
     }
+}
+
+/**
+ * Performs a single step of the simulation.
+ */
+void Engine::singleStep() {
+    // set gravity effects on player if the chunk we're under is loaded
+    glm::ivec2 currentChunk;
+
+    const glm::ivec3 newPos = floor(vec(this->playerBody->getTransform().getPosition()));
+    world::Chunk::absoluteToRelative(newPos, currentChunk);
+    const bool hasChunk = (this->scene->getChunk(currentChunk) != nullptr);
+
+    this->playerBody->enableGravity(hasChunk);
+
+    // perform stepping
+    this->blockCol->update();
+    this->world->update(kTimeStep);
 }
 
 /**
@@ -238,6 +277,11 @@ void Engine::drawDebugUi() {
 
     if(ImGui::CollapsingHeader("Metrics", ImGuiTreeNodeFlags_DefaultOpen)) {
         this->mPlot->DrawList();
+    }
+
+    // block offsets
+    if(ImGui::DragFloat3("Block Offset", &this->blockCol->blockTranslate.x, 0.001, -1, 1)) {
+        this->blockCol->removeAllBlocks();
     }
 
     // debugging drawing options

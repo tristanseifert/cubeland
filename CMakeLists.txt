@@ -113,8 +113,8 @@ add_executable(cubeland
     src/inventory/UIDetail.cpp
 # physics-y stuff (if you can call it that lol)
     src/physics/Engine.cpp
-    src/physics/PlayerWorldCollisionHandler.cpp
     src/physics/EngineDebugRenderer.cpp
+    src/physics/BlockCollision.cpp
 # resources and other misc stuff
     ${version_file}
 )
@@ -260,6 +260,7 @@ target_include_directories(cubeland PRIVATE src/3rdparty)
 
 # GLM
 target_include_directories(cubeland PRIVATE libs/glm)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGLM_ENABLE_EXPERIMENTAL")
 
 # Eigen
 target_include_directories(cubeland PRIVATE libs/eigen)
