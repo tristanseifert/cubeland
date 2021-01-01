@@ -63,16 +63,21 @@ class Engine {
         constexpr static const float kTimeStep = 1./60.;
 
         /// Force, in Newtons, to apply as movement.
-        constexpr static const float kMovementForce = 2000.;
+        constexpr static const float kMovementForce = 574.;
         /// Force to apply when jumping in the +Y direction (in N)
-        constexpr static const double kJumpForce = 25000.;
+        constexpr static const float kJumpForce = 27740.;
 
         /// Height of the player, in meters
-        constexpr static const double kPlayerHeight = 1.92;
+        constexpr static const float kPlayerHeight = 1.92;
         /// Mass of the player (in kg)
-        constexpr static const double kPlayerMass = 87.5;
+        constexpr static const float kPlayerMass = 87.5;
         /// Linear damping factor for player movement
-        constexpr static const double kPlayerLinearDamping = 0.33;
+        constexpr static const float kPlayerLinearDamping = 0.25;
+
+        /// Bounciness of the player
+        constexpr static const float kPlayerBounciness = 0.174;
+        /// Friction coefficient for player
+        constexpr static const float kPlayerFriction = 0.274;
 
 
     private:

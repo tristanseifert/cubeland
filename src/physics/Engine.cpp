@@ -44,13 +44,18 @@ Engine::Engine(std::shared_ptr<render::SceneRenderer> &_scene, render::Camera *_
     this->playerBody = this->world->createRigidBody(transform);
 
     this->playerBody->setMass(kPlayerMass);
-    this->playerBody->setAngularDamping(1.); // no rotational shit allowed
+    this->playerBody->setAngularDamping(0.74);
     this->playerBody->setLinearDamping(kPlayerLinearDamping);
     this->playerBody->enableGravity(false);
+    this->playerBody->setAngularVelocityFactor(Vector3(0, 1, 0));
 
-    auto shapnes = this->common->createBoxShape(Vector3(1, kPlayerHeight, 1));
-    Transform shapnesT(Vector3(0, -kPlayerHeight/2., 0), Quaternion::identity());
+    auto shapnes = this->common->createBoxShape(Vector3(.45, kPlayerHeight/2., .45));
+    Transform shapnesT(Vector3(.45, kPlayerHeight/2., .45), Quaternion::identity());
     this->playerCollider = this->playerBody->addCollider(shapnes, shapnesT);
+
+    auto &playerMat = this->playerCollider->getMaterial();
+    playerMat.setBounciness(kPlayerBounciness);
+    playerMat.setFrictionCoefficient(kPlayerFriction);
 
     // various other components
     this->blockCol = new BlockCollision(this);

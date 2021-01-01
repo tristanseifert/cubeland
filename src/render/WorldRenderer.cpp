@@ -105,7 +105,6 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
     glm::vec3 loadedPos, loadedAngles;
     this->posSaver = new input::PlayerPosPersistence(this->input, source);
     if(this->posSaver->loadPosition(loadedPos)) {
-        // this->camera.setCameraPosition(loadedPos);
         this->physics->setPlayerPosition(loadedPos);
     } else {
         this->physics->setPlayerPosition(glm::vec3(-10, 80, -10));

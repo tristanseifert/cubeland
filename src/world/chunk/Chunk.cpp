@@ -156,7 +156,7 @@ dispensary:;
     {
         LOCK_GUARD(this->changeCbsLock, InvokeChangeCb);
         for(auto &i : this->changeCbs) {
-            i.second(pos, hints);
+            i.second(this, pos, hints);
         }
     }
 }

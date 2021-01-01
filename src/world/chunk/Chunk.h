@@ -90,7 +90,7 @@ struct Chunk {
         using BlockCoord = uint32_t;
 
         using ChangeToken = uint32_t;
-        using ChangeCallback = std::function<void(const glm::ivec3 &, const ChangeHints)>;
+        using ChangeCallback = std::function<void(Chunk *, const glm::ivec3 &, const ChangeHints)>;
 
     public:
         /// Position of the Y position in the block coordinate integer

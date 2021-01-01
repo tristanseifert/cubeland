@@ -2,17 +2,20 @@
  * Builds the physics environment around the player from chunk data that's been loaded. This will
  * create a "cube" of blocks around the player, which saves lots of simulation time since we
  * don't really care about collisions with far distant blocks.
- *
- * XXX: Currently, the physics blocks aren't updated as the chunks are modified.
  */
 #ifndef PHYSICS_BLOCKCOLLISION_H
 #define PHYSICS_BLOCKCOLLISION_H
 
 #include <variant>
 #include <unordered_map>
+#include <unordered_set>
+#include <mutex>
 
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/gtx/hash.hpp>
+
+#include "world/chunk/Chunk.h"
 
 namespace reactphysics3d {
 class CollisionShape;
@@ -44,6 +47,9 @@ class BlockCollision {
         /// Block bodies further than this distance are discarded (squared)
         constexpr static const float kBlockMaxDistance = 10.*10.;
 
+        /// Default friction coefficient for blocks
+        constexpr static const float kFrictionCoefficient = 0.25;
+
     private:
         /// Holds block body information (for blocks that want collision)
         struct BlockBody {
@@ -61,6 +67,11 @@ class BlockCollision {
         using BodyInfo = std::variant<BlockNoCollision, BlockBody>;
 
     private:
+        void removeBlockBody(const glm::ivec3 &blockPos, const bool remove = true);
+        void decrementChunkRefCount(const glm::ivec3 &blockPos);
+        void chunkBlockDidChange(world::Chunk *chunk, const glm::ivec3 &blockCoord, const world::Chunk::ChangeHints hints);
+
+    private:
         Engine *engine = nullptr;
 
         /// collision shape for a 1x1x1 cube
@@ -68,8 +79,15 @@ class BlockCollision {
         /// translation for the block shape
         glm::vec3 blockTranslate = glm::vec3(.5);
 
+        /// lock protecting the bodies map
+        std::mutex bodiesLock;
         /// physics bodies generated for blocks. key is block coordinate
         std::unordered_map<glm::ivec3, BodyInfo> bodies;
+
+        /// pseudo reference count of blocks inside a chunk. used to remove unneeded observers
+        std::unordered_multiset<glm::ivec2> activeChunks;
+        /// IDs of chunk observers
+        std::unordered_map<glm::ivec2, uint32_t> chunkObservers;
 };
 }
 

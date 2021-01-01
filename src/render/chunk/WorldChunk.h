@@ -85,7 +85,7 @@ class WorldChunk: public Drawable {
         }
 
     private:
-        void blockDidChange(const glm::ivec3 &blockCoord, const world::Chunk::ChangeHints hints);
+        void blockDidChange(world::Chunk *, const glm::ivec3 &blockCoord, const world::Chunk::ChangeHints hints);
 
     private:
         /// size of a globule, cubed
