@@ -62,17 +62,17 @@ void System::setPhysicsEngine(physics::Engine *_physics) {
  * that are totally off screen.
  */
 void System::getBounds(glm::vec3 &lb, glm::vec3 &rt) {
-    const float kRadius = 5.;
+    const float kRadius = 1., kRadiusY = 4.;
 
     lb = glm::vec3(origin.x - kRadius / 2., origin.y, origin.z - kRadius / 2.);
-    rt = glm::vec3(origin.x + kRadius / 2., origin.y + kRadius, origin.z + kRadius / 2.);
+    rt = glm::vec3(origin.x + kRadius / 2., origin.y + kRadiusY, origin.z + kRadius / 2.);
 }
 
 /**
  * Performs the aging step of the particle system, where new particles are created, and old ones
  * die.
  */
-void System::agingStep() {
+void System::agingStep(const bool canSpawn) {
     // go through all particles and add one to their age
     for(auto &particle : this->particles) {
         particle.age++;
@@ -89,12 +89,14 @@ void System::agingStep() {
     });
 
     // should we generate a particle?
-    std::uniform_real_distribution<float> genDist(0., 1.);
+    if(canSpawn) {
+        std::uniform_real_distribution<float> genDist(0., 1.);
 
-    for(size_t i = 0; i < this->spawnRounds; i++) {
-        if(this->particles.size() < this->maxParticles && 
-           genDist(this->randGen) <= this->spawnProbability) {
-            this->allocNewParticle();
+        for(size_t i = 0; i < this->spawnRounds; i++) {
+            if(this->particles.size() < this->maxParticles && 
+               genDist(this->randGen) <= this->spawnProbability) {
+                this->allocNewParticle();
+            }
         }
     }
 }

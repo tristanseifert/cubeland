@@ -156,7 +156,7 @@ void Terrain::fillSlice(const std::vector<float> &noise, const size_t y, std::sh
         bool isSparse = true;
         bool rowWritten = false;
 
-        if(numWritten < ChunkSliceRowSparse::kMaxEntries && false) {
+        if(numWritten < ChunkSliceRowSparse::kMaxEntries) {
             auto r = chunk->allocRowSparse();
             r->defaultBlockId = 0;
 

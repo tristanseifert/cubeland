@@ -73,8 +73,11 @@ std::optional<uuids::uuid> Chunk::getBlock(const glm::ivec3 &pos) {
  * turning them into dense allocations.
  *
  * Lastly, all block change callbacks are invoked.
+ *
+ * If the `prepare` argument is set, the row's prepare handler is invoked to make the row data
+ * usable for iteration.
  */
-void Chunk::setBlock(const glm::ivec3 &pos, const uuids::uuid &blockId) {
+void Chunk::setBlock(const glm::ivec3 &pos, const uuids::uuid &blockId, const bool prepare) {
     // get slice, or allocate if needed
     ChunkSlice *slice = this->slices[pos.y];
     if(!slice) {
@@ -141,6 +144,10 @@ dispensary:;
 
     // inscrete it
     row->set(pos.x, mapValue);
+
+    if(prepare) {
+        row->prepare();
+    }
 
     // Logging::trace("Set {} (row {}) to {} (id {})", pos, (void *) row, mapValue, uuids::to_string(blockId));
 

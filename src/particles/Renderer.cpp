@@ -151,12 +151,16 @@ void Renderer::startOfFrame() {
         // check if in view
         glm::vec3 lb, rt;
         system->getBounds(lb, rt);
-        if(!frust.isBoxVisible(lb, rt)) continue;
+        if(!frust.isBoxVisible(lb, rt)) {
+            // if not, run a particle step but don't spawn new particles.
+            system->agingStep(false);
+            continue;
+        }
 
+        // otherwise, run an aging step that allows spawning, and generate particle info data
         numVisibleSystems++;
 
-        // run aging step and copy info
-        system->agingStep();
+        system->agingStep(true);
         system->buildParticleBuf(this->particleInfo);
 
         // set flags
@@ -231,7 +235,7 @@ void Renderer::render(render::WorldRenderer *) {
     this->particleVao->bind();
 
     if(this->numParticles) {
-        glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 6, this->numParticles);
+        glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, this->numParticles);
     }
 
     gfx::VertexArray::unbind();

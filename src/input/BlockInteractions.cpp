@@ -118,7 +118,7 @@ void BlockInteractions::destroyBlock() {
     if(!ticksToDestroy) {
         // it's immediate, so don't bother with the timer
         bool collected = this->inventory->addItem(*oldId);
-        chunk->setBlock(relBlock, BlockRegistry::kAirBlockId);
+        chunk->setBlock(relBlock, BlockRegistry::kAirBlockId, true);
         this->scene->forceSelectionUpdate();
     }
     // set the timer
@@ -192,7 +192,7 @@ void BlockInteractions::placeBlock() {
     // get one of the block in the current slot
     const auto id = this->inventory->dequeueSlotBlock();
     if(id) {
-        chunk->setBlock(placeAtRel, *id);
+        chunk->setBlock(placeAtRel, *id, true);
 
         this->scene->forceSelectionUpdate();
         this->source->markChunkDirty(chunk);
@@ -278,7 +278,7 @@ void BlockInteractions::destroyBlockTimerExpired() {
 
     // perform destruction of block
     bool collected = this->inventory->addItem(*oldId);
-    chunk->setBlock(relBlock, world::BlockRegistry::kAirBlockId);
+    chunk->setBlock(relBlock, world::BlockRegistry::kAirBlockId, true);
 
     this->scene->forceSelectionUpdate();
     this->source->markChunkDirty(chunk);

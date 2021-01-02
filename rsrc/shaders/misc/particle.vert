@@ -8,7 +8,7 @@ layout (location = 1) in vec2 absUv;
 
 /// particle position
 layout (location = 2) in vec3 particlePos;
-/// particle specific UV coord
+/// particle specific UV coord; expressed as (top left, bottom right)
 layout (location = 3) in vec4 particleUv;
 /// scale factor for particle size
 layout (location = 4) in float scale;
@@ -33,7 +33,15 @@ uniform vec3 cameraUpWs;
 
 void main() {
     // compute texture coordinate
-    outTexCoords = absUv;
+    vec2 uv = absUv;
+
+    uv = vec2(max(uv.x, particleUv.x), max(uv.y, particleUv.y)); // pick the top left coordinate if input is 0
+    uv = vec2(min(uv.x, particleUv.z), min(uv.y, particleUv.w)); // pick bottom right coordinates if input is 1
+    // uv *= particleUv.zw; // scale the bottom right corners
+
+    outTexCoords = uv;
+
+    // forward some other information to the fragment shader
     outAlpha = alpha;
     outTint = particleTint;
 

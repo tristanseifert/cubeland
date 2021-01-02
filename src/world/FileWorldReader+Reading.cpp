@@ -344,14 +344,14 @@ process:;
          */
         bool useSparse = false;
 
-        /*for(auto block : blockIds) {
+        for(auto block : blockIds) {
             if(blockIdFrequency.count(block) >= (256 - ChunkSliceRowSparse::kMaxEntries)) {
                 // there can only ever be one block > 75%
                 mostFrequentBlock = block;
                 useSparse = true;
                 break;
             }
-        }*/
+        }
 
         if(useSparse) {
             row = chunk->allocRowSparse();
@@ -437,6 +437,7 @@ beach:;
     }
 
     // last, store the row in the slice
+    row->prepare();
     slice->rows[z] = std::move(row);
 }
 

@@ -34,7 +34,7 @@ class System {
         virtual ~System();
 
         void getBounds(glm::vec3 &lb, glm::vec3 &rt);
-        void agingStep();
+        void agingStep(const bool canSpawn = true);
 
     protected:
         struct Particle {

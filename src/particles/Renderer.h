@@ -68,7 +68,7 @@ class Renderer: public render::RenderStep {
         struct ParticleInfo {
             glm::vec3 pos;
             glm::vec3 color = glm::vec3(1);
-            glm::vec4 uv;
+            glm::vec4 uv = glm::vec4(0, 0, 1, 1);
             float scale = 1.;
             float alpha = 1.;
         };

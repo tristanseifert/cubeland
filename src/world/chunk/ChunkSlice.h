@@ -54,6 +54,11 @@ struct ChunkSliceRowSparse: public ChunkSliceRow {
     /// maximum storage space available in the sparse row
     constexpr static const size_t kMaxEntries = 64;
 
+    ChunkSliceRowSparse() {
+        /// fills the storage with all F's so it compares at the end of lists when sorting
+        std::fill(std::begin(this->storage), std::end(this->storage), 0xFFFF);
+    }
+
     /// Block ID to use for all blocks not described by the sparse map
     uint8_t defaultBlockId;
     /// current amount of slots used in the sparse storage array
@@ -92,11 +97,35 @@ struct ChunkSliceRowSparse: public ChunkSliceRow {
     }
     /// if not the same as the default block id, inserts the given value into the sparse storage
     virtual void set(const int i, const uint8_t value) {
+        const uint16_t tag = ((i & 0xFF) << 8) | value;
+
+        // if we've already got an entry for this X position, overwrite it
+        if(this->slotsUsed) {
+            for(size_t j = 0; j < this->slotsUsed; j++) {
+                if((this->storage[j] & 0xFF00) >> 8 == (i & 0xFF)) {
+                    // overwrite if NOT the default block
+                    if(value != this->defaultBlockId) {
+                        this->storage[j] = tag;
+                    } 
+                    // otherwise, remove this entry and resize array
+                    else {
+                        std::remove(std::begin(this->storage),
+                                std::begin(this->storage) + this->slotsUsed, this->storage[j]);
+                        this->slotsUsed--;
+                    }
+                    return;
+                }
+            }
+        }
+
+        // do not write the default block id, and bail if we've no space to add an entry
         if(value == this->defaultBlockId) return;
         if(this->slotsUsed == storage.size()) {
             throw std::runtime_error("Row is full");
         }
-        this->storage[this->slotsUsed++] = ((i & 0xFF) << 8) | value;
+
+        // otherwise, add a new one
+        this->storage[this->slotsUsed++] = tag;
     }
     virtual bool containsType(const uint8_t type) {
         // check if that's the default id
@@ -112,9 +141,7 @@ struct ChunkSliceRowSparse: public ChunkSliceRow {
     // ensures the storage is ready for display
     virtual void prepare() {
         if(!this->slotsUsed) return;
-        //std::sort(std::begin(this->storage), std::end(this->storage));
-        ::qsort(this->storage.data(), this->storage.size(), sizeof(uint16_t),
-                &ChunkSliceRowSparse::compare);
+        std::sort(std::begin(this->storage), std::begin(this->storage) + this->slotsUsed);
     }
 
     private:
@@ -122,7 +149,7 @@ struct ChunkSliceRowSparse: public ChunkSliceRow {
     static int compare(const void *_key, const void *_b) {
         uint16_t key = *((const uint16_t *) _key) & 0xFF00;
         uint16_t b = *((const uint16_t *) _b) & 0xFF00;
-        return key - b;
+        return ((int) key) - ((int) b);
     }
 };
 
