@@ -20,6 +20,7 @@
 #include "steps/Lighting.h"
 #include "steps/HDR.h"
 #include "steps/SSAO.h"
+#include "particles/Renderer.h"
 
 #include "gfx/gl/buffer/FrameBuffer.h"
 #include "io/Format.h"
@@ -69,6 +70,9 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
     this->lighting = std::make_shared<Lighting>();
     this->steps.push_back(this->lighting);
 
+    auto particles = std::make_shared<particles::Renderer>();
+    this->steps.push_back(particles);
+
     this->hdr = std::make_shared<HDR>();
     this->steps.push_back(this->hdr);
 
@@ -93,6 +97,7 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
     this->physics = new physics::Engine(scnRnd, &this->camera);
     this->physics->setDebugRenderStep(physDbg);
     scnRnd->setPhysicsEngine(this->physics);
+    particles->setPhysicsEngine(this->physics);
 
     this->inventory = new inventory::Manager(this->input);
     this->inventory->loadInventory(this->source);

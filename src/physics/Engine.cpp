@@ -36,8 +36,12 @@ Engine::Engine(std::shared_ptr<render::SceneRenderer> &_scene, render::Camera *_
     using namespace reactphysics3d;
 
     // create the react3d physics engine
-    this->common = new PhysicsCommon;
-    this->world = this->common->createPhysicsWorld();
+    this->common = new PhysicsCommon();
+
+    PhysicsWorld::WorldSettings settings;
+    settings.gravity = vec(kWorldGravity);
+
+    this->world = this->common->createPhysicsWorld(settings);
 
     // create the player body
     Transform transform(Vector3(), Quaternion::identity());
@@ -52,6 +56,8 @@ Engine::Engine(std::shared_ptr<render::SceneRenderer> &_scene, render::Camera *_
     auto shapnes = this->common->createBoxShape(Vector3(.45, kPlayerHeight/2., .45));
     Transform shapnesT(Vector3(.45, kPlayerHeight/2., .45), Quaternion::identity());
     this->playerCollider = this->playerBody->addCollider(shapnes, shapnesT);
+    this->playerCollider->setCollisionCategoryBits(kPlayerCharacter);
+    this->playerCollider->setCollideWithMaskBits(kEnvironment);
 
     auto &playerMat = this->playerCollider->getMaterial();
     playerMat.setBounciness(kPlayerBounciness);

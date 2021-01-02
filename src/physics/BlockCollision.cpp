@@ -223,6 +223,8 @@ void BlockCollision::update() {
 
                     Transform blockTransform(vec(this->blockTranslate), Quaternion::identity());
                     b.collider = b.body->addCollider(this->blockShape, blockTransform);
+                    b.collider->setCollisionCategoryBits(Engine::kBlocks);
+                    // b.collider->setCollideWithMaskBits(Engine::kBlocks);
 
                     auto &mat = b.collider->getMaterial();
                     mat.setFrictionCoefficient(kFrictionCoefficient);

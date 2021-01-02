@@ -115,6 +115,9 @@ add_executable(cubeland
     src/physics/Engine.cpp
     src/physics/EngineDebugRenderer.cpp
     src/physics/BlockCollision.cpp
+# particle systems
+    src/particles/Renderer.cpp
+    src/particles/System.cpp
 # resources and other misc stuff
     ${version_file}
 )

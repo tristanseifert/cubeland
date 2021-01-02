@@ -52,6 +52,32 @@ class Engine {
 
         void setDebugRenderStep(std::shared_ptr<EngineDebugRenderer> &dbg);
 
+        /// Returns a reference to the physics common object
+        reactphysics3d::PhysicsCommon *getCommon() {
+            return this->common;
+        }
+        /// Returns a reference to the physics world object
+        reactphysics3d::PhysicsWorld *getWorld() {
+            return this->world;
+        }
+
+    public:
+        /// Defines the meaning of collision bitmasks
+        enum CollisionMask: uint32_t {
+            /// Characters
+            kCharacters                 = 0x0000000F,
+            /// Player character
+            kPlayerCharacter            = (1 << 0),
+
+            /// Environmental objects mask
+            kEnvironment                = 0x000000F0,
+            /// Chunk (e.g. blocks)
+            kBlocks                     = (1 << 4),
+
+            /// Particle system objects
+            kParticles                  = (1 << 8),
+        };
+
     private:
         void singleStep();
 
@@ -59,6 +85,9 @@ class Engine {
         void drawDebugUi();
 
     private:
+        /// gravity vector for the world (in m/s)
+        constexpr static const glm::vec3 kWorldGravity = glm::vec3(0, -9.81, 0);
+
         /// physics engine time step, in seconds
         constexpr static const float kTimeStep = 1./60.;
 
@@ -124,8 +153,8 @@ class Engine {
         MetricsGuiMetric *mAccumulator, *mStepTime;
 
         std::shared_ptr<EngineDebugRenderer> dbgStep = nullptr;
-        bool dbgUpdateNeeded = true;
-        bool dbgDrawInfo = true;
+        bool dbgUpdateNeeded = false;
+        bool dbgDrawInfo = false;
         bool dbgDrawColliderAabb = false;
         bool dbgDrawColliderBroadphase = false;
         bool dbgDrawCollisionShape = true;
