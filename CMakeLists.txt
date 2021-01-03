@@ -157,16 +157,6 @@ cmrc_add_resource_library(cubeland-rsrc-ui
 ALIAS cubeland::rsrc_ui WHENCE rsrc NAMESPACE ui)
 target_link_libraries(cubeland PRIVATE cubeland::rsrc_ui)
 
-# shaders
-file(GLOB SHADER_FRAGMENT_FILES ${CMAKE_CURRENT_SOURCE_DIR}/rsrc/shaders/*/*.frag)
-file(GLOB SHADER_VERTEX_FILES ${CMAKE_CURRENT_SOURCE_DIR}/rsrc/shaders/*/*.vert)
-
-cmrc_add_resource_library(cubeland-rsrc-shaders
-    ${SHADER_FRAGMENT_FILES}
-    ${SHADER_VERTEX_FILES}
-ALIAS cubeland::rsrc_shaders WHENCE rsrc/shaders NAMESPACE shaders)
-target_link_libraries(cubeland PRIVATE cubeland::rsrc_shaders)
-
 # SQL statements
 cmrc_add_resource_library(cubeland-rsrc-sql
     rsrc/sql/world_v1.sql

@@ -48,7 +48,7 @@ Lighting::Lighting() {
     using namespace gfx;
 
     // Load the shader program
-    this->program = std::make_shared<ShaderProgram>("/lighting/lighting.vert", "/lighting/lighting.frag");
+    this->program = std::make_shared<ShaderProgram>("lighting/lighting.vert", "lighting/lighting.frag");
     this->program->link();
 
     this->setUpRenderBuffer();
@@ -187,7 +187,7 @@ void Lighting::setUpSky() {
     using namespace gfx;
 
     // just compile our shader. vertices are squelched from there
-    this->skyProgram = std::make_shared<ShaderProgram>("/lighting/sky.vert", "/lighting/sky.frag");
+    this->skyProgram = std::make_shared<ShaderProgram>("lighting/sky.vert", "lighting/sky.frag");
     this->skyProgram->link();
 
     // sky noise texture

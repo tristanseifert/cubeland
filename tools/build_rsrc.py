@@ -20,7 +20,7 @@ conn = sqlite3.connect(sys.argv[2])
 cursor = conn.cursor()
 
 ##### create tables and drop existing indices
-cursor.execute('CREATE TABLE IF NOT EXISTS resources (name TEXT NOT NULL UNIQUE PRIMARY KEY, content BLOB)')
+cursor.execute('CREATE TABLE IF NOT EXISTS resources (name TEXT NOT NULL UNIQUE PRIMARY KEY, content BLOB, format INTEGER default 0)')
 cursor.execute('DROP INDEX IF EXISTS resources_name')
 
 cursor.execute('CREATE TABLE IF NOT EXISTS metadata (name TEXT NOT NULL UNIQUE PRIMARY KEY, value TEXT)')

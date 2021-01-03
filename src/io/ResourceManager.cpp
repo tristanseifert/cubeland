@@ -7,6 +7,7 @@
 
 #include <sqlite3.h>
 
+#include <filesystem>
 #include <stdexcept>
 
 using namespace io;
@@ -56,12 +57,17 @@ void ResourceManager::open(const std::string &path) {
  *
  * @note Throws if the resource isn't found. Note that paths do NOT have leading slashes.
  */
-void ResourceManager::readResource(const std::string &name, std::vector<unsigned char> &outData) {
+void ResourceManager::readResource(const std::string &_name, std::vector<unsigned char> &outData) {
     // take lock
     LOCK_GUARD(this->dbLock, LoadResource);
 
     int err, valueLen;
     sqlite3_stmt *stmt = nullptr;
+
+    // normalize the file path according to the portable path rules
+    // XXX: test that this works on winbowls
+    std::filesystem::path p(_name);
+    const std::string name = p.lexically_normal().generic_string();
 
     // prepare a query and bind the name to it
     const std::string query = "SELECT (content) FROM resources WHERE name = ? LIMIT 1";

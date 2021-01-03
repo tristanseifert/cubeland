@@ -1,12 +1,6 @@
-/*
- * ShaderProgram.cpp
- *
- *  Created on: Aug 21, 2015
- *      Author: tristan
- */
-
 #include "ShaderProgram.h"
 
+#include "io/ResourceManager.h"
 #include "io/Format.h"
 
 #include <Logging.h>
@@ -26,10 +20,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include <cmrc/cmrc.hpp>
-
-CMRC_DECLARE(shaders);
-
 using namespace gl;
 using namespace gfx;
 
@@ -42,12 +32,12 @@ ShaderProgram::ShaderProgram(const std::string &vertPath, const std::string &fra
     this->program = glCreateProgram();
 
     // load the vertex and fragment shader code
-    auto fs = cmrc::shaders::get_filesystem();
+    std::vector<unsigned char> vertex, fragment;
 
-    auto vertex = fs.open(vertPath);
+    io::ResourceManager::get("shaders/" + vertPath, vertex);
+    io::ResourceManager::get("shaders/" + fragPath, fragment);
+
     const auto vertSource = std::string(vertex.begin(), vertex.end());
-
-    auto fragment = fs.open(fragPath);
     const auto fragSource = std::string(fragment.begin(), fragment.end());
 
     // add shaders

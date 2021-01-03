@@ -164,7 +164,7 @@ void SSAO::loadOcclusionShader() {
     using namespace gfx;
 
     // load the shaderino
-    this->occlusionShader = new ShaderProgram("/ssao/occlusion.vert", "/ssao/occlusion.frag");
+    this->occlusionShader = new ShaderProgram("ssao/occlusion.vert", "ssao/occlusion.frag");
     this->occlusionShader->link();
 
     // send the kernel to the shader

@@ -1,13 +1,3 @@
-/*
- * Shader.h
- *
- * A single shader program, such as a vertex or fragment shader, which will be
- * compiled from source, then linked into a Program.
- *
- *  Created on: Aug 21, 2015
- *      Author: tristan
- */
-
 #ifndef GFX_PROGRAM_SHADER_H_
 #define GFX_PROGRAM_SHADER_H_
 

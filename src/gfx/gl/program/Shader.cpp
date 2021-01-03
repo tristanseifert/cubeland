@@ -1,10 +1,3 @@
-/*
- * Shader.cpp
- *
- *  Created on: Aug 21, 2015
- *      Author: tristan
- */
-
 #include "Shader.h"
 
 #include "io/Format.h"
@@ -28,63 +21,62 @@ using namespace gfx;
  * "GEOMETRY" in a comment.
  */
 Shader::ShaderType Shader::typeFromSource(const std::string &source) {
-	// determine the type of shader by analysing the first line
-	std::stringstream stream(source);
+    // determine the type of shader by analysing the first line
+    std::stringstream stream(source);
 
-	std::string source_line1;
-	getline(stream, source_line1);
+    std::string source_line1;
+    getline(stream, source_line1);
 
-	// allocate a GL shader
-	if(source_line1.find("VERTEX") != std::string::npos) {
-		return Shader::Vertex;
-	} else if(source_line1.find("FRAGMENT") != std::string::npos) {
-		return Shader::Fragment;
-	} else if(source_line1.find("GEOMETRY") != std::string::npos) {
-		return Shader::Geometry;
-	}
+    // allocate a GL shader
+    if(source_line1.find("VERTEX") != std::string::npos) {
+        return Shader::Vertex;
+    } else if(source_line1.find("FRAGMENT") != std::string::npos) {
+        return Shader::Fragment;
+    } else if(source_line1.find("GEOMETRY") != std::string::npos) {
+        return Shader::Geometry;
+    }
 
-	// a catch-all if the file sucks
-	return Shader::Unknown;
+    // a catch-all if the file sucks
+    return Shader::Unknown;
 }
 
 /**
  * Initialises a shader with the given source, but waits to compile it.
  */
 Shader::Shader(ShaderType type, const std::string &source) {
-	// allocate the shader object
-	GLenum shaderType = GL_VERTEX_SHADER;
+    // allocate the shader object
+    GLenum shaderType = GL_VERTEX_SHADER;
 
-	switch(type) {
-		case Vertex:
-			shaderType = GL_VERTEX_SHADER;
-			break;
+    switch(type) {
+        case Vertex:
+            shaderType = GL_VERTEX_SHADER;
+            break;
 
-		case Fragment:
-			shaderType = GL_FRAGMENT_SHADER;
-			break;
+        case Fragment:
+            shaderType = GL_FRAGMENT_SHADER;
+            break;
 
-		case Geometry:
-			shaderType = GL_GEOMETRY_SHADER;
-			break;
+        case Geometry:
+            shaderType = GL_GEOMETRY_SHADER;
+            break;
 
-		default:
+        default:
             Logging::error("Unknown shader type '{}'", type);
             throw std::runtime_error("Unknown shader type");
-	}
+    }
 
-	this->shader = glCreateShader(shaderType);
+    this->shader = glCreateShader(shaderType);
 
-	// save the source
-	this->type = type;
-	this->source = source;
+    // save the source
+    this->type = type;
+    this->source = source;
 }
 
 /**
  * Releases the allocated resources.
  */
 Shader::~Shader() {
-	// delete shader
-	glDeleteShader(this->shader);
+    glDeleteShader(this->shader);
 }
 
 /**
@@ -92,8 +84,8 @@ Shader::~Shader() {
  * error occurs during compilation, an exception is thrown.
  */
 void Shader::compile(void) {
-	// attempt to compile
-	const char *source = this->source.c_str();
+    // attempt to compile
+    const char *source = this->source.c_str();
     glShaderSource(this->shader, 1, &source, NULL);
     glCompileShader(this->shader);
 

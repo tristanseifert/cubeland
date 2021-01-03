@@ -51,7 +51,7 @@ Engine::Engine(std::shared_ptr<render::SceneRenderer> &_scene, render::Camera *_
     this->playerBody->setAngularDamping(0.74);
     this->playerBody->setLinearDamping(kPlayerLinearDamping);
     this->playerBody->enableGravity(false);
-    this->playerBody->setAngularVelocityFactor(Vector3(0, 1, 0));
+    this->playerBody->setAngularVelocityFactor(Vector3(0, 0, 0));
 
     auto shapnes = this->common->createBoxShape(Vector3(.45, kPlayerHeight/2., .45));
     Transform shapnesT(Vector3(.45, kPlayerHeight/2., .45), Quaternion::identity());
@@ -200,8 +200,8 @@ void Engine::startFrame() {
         const auto interp = Transform::interpolateTransforms(this->lastPlayerTransform,
                 playerTransform, factor);
 
-        // update camera with this transform
-        const glm::vec3 newPos = vec(interp.getPosition());
+        // update camera with this transform, plus offset from origin of physics body
+        const glm::vec3 newPos = vec(interp.getPosition()) - glm::vec3(.45, 0, .45);
         this->camera->setCameraPosition(newPos);
     }
 

@@ -77,21 +77,21 @@ static const gl::GLfloat kCubeVertices[] = {
 
 /// render program (for forward rendering)
 std::shared_ptr<gfx::RenderProgram> WorldChunk::getProgram() {
-    auto p = std::make_shared<gfx::RenderProgram>("/model/chunk.vert", "/model/chunk.frag", true);
+    auto p = std::make_shared<gfx::RenderProgram>("model/chunk.vert", "model/chunk.frag", true);
     p->link();
     return p;
 }
 /// render program for highlight rendering
 std::shared_ptr<gfx::RenderProgram> WorldChunk::getHighlightProgram() {
-    auto p = std::make_shared<gfx::RenderProgram>("/model/chunk_highlight.vert",
-            "/model/chunk_highlight.frag", true);
+    auto p = std::make_shared<gfx::RenderProgram>("model/chunk_highlight.vert",
+            "model/chunk_highlight.frag", true);
     p->link();
     return p;
 }
 /// render program for shadow rendering
 std::shared_ptr<gfx::RenderProgram> WorldChunk::getShadowProgram() {
-    auto p = std::make_shared<gfx::RenderProgram>("/model/chunk_shadow.vert",
-            "/model/chunk_shadow.frag", false);
+    auto p = std::make_shared<gfx::RenderProgram>("model/chunk_shadow.vert",
+            "model/chunk_shadow.frag", false);
     p->link();
     return p;
 }

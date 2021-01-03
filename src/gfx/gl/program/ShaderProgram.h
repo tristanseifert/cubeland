@@ -1,12 +1,3 @@
-/*
- * ShaderProgram.h
- *
- * A collection of various shaders, linked into a single program.
- *
- *  Created on: Aug 21, 2015
- *      Author: tristan
- */
-
 #ifndef GFX_PROGRAM_SHADERPROGRAM_H_
 #define GFX_PROGRAM_SHADERPROGRAM_H_
 
