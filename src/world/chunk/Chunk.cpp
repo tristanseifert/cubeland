@@ -142,7 +142,31 @@ dispensary:;
        }
     }
 
-    // inscrete it
+    // if no space remaining, allocate a dense map
+    if(!row->hasSpaceAvailable()) {
+        // handle the source being a sparse row
+        auto sparse = dynamic_cast<ChunkSliceRowSparse *>(row);
+        if(sparse) {
+            auto newRow = new ChunkSliceRowDense;
+            newRow->typeMap = row->typeMap;
+
+            for(size_t x = 0; x < 256; x++) {
+                newRow->set(x, sparse->at(x));
+            }
+
+            // release the old row and swap it for the new
+            this->releaseRowSparse(sparse);
+
+            row = newRow;
+            slice->rows[pos.z] = row;
+        } else {
+            XASSERT(false, "Full row, but it is not sparse! Something is fucked (row type {})",
+                    typeid(row).name());
+        }
+
+    }
+
+    // insert value. this should never fail
     row->set(pos.x, mapValue);
 
     if(prepare) {

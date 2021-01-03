@@ -347,9 +347,15 @@ struct Chunk {
         ChunkSliceRowDense *allocRowDense() {
             return this->poolDense.alloc();
         }
+        void releaseRowDense(ChunkSliceRowDense *row) {
+            this->poolDense.free(row);
+        }
 
         ChunkSliceRowSparse *allocRowSparse() {
             return this->poolSparse.alloc();
+        }
+        void releaseRowSparse(ChunkSliceRowSparse *row) {
+            this->poolSparse.free(row);
         }
 
         /// Gets an estimation of the amount of memory used to allocate rows.

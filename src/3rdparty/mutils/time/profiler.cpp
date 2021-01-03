@@ -50,7 +50,7 @@ const unsigned int frameMarkerColor = 0x22FFFFFF;
 
 const uint32_t MaxThreads = 50;
 const uint32_t MaxCallStack = 30;
-const uint32_t MaxEntriesPerThread = 250000;
+const uint32_t MaxEntriesPerThread = 75000;
 const uint32_t MaxFrames = 25000;
 const uint32_t MaxRegions = 25000;
 

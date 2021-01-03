@@ -233,10 +233,6 @@ void Globule::fillBuffer() {
     // clear caches if needed
     if(this->invalidateCaches) {
         PROFILE_SCOPE(ClearCaches);
-
-        // TODO: should this be double buffered? transfer while we process could cause death
-        this->vertexData.clear();
-
         this->exposureIdMaps.clear();
     }
 
@@ -274,6 +270,7 @@ void Globule::fillBuffer() {
 
     // temporary index data buffer. we'll either take this as-is or convert to 16-bit later
     std::vector<gl::GLuint> indices;
+    std::vector<BlockVertex> vertices;
 
     // initial air map filling
     AirMap am;
@@ -284,115 +281,116 @@ void Globule::fillBuffer() {
     std::fill(std::begin(this->sliceVertexIdx), std::end(this->sliceVertexIdx), 0);
 
     // update the actual instance buffer itself
-    for(size_t y = this->position.y; y <= std::min((size_t)this->position.y + 64, Chunk::kMaxY-1); y++) {
-        PROFILE_SCOPE(ProcessSlice);
-
-        // bail if needing to exit
-        if(!this->chunk || !this->chunk->chunk) return;
-        if(this->abortWork) return;
-
-        // record current vertex index
-        this->sliceVertexIdx[y - (size_t)this->position.y] = this->vertexData.size();
-
-        // if there's no blocks at this Y level, check the next one
-        auto slice = c->slices[y];
-        if(!slice) {
-            goto nextRow;
-        }
-
-        // iterate over each of the slice's rows
-        for(size_t z = this->position.z; z < (this->position.z + 64); z++) {
+    {
+        PROFILE_SCOPE(ProcessSlices);
+        for(size_t y = this->position.y; y <= std::min((size_t)this->position.y + 64, Chunk::kMaxY-1); y++) {
             // bail if needing to exit
+            if(!this->chunk || !this->chunk->chunk) return;
             if(this->abortWork) return;
 
-            // skip empty rows
-            auto row = slice->rows[z];
-            if(!row) {
-                continue;
+            // record current vertex index
+            this->sliceVertexIdx[y - (size_t)this->position.y] = this->vertexData.size();
+
+            // if there's no blocks at this Y level, check the next one
+            auto slice = c->slices[y];
+            if(!slice) {
+                goto nextRow;
             }
 
-            // process each block in this row
-            const auto &map = c->sliceIdMaps[row->typeMap];
-            const auto &blockMap = blockPtrMaps[row->typeMap];
+            // iterate over each of the slice's rows
+            for(size_t z = this->position.z; z < (this->position.z + 64); z++) {
+                // bail if needing to exit
+                if(this->abortWork) return;
 
-            for(size_t x = this->position.x; x < (this->position.x + 64); x++) {
-                bool visible = false;
-
-                // update exposure map for this position if needed
-                {
-                    const size_t airMapOff = ((z & 0xFF) << 8) | (x & 0xFF);
-
-                    // above or below
-                    if(am.above[airMapOff]) {
-                        visible = true;
-                        goto writeResult;
-                    }
-                    if(am.below[airMapOff]) {
-                        visible = true;
-                        goto writeResult;
-                    }
-
-                    // check adjacent faces
-                    for(int i = -1; i <= 1; i+=2) {
-                        // left or right
-                        if((x == this->position.x && i == -1) || (x == (this->position.x+63) && i == 1) || am.current[airMapOff + i]) {
-                            visible = true;
-                            goto writeResult;
-                        }
-                        // front or back
-                        if((z == this->position.z && i == -1) || (z == (this->position.z+63) && i == 1) || am.current[airMapOff + (i * 256)]) {
-                            visible = true;
-                            goto writeResult;
-                        }
-                    }
-
-    writeResult:;
-                }
-
-                // skip block if not exposed
-                if(!visible) {
-                    numCulled++;
+                // skip empty rows
+                auto row = slice->rows[z];
+                if(!row) {
                     continue;
                 }
 
-                // skip blocks to not draw (e.g. air)
-                uint8_t temp = row->at(x);
-                auto &block = blockMap[temp];
-                const auto &id = map.idMap[temp];
+                // process each block in this row
+                const auto &map = c->sliceIdMaps[row->typeMap];
+                const auto &blockMap = blockPtrMaps[row->typeMap];
 
-                if(!block || BlockRegistry::isAirBlock(id)) {
-                    continue;
+                for(size_t x = this->position.x; x < (this->position.x + 64); x++) {
+                    bool visible = false;
+
+                    // update exposure map for this position if needed
+                    {
+                        const size_t airMapOff = ((z & 0xFF) << 8) | (x & 0xFF);
+
+                        // above or below
+                        if(am.above[airMapOff]) {
+                            visible = true;
+                            goto writeResult;
+                        }
+                        if(am.below[airMapOff]) {
+                            visible = true;
+                            goto writeResult;
+                        }
+
+                        // check adjacent faces
+                        for(int i = -1; i <= 1; i+=2) {
+                            // left or right
+                            if((x == this->position.x && i == -1) || (x == (this->position.x+63) && i == 1) || am.current[airMapOff + i]) {
+                                visible = true;
+                                goto writeResult;
+                            }
+                            // front or back
+                            if((z == this->position.z && i == -1) || (z == (this->position.z+63) && i == 1) || am.current[airMapOff + (i * 256)]) {
+                                visible = true;
+                                goto writeResult;
+                            }
+                        }
+
+        writeResult:;
+                    }
+
+                    // skip block if not exposed
+                    if(!visible) {
+                        numCulled++;
+                        continue;
+                    }
+
+                    // skip blocks to not draw (e.g. air)
+                    uint8_t temp = row->at(x);
+                    auto &block = blockMap[temp];
+                    const auto &id = map.idMap[temp];
+
+                    if(!block || BlockRegistry::isAirBlock(id)) {
+                        continue;
+                    }
+                    numTotal++;
+
+                    // figure out what edges are exposed
+                    Block::BlockFlags flags = Block::kFlagsNone;
+                    this->flagsForBlock(am, x, y, z, flags);
+
+                    // determine block data ID
+                    const auto worldPos = glm::ivec3(x, y, z) + chunkPos;
+                    uint16_t type = block->getBlockId(worldPos, flags);
+
+                    // append the vertices for this block
+                    this->insertBlockVertices(am, vertices, indices, x, y, z, type);
                 }
-                numTotal++;
-
-                // figure out what edges are exposed
-                Block::BlockFlags flags = Block::kFlagsNone;
-                this->flagsForBlock(am, x, y, z, flags);
-
-                // determine block data ID
-                const auto worldPos = glm::ivec3(x, y, z) + chunkPos;
-                uint16_t type = block->getBlockId(worldPos, flags);
-
-                // append the vertices for this block
-                this->insertBlockVertices(am, indices, x, y, z, type);
             }
-        }
 
-        // set up for processing the next row
-nextRow:;
-        am.below = std::move(am.current);
-        am.current = std::move(am.above);
+            // set up for processing the next row
+    nextRow:;
+            am.below = std::move(am.current);
+            am.current = std::move(am.above);
 
-        if((y+2) < c->slices.size()) {
-            am.above.reset();
-            this->buildAirMap(c->slices[y+2], am.above);
-        } else {
-            am.above.set();
+            if((y+2) < c->slices.size()) {
+                am.above.reset();
+                this->buildAirMap(c->slices[y+2], am.above);
+            } else {
+                am.above.set();
+            }
         }
     }
 
     // ensure the buffer is transferred on the next frame
-    if(!this->vertexData.empty()) {
+    if(!vertices.empty()) {
 #ifdef LOG_BUFFER_XFER
         Logging::trace("Wrote {} vertices ({} indices)", this->vertexData.size(),
                 this->indexData.size());
@@ -416,6 +414,8 @@ nextRow:;
     } else {
         this->indexData = std::move(indices);
     }
+
+    this->vertexData = std::move(vertices);
 
     this->vertexBufDirty = true;
     this->indexBufDirty = true;
@@ -464,16 +464,16 @@ void Globule::flagsForBlock(const AirMap &am, const size_t x, const size_t y, co
  * and V is the vertex index for that face (0-3). This is used to look up per block information
  * from the block info data texture.
  */
-void Globule::insertBlockVertices(const AirMap &am, std::vector<gl::GLuint> &indices, const size_t x, const size_t y, const size_t z, const uint16_t blockId) {
+void Globule::insertBlockVertices(const AirMap &am, std::vector<BlockVertex> &vertices, std::vector<gl::GLuint> &indices, const size_t x, const size_t y, const size_t z, const uint16_t blockId) {
     const size_t airMapOff = ((z & 0xFF) << 8) | (x & 0xFF);
 
     const glm::i16vec3 pos(x, y, z);
 
-    gl::GLuint iVtx = this->vertexData.size();
+    gl::GLuint iVtx = vertices.size();
 
     // is the bottom exposed? (or bottom of globule)
     if(y == 0 || (y % 64) == 0 || am.below[airMapOff]) {
-        this->vertexData.insert(this->vertexData.end(), {
+        vertices.insert(vertices.end(), {
             {.p = pos + glm::i16vec3(0,0,0), .blockId = blockId, .face = (0x0), .vertexId = 0},
             {.p = pos + glm::i16vec3(1,0,0), .blockId = blockId, .face = (0x0), .vertexId = 1},
             {.p = pos + glm::i16vec3(1,0,1), .blockId = blockId, .face = (0x0), .vertexId = 2},
@@ -485,7 +485,7 @@ void Globule::insertBlockVertices(const AirMap &am, std::vector<gl::GLuint> &ind
     }
     // is the top exposed? (or top edge of globule)
     if((y + 1) >= 255 || (y % 64) == 63 || am.above[airMapOff]) {
-        this->vertexData.insert(this->vertexData.end(), {
+        vertices.insert(vertices.end(), {
             {.p = pos + glm::i16vec3(0,1,1), .blockId = blockId, .face = (0x1), .vertexId = 0},
             {.p = pos + glm::i16vec3(1,1,1), .blockId = blockId, .face = (0x1), .vertexId = 1},
             {.p = pos + glm::i16vec3(1,1,0), .blockId = blockId, .face = (0x1), .vertexId = 2},
@@ -497,7 +497,7 @@ void Globule::insertBlockVertices(const AirMap &am, std::vector<gl::GLuint> &ind
     }
     // is the left edge exposed?
     if(x == 0 || am.current[airMapOff - 1]) {
-        this->vertexData.insert(this->vertexData.end(), {
+        vertices.insert(vertices.end(), {
             {.p = pos + glm::i16vec3(0,0,1), .blockId = blockId, .face = (0x2), .vertexId = 0},
             {.p = pos + glm::i16vec3(0,1,1), .blockId = blockId, .face = (0x2), .vertexId = 1},
             {.p = pos + glm::i16vec3(0,1,0), .blockId = blockId, .face = (0x2), .vertexId = 2},
@@ -509,7 +509,7 @@ void Globule::insertBlockVertices(const AirMap &am, std::vector<gl::GLuint> &ind
     }
     // is the right edge exposed?
     if(x == 255 || am.current[airMapOff + 1]) {
-        this->vertexData.insert(this->vertexData.end(), {
+        vertices.insert(vertices.end(), {
             {.p = pos + glm::i16vec3(1,0,0), .blockId = blockId, .face = (0x3), .vertexId = 0},
             {.p = pos + glm::i16vec3(1,1,0), .blockId = blockId, .face = (0x3), .vertexId = 1},
             {.p = pos + glm::i16vec3(1,1,1), .blockId = blockId, .face = (0x3), .vertexId = 2},
@@ -521,7 +521,7 @@ void Globule::insertBlockVertices(const AirMap &am, std::vector<gl::GLuint> &ind
     }
     // is the z-1 edge exposed?
     if(z == 0 || am.current[airMapOff - 0x100]) {
-        this->vertexData.insert(this->vertexData.end(), {
+        vertices.insert(vertices.end(), {
             {.p = pos + glm::i16vec3(0,1,0), .blockId = blockId, .face = (0x4), .vertexId = 0},
             {.p = pos + glm::i16vec3(1,1,0), .blockId = blockId, .face = (0x4), .vertexId = 1},
             {.p = pos + glm::i16vec3(1,0,0), .blockId = blockId, .face = (0x4), .vertexId = 2},
@@ -533,7 +533,7 @@ void Globule::insertBlockVertices(const AirMap &am, std::vector<gl::GLuint> &ind
     }
     // is the z+1 edge exposed?
     if(z == 255 || am.current[airMapOff + 0x100]) {
-        this->vertexData.insert(this->vertexData.end(), {
+        vertices.insert(vertices.end(), {
             {.p = pos + glm::i16vec3(0,0,1), .blockId = blockId, .face = (0x5), .vertexId = 0},
             {.p = pos + glm::i16vec3(1,0,1), .blockId = blockId, .face = (0x5), .vertexId = 1},
             {.p = pos + glm::i16vec3(1,1,1), .blockId = blockId, .face = (0x5), .vertexId = 2},

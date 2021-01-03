@@ -68,8 +68,12 @@ std::shared_ptr<Chunk> Terrain::generateChunk(int x, int z) {
     this->prepareChunkMeta(chunk);
 
     this->fillFloor(chunk);
-    for(size_t y = 1; y < this->maxHeight; y++) {
-        this->fillSlice(noise, y, chunk);
+
+    {
+        PROFILE_SCOPE(FillSlices);
+        for(size_t y = 1; y < this->maxHeight; y++) {
+            this->fillSlice(noise, y, chunk);
+        }
     }
 
     // done :D
@@ -127,7 +131,7 @@ void Terrain::fillFloor(std::shared_ptr<Chunk> chunk) {
  * Populates the given y level of the chunk, allocating the slice as needed.
  */
 void Terrain::fillSlice(const std::vector<float> &noise, const size_t y, std::shared_ptr<Chunk> chunk) {
-    PROFILE_SCOPE(FillSlice);
+    // PROFILE_SCOPE(FillSlice);
 
     const size_t yOffset = (y * 256);
 

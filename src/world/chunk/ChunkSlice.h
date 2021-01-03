@@ -51,6 +51,8 @@ struct ChunkSliceRow {
  * pretty badly resulting in corrupted blocks.
  */
 struct ChunkSliceRowSparse: public ChunkSliceRow {
+    friend struct Chunk;
+
     /// maximum storage space available in the sparse row
     constexpr static const size_t kMaxEntries = 64;
 

@@ -133,13 +133,6 @@ void Renderer::addSystem(std::shared_ptr<System> &system) {
 void Renderer::startOfFrame() {
     PROFILE_SCOPE(Particles);
 
-    // XXX: test particle system: at 110.5, 74, 57.5
-    static int fucker = 0;
-    if(!fucker++) {
-        auto system = std::make_shared<System>(glm::vec3(110.5, 74, 57.5));
-        this->addSystem(system);
-    }
-
     // get the positions of particles from visible particle systems
     const auto projView = this->projectionMatrix * this->viewMatrix;
     util::Frustum frust(projView);
