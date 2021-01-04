@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 #include "GameUI.h"
+#include "MenuBarHandler.h"
 #include "render/WorldRenderer.h"
 
 #include "util/CPUID.h"
@@ -56,10 +57,12 @@ MainWindow::MainWindow() {
     MUtils::Profiler::NameThread("Main");
 
     // create the renderers
+    auto bar = std::make_shared<MenuBarHandler>();
     auto ui = std::make_shared<GameUI>(this->win, this->winCtx);
 
     auto world = std::make_shared<render::WorldRenderer>(this, ui);
     this->stages.push_back(world);
+    this->stages.push_back(bar);
     this->stages.push_back(ui);
 
     // initialize renderers with current viewport size
@@ -184,6 +187,9 @@ void MainWindow::makeWindow() {
     // log info on the GL version
     Logging::info("GL version {}; vendor {}, renderer {}", glGetString(GL_VERSION),
                   glGetString(GL_VENDOR), glGetString(GL_RENDERER));
+
+    // all subsequent context will share objects with this buffer
+    SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

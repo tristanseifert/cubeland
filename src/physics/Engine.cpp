@@ -9,6 +9,7 @@
 #include "world/chunk/Chunk.h"
 #include "world/block/BlockRegistry.h"
 #include "world/tick/TickHandler.h"
+#include "gui/MenuBarHandler.h"
 #include "io/Format.h"
 
 #include <Logging.h>
@@ -78,6 +79,8 @@ Engine::Engine(std::shared_ptr<render::SceneRenderer> &_scene, render::Camera *_
 
     this->mPlot->AddMetric(this->mAccumulator);
     this->mPlot->AddMetric(this->mStepTime);
+
+    this->menuItem = gui::MenuBarHandler::registerItem("Physics", "Engine Debug", &this->showDebugWindow);
 }
 
 /**
@@ -94,6 +97,10 @@ Engine::~Engine() {
     delete this->mPlot;
     delete this->mAccumulator;
     delete this->mStepTime;
+
+    if(this->menuItem) {
+        gui::MenuBarHandler::unregisterItem(this->menuItem);
+    }
 }
 
 

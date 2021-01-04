@@ -1,6 +1,7 @@
 #include "InputManager.h"
 #include "gfx/gl/texture/TextureDumper.h"
 #include "gui/MainWindow.h"
+#include "gui/MenuBarHandler.h"
 
 #include <Logging.h>
 #include "io/Format.h"
@@ -22,6 +23,15 @@ InputManager::InputManager(gui::MainWindow *_w) : window(_w) {
 
     this->pitch = -1.25;
     this->yaw = 133.6;
+
+    this->debugMenuItem = gui::MenuBarHandler::registerItem("IO", "Input Manager", &this->showDebugWindow);
+}
+
+/**
+ * Removes allocated menu items.
+ */
+InputManager::~InputManager() {
+    gui::MenuBarHandler::unregisterItem(this->debugMenuItem);
 }
 
 /**

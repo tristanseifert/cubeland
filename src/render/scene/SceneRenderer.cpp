@@ -25,7 +25,7 @@ using namespace render::scene;
 /**
  * Init; this loads the program/shader we use normally for drawing
  */
-SceneRenderer::SceneRenderer() {
+SceneRenderer::SceneRenderer() : RenderStep("World", "Scene Renderer Debug") {
     // force initialization of some stuff
     world::TickHandler::init();
     world::BlockRegistry::init();

@@ -332,8 +332,14 @@ class ChunkLoader {
         // pointer to physics engine (required for chunks)
         physics::Engine *physics = nullptr;
 
+        uint32_t overlayMenuItem = 0;
+
         /// when set, the debug overlay is shown
+#ifdef NDEBUG
+        bool showsOverlay = false;
+#else
         bool showsOverlay = true;
+#endif
         /// when set, the visible chunks list is shown
         bool showsChunkList = false;
         /// when set, the chunk display metrics are shown

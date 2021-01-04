@@ -63,7 +63,6 @@ class MainWindow {
         // number of frames for which to average fps
         constexpr static const size_t kNumFrameValues = 20;
 
-        double time = 0.f;
         std::queue<double> frameTimes;
         std::queue<double> frameTimesTrue;
         size_t framesExecuted = 0;

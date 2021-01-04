@@ -21,6 +21,7 @@ class InputManager {
 
     public:
         InputManager(gui::MainWindow *);
+        ~InputManager();
 
     public:
         void startFrame();
@@ -117,7 +118,7 @@ class InputManager {
         // whether user input has any effect on the camera position
         bool inputUpdatesCamera = false;
         // when set, the input debug view is visible
-        bool showDebugWindow = true;
+        bool showDebugWindow = false;
         // when set, the profiler window is shown
         bool showProfiler = false;
 
@@ -129,6 +130,8 @@ class InputManager {
 
         // whether we want to be jumping if not on the ground
         bool wantsJump = false;
+
+        uint32_t debugMenuItem = 0;
 
     private:
         double mouseDeltaX = 0., mouseDeltaY = 0.;

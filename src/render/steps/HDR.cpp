@@ -26,7 +26,7 @@ static const gl::GLfloat kQuadVertices[] = {
 /**
  * Sets up the HDR renderer.
  */
-HDR::HDR() {
+HDR::HDR() : RenderStep("Render Debug", "HDR") {
     using namespace gfx;
 
     // set up the framebuffers

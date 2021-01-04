@@ -29,7 +29,7 @@ static const gl::GLfloat kQuadVertices[] = {
 /**
  * Creates the SSAO renderer.
  */
-SSAO::SSAO() {
+SSAO::SSAO() : RenderStep("Render Debug", "SSAO") {
     // create a vertex array and buffer for the full screen quad data
     this->initQuadBuf();
 

@@ -70,15 +70,14 @@ void ShaderProgram::addShaderSource(const std::string &source) {
  * Adds a shader program.
  */
 void ShaderProgram::addShaderSource(const std::string &source, const Shader::ShaderType type) {
-    auto shader = std::make_shared<Shader>(type, source);
-    this->addShader(shader);
+    this->addShader(std::make_unique<Shader>(type, source));
 }
 
 /**
  * Adds a shader to this program.
  */
-void ShaderProgram::addShader(std::shared_ptr<Shader> shader) {
-    this->shaders.push_back(shader);
+void ShaderProgram::addShader(std::unique_ptr<Shader> shader) {
+    this->shaders.push_back(std::move(shader));
 }
 
 /**

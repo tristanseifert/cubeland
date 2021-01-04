@@ -49,6 +49,7 @@ add_executable(cubeland
     src/gui/PreferencesWindow.cpp
     src/gui/Loaders.cpp
     src/gui/MetricsDisplay.cpp
+    src/gui/MenuBarHandler.cpp
 # input
     src/input/InputManager.cpp
     src/input/BlockInteractions.cpp
@@ -77,6 +78,7 @@ add_executable(cubeland
 # rendering pipeline
     src/render/WorldRenderer.cpp
     src/render/WorldRendererDebugger.cpp
+    src/render/RenderStep.cpp
     src/render/Camera.cpp
     src/render/scene/SceneRenderer.cpp
     src/render/scene/ChunkLoader.cpp

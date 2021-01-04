@@ -4,6 +4,9 @@
 #ifndef RENDER_RENDERSTEP_H
 #define RENDER_RENDERSTEP_H
 
+#include <string>
+#include <cstdint>
+
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
 
@@ -16,7 +19,9 @@ class RenderStep {
     friend class WorldRendererDebugger;
 
     public:
-        virtual ~RenderStep() {};
+        RenderStep() = default;
+        RenderStep(const std::string &category, const std::string &title);
+        virtual ~RenderStep();
 
         virtual void startOfFrame() {};
 
@@ -45,6 +50,7 @@ class RenderStep {
         bool showDebugWindow = false;
 
     private:
+        uint32_t debugMenuItem = 0;
 };
 }
 

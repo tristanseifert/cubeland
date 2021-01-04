@@ -20,7 +20,7 @@ class ShaderProgram {
 
         void addShaderSource(const std::string &source);
         void addShaderSource(const std::string &source, const Shader::ShaderType type);
-        void addShader(std::shared_ptr<Shader> shader);
+        void addShader(std::unique_ptr<Shader> shader);
 
         void link();
 
@@ -44,7 +44,7 @@ class ShaderProgram {
     private:
         gl::GLuint program;
 
-        std::vector<std::shared_ptr<Shader>> shaders;
+        std::vector<std::unique_ptr<Shader>> shaders;
     };
 } /* namespace gfx */
 

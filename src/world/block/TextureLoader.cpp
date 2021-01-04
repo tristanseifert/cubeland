@@ -23,7 +23,7 @@ using namespace world;
 void TextureLoader::load(const std::string &path, std::vector<float> &out, const bool sRgbConvert) {
     // read image data
     std::vector<unsigned char> data;
-    io::ResourceManager::get(path, data);
+    io::ResourceManager::get("textures/" + path, data);
 
     // load image
     int width = 0, height = 0;

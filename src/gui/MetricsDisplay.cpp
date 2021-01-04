@@ -1,6 +1,8 @@
 #include "MetricsDisplay.h"
 #include "GameUI.h"
 
+#include "gui/MenuBarHandler.h"
+
 #include <imgui.h>
 #include <metricsgui/metrics_gui.h>
 
@@ -26,6 +28,8 @@ MetricsDisplay::MetricsDisplay() {
     this->gList->mInlinePlotRowCount = 3;
 
     this->gList->AddMetric(this->mFrameTime);
+
+    this->fpsOverlayMenuItem = gui::MenuBarHandler::registerItem("Overlays", "Frame Times", &this->showFpsOverlay);
 }
 /**
  * Cleans up the metrics display.
@@ -35,6 +39,8 @@ MetricsDisplay::~MetricsDisplay() {
     delete this->gList;
 
     delete this->mFrameTime;
+
+    gui::MenuBarHandler::unregisterItem(this->fpsOverlayMenuItem);
 }
 
 /**

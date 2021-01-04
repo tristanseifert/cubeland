@@ -10,6 +10,7 @@
 #include "gfx/model/RenderProgram.h"
 #include "util/Frustum.h"
 #include "util/Intersect.h"
+#include "gui/MenuBarHandler.h"
 #include "io/MetricsManager.h"
 #include "io/Format.h"
 #include <Logging.h>
@@ -129,6 +130,8 @@ ChunkLoader::ChunkLoader() {
     this->mDisplayChunkPlot->AddMetric(this->mDisplayCulled);
     this->mDisplayChunkPlot->AddMetric(this->mDisplayEager);
     this->mDisplayChunkPlot->AddMetric(this->mDisplayCached);
+
+    this->overlayMenuItem = gui::MenuBarHandler::registerItem("Overlays", "Chunk Loader", &this->showsOverlay);
 }
 
 /**
@@ -156,6 +159,8 @@ ChunkLoader::~ChunkLoader() {
     delete this->globuleNormalTex;
     delete this->blockInfoTex;
     delete this->blockAtlasTex;
+
+    gui::MenuBarHandler::unregisterItem(this->overlayMenuItem);
 }
 
 /**

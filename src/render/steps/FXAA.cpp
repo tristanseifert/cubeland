@@ -31,7 +31,7 @@ static const gl::GLfloat vertices[] = {
 /**
  * Sets up the FXAA renderer.
  */
-FXAA::FXAA() {
+FXAA::FXAA() : RenderStep("Render Debug", "FXAA") {
     // set up a VAO and VBO for the full-screen quad
     this->quadVAO = std::make_shared<gfx::VertexArray>();
     this->quadVBO = std::make_shared<gfx::Buffer>(gfx::Buffer::Array, gfx::Buffer::StaticDraw);

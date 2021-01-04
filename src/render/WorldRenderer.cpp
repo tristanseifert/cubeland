@@ -7,6 +7,7 @@
 #include "input/BlockInteractions.h"
 #include "input/PlayerPosPersistence.h"
 #include "gui/GameUI.h"
+#include "gui/MenuBarHandler.h"
 
 #include "world/FileWorldReader.h"
 #include "world/WorldSource.h"
@@ -114,11 +115,17 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
     } else {
         this->physics->setPlayerPosition(glm::vec3(-10, 80, -10));
     }
+
+    this->debugItemToken = gui::MenuBarHandler::registerItem("World", "World Renderer Debug", &this->isDebuggerOpen);
 }
 /**
  * Releases all of our render resources.
  */
 WorldRenderer::~WorldRenderer() {
+    if(this->debugItemToken) {
+        gui::MenuBarHandler::unregisterItem(this->debugItemToken);
+    }
+
     if(this->debugger) {
         delete this->debugger;
     }
@@ -172,7 +179,7 @@ void WorldRenderer::willBeginFrame() {
     }
 
     // draw debuggre ig
-    if(this->debugger) {
+    if(this->debugger && this->isDebuggerOpen) {
         this->debugger->draw();
     }
 
@@ -242,6 +249,23 @@ bool WorldRenderer::handleEvent(const SDL_Event &event) {
     if(this->input->acceptsGameInput()) {
         if(this->blockInt->handleEvent(event)) {
             return true;
+        }
+    }
+
+    // toggle menu bar with F9
+    if(event.type == SDL_KEYDOWN) {
+        const auto &k = event.key.keysym;
+        if(k.scancode == SDL_SCANCODE_F9) {
+            bool vis = gui::MenuBarHandler::isVisible();
+
+            if(vis) {
+                this->input->decrementCursorCount();
+            } else {
+                this->input->incrementCursorCount();
+            }
+            vis = !vis;
+
+            gui::MenuBarHandler::setVisible(vis);
         }
     }
 

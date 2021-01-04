@@ -32,10 +32,8 @@ const gl::GLfloat Renderer::kQuadData[] = {
 /**
  * Initializes the particle system renderer.
  */
-Renderer::Renderer() {
+Renderer::Renderer() : RenderStep("Physics", "Particle Renderer") {
     using namespace gfx;
-
-    this->showDebugWindow = true;
 
     // create the vertex buffer for particle quads and per particle info
     this->quadVtxBuf = new Buffer(Buffer::Array, Buffer::StaticDraw);
@@ -72,7 +70,7 @@ Renderer::Renderer() {
     this->particleAtlas = new Texture2D(0);
     this->particleAtlas->setUsesLinearFiltering(true);
     this->particleAtlas->setDebugName("ParticleAtlas");
-    this->particleAtlas->loadFromImage("particle/default.png");
+    this->particleAtlas->loadFromImage("textures/particle/default.png");
 
     // load shader for drawing particles
     this->shader = new ShaderProgram("misc/particle.vert", "misc/particle.frag");

@@ -126,7 +126,8 @@ class WorldRenderer: public gui::RunLoopStep {
         std::shared_ptr<FXAA> fxaa = nullptr;
 
         // whether the debugger is visible
-        bool isDebuggerOpen = true;
+        bool isDebuggerOpen = false;
+        uint32_t debugItemToken = 0;
 };
 }
 

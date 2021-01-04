@@ -44,7 +44,7 @@ static const gl::GLfloat kQuadVertices[] = {
 /**
  * Initializes the lighting renderer.
  */
-Lighting::Lighting() {
+Lighting::Lighting() : RenderStep("Render Debug", "Lighting") {
     using namespace gfx;
 
     // Load the shader program
@@ -117,8 +117,6 @@ void Lighting::setUpShadowing() {
 
     XASSERT(FrameBuffer::isComplete(), "shadow mapping FBO incomplete");
     FrameBuffer::unbindRW();
-
-    this->showDebugWindow = true;
 }
 
 

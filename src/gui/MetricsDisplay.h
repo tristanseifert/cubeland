@@ -1,6 +1,8 @@
 #ifndef GUI_METRICSDISPLAY_H
 #define GUI_METRICSDISPLAY_H
 
+#include <cstdint>
+
 #include "GameWindow.h"
 
 struct MetricsGuiMetric;
@@ -56,6 +58,8 @@ class MetricsDisplay: public GameWindow {
 #else
         bool showFpsOverlay = true;
 #endif
+
+        uint32_t fpsOverlayMenuItem = 0;
 };
 }
 

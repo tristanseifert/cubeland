@@ -147,7 +147,8 @@ class Engine {
 
     private:
         /// whether the debug UI is shown
-        bool showDebugWindow = true;
+        bool showDebugWindow = false;
+        uint32_t menuItem = 0;
 
         MetricsGuiPlot *mPlot;
         MetricsGuiMetric *mAccumulator, *mStepTime;
