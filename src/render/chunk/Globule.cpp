@@ -73,38 +73,20 @@ Globule::~Globule() {
 }
 
 /**
- * Indicates that the chunk we're rendering has changed. All caches should be flushed.
- *
- * Buffers will begin to recompute at the start of the next frame. This is done so that any later
- * calls to this routine in the same frame (for example, from a mass update that didn't properly
- * get coalesced) don't cause us to fill the work queue with superfluous work.
+ * Invalidates all buffers.
  */
-void Globule::chunkChanged(const bool isDifferentChunk) {
-    // abort any in-process work
-    if(!this->chunk || !this->chunk->chunk || isDifferentChunk) {
-        this->abortWork = true;
-    }
-
-    // if chunk is different, inhibit drawing til buffers are updated
-    if(isDifferentChunk) {
-        this->inhibitDrawing = true;
-    }
-
-    // clear caches
-    this->invalidateCaches = true;
-    this->vertexDataNeedsUpdate = true;
+void Globule::clearBuffers() {
+    // also, inhibit drawing until we get a buffer assigned again
+    this->inhibitDrawing = true;
 }
 
 /**
- * Waits for all work the globule has started to complete.
+ * Sets the buffer to use for display rendering based on the vertex generator buffer struct. We
+ * will take a copy of the buffer pointer and deallocate it as needed (shoutout ref counting)
  */
-void Globule::finishWork() {
-    PROFILE_SCOPE_STR("GlobuleWaitWork", 0xFF0000FF);
-
-    for(auto &future : this->futures) {
-        future.wait();
-    }
-    this->futures.clear();
+void Globule::setBuffer(const VertexGenerator::Buffer &buf) {
+    // this->vertexBuf = buf.buffer;
+    // this->numVertices = buf.numVertices;
 }
 
 /**
@@ -112,10 +94,6 @@ void Globule::finishWork() {
  */
 void Globule::startOfFrame() {
     if(this->vertexDataNeedsUpdate) {
-        // wait for pending work to complete
-        // XXX: this will block the main loop so probably not great but MEH
-        this->finishWork();
-
         // only then can we queue the new stuff
         this->abortWork = false;
         this->vertexDataNeedsUpdate = false;

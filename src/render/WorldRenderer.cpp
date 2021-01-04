@@ -9,6 +9,7 @@
 #include "gui/GameUI.h"
 #include "gui/MenuBarHandler.h"
 
+#include "render/chunk/VertexGenerator.h"
 #include "world/FileWorldReader.h"
 #include "world/WorldSource.h"
 #include "world/generators/Terrain.h"
@@ -51,6 +52,9 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
         Logging::error("Failed to open world: {}", e.what());
         exit(-1);
     }
+
+    // set up the vertex generator; it needs to create a GL context
+    render::chunk::VertexGenerator::init(win);
 
     // create the IO manager
     this->input = new input::InputManager(win);
@@ -125,7 +129,6 @@ WorldRenderer::~WorldRenderer() {
     if(this->debugItemToken) {
         gui::MenuBarHandler::unregisterItem(this->debugItemToken);
     }
-
     if(this->debugger) {
         delete this->debugger;
     }
@@ -144,6 +147,8 @@ WorldRenderer::~WorldRenderer() {
 
     gSceneRenderer = nullptr;
     this->steps.clear();
+
+    render::chunk::VertexGenerator::shutdown();
 
     delete this->physics;
 

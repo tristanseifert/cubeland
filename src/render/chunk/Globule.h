@@ -5,6 +5,7 @@
 #ifndef RENDER_CHUNK_GLOBULE_H
 #define RENDER_CHUNK_GLOBULE_H
 
+#include "VertexGenerator.h"
 #include "world/block/Block.h"
 
 #include <memory>
@@ -56,7 +57,8 @@ class Globule {
         ~Globule();
 
         void chunkChanged(const bool isDifferentChunk);
-        void finishWork();
+        void clearBuffers();
+        void setBuffer(const VertexGenerator::Buffer &buf);
 
         void startOfFrame();
         void draw(std::shared_ptr<gfx::RenderProgram> &program);

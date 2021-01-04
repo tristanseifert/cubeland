@@ -11,6 +11,8 @@
 #ifndef RENDER_SCENE_WORLDCHUNK_H
 #define RENDER_SCENE_WORLDCHUNK_H
 
+#include "VertexGenerator.h"
+
 #include "world/chunk/Chunk.h"
 #include "render/scene/Drawable.h"
 
@@ -85,6 +87,7 @@ class WorldChunk: public Drawable {
         }
 
     private:
+        void vtxGenCallback(const glm::ivec2 &chunkPos, const chunk::VertexGenerator::BufList &buffers);
         void blockDidChange(world::Chunk *, const glm::ivec3 &blockCoord, const world::Chunk::ChangeHints hints);
 
     private:
@@ -144,6 +147,8 @@ class WorldChunk: public Drawable {
 
         // id of the chunk change handler (or 0)
         size_t chunkChangeToken = 0;
+        // id of the vertex generator callbacks
+        uint32_t vtxGenCallbackToken = 0;
 
         // vertex array and buffer for a single cube
         gfx::VertexArray *placeholderVao = nullptr;

@@ -28,6 +28,11 @@ class MainWindow {
 
         void setMouseCaptureState(bool);
 
+        /// Returns a reference to the raw SDL window.
+        SDL_Window *getSDLWindow() {
+            return this->win;
+        }
+
     private:
         void initGLLibs();
         void configGLContext();
