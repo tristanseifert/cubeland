@@ -6,6 +6,7 @@
 #define RENDER_CHUNK_VERTEXGENERATOR_H
 
 #include "world/chunk/Chunk.h"
+#include "world/block/Block.h"
 
 #include <memory>
 #include <thread>
@@ -15,6 +16,10 @@
 #include <functional>
 #include <unordered_map>
 #include <utility>
+#include <bitset>
+#include <vector>
+#include <array>
+#include <cstddef>
 #include <cstdint>
 
 #include <glbinding/gl/types.h>
@@ -32,6 +37,8 @@ class Buffer;
 };
 
 namespace render::chunk {
+class VertexGeneratorData;
+
 class VertexGenerator {
     public:
         struct Buffer {
@@ -39,6 +46,21 @@ class VertexGenerator {
             gl::GLuint numVertices = 0;
             /// vertex buffer
             std::shared_ptr<gfx::Buffer> buffer = nullptr;
+
+            /// number of indices, if indexed drawing shall be used
+            gl::GLuint numIndices = 0;
+            /// bytes per index value (only 2 or 4 are allowed)
+            gl::GLuint bytesPerIndex = 4;
+            /// index buffer, if any
+            std::shared_ptr<gfx::Buffer> indexBuffer = nullptr;
+        };
+
+        /// Vertices used to render blocks
+        struct BlockVertex {
+            glm::i16vec3 p;
+            gl::GLushort blockId;
+            gl::GLubyte face;
+            gl::GLubyte vertexId;
         };
 
         using BufList = std::vector<std::pair<glm::ivec3, Buffer>>;
@@ -108,15 +130,40 @@ class VertexGenerator {
             return temp;
         }
 
+        /// Start of frame handler
+        static void startOfFrame() {
+            if(!gShared) return;
+            gShared->copyBuffers();
+        }
+
     private:
         static VertexGenerator *gShared;
 
     private:
+        using ExposureMaps = std::vector<std::array<bool, 256>>;
+
+        /// Generation has completed and it needs to be turned into OpenGL buffers.
+        struct BufferRequest {
+            /// Chunk position for which the data is
+            glm::ivec2 chunkPos;
+            /// Globule inside that chunk for which the data is
+            glm::ivec3 globuleOff;
+
+            std::variant<std::vector<gl::GLushort>, std::vector<gl::GLuint>> indices;
+            std::vector<BlockVertex> vertices;
+        };
+
+        /// Request to generate globule data for the given chunk
+        struct GenerateRequest {
+            std::shared_ptr<world::Chunk> chunk;
+            uint64_t globules;
+        };
+
         struct WorkItem {
             /// time at which the work item was submitted;
             std::chrono::high_resolution_clock::time_point submitted;
             /// type of work to perform
-            std::variant<std::monostate> payload;
+            std::variant<std::monostate, GenerateRequest> payload;
         };
 
         struct CallbackInfo {
@@ -124,6 +171,15 @@ class VertexGenerator {
             glm::ivec2 chunk;
             /// Callback function
             Callback callback;
+        };
+
+        /*
+         * Data passed around when calculating the exposure map, as well as the block contents. It
+         * contains mostly a map of which blocks are "air" at, immediately above, and below the
+         * current Y level.
+         */
+        struct AirMap {
+            std::bitset<256*256> above, current, below;
         };
 
     private:
@@ -136,12 +192,22 @@ class VertexGenerator {
         void generate(std::shared_ptr<world::Chunk> &chunk, const uint64_t globuleMask);
 
         void workerMain();
+        void workerGenerate(const GenerateRequest &);
+        void workerGenerate(const std::shared_ptr<world::Chunk> &, const glm::ivec3 &);
+        void workerGenBuffers(const BufferRequest &req);
+
+        void buildAirMap(world::ChunkSlice *, const ExposureMaps &, std::bitset<256*256> &);
+        void generateBlockIdMap(const std::shared_ptr<world::Chunk> &, ExposureMaps &);
+        void flagsForBlock(const AirMap &, const size_t, const size_t, const size_t, world::Block::BlockFlags &);
+        void insertCubeVertices(const AirMap &, std::vector<BlockVertex> &, std::vector<gl::GLuint> &, const size_t, const size_t, const size_t, const uint16_t);
 
         /// Enqueues a new item to the work queue
         void submitWorkItem(WorkItem &item) {
             item.submitted = std::chrono::high_resolution_clock::now();
             this->workQueue.enqueue(item);
         }
+
+        void copyBuffers();
 
     private:
         gui::MainWindow *window;
@@ -169,6 +235,11 @@ class VertexGenerator {
         std::unordered_multimap<glm::ivec2, uint32_t> chunkCallbackMap;
         /// lock protecting the 
         std::mutex chunkCallbackMapLock;
+
+        /// maximum numbers of buffers to copy every frame
+        size_t maxCopiesPerFrame = 5;
+        /// buffers to be created
+        moodycamel::ConcurrentQueue<BufferRequest> bufferReqs;
 };
 }
 

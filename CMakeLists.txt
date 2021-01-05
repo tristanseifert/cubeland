@@ -89,6 +89,7 @@ add_executable(cubeland
     src/render/chunk/WorldChunkDebugger.cpp
     src/render/chunk/ChunkWorker.cpp
     src/render/chunk/VertexGenerator.cpp
+    src/render/chunk/VertexGeneratorData.cpp
     src/render/steps/Lighting.cpp
     src/render/steps/HDR.cpp
     src/render/steps/FXAA.cpp

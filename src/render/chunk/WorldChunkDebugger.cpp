@@ -203,7 +203,7 @@ void WorldChunkDebugger::drawGlobules() {
                 (int) globule->position.z);
 
         ImGui::TableNextColumn();
-        ImGui::Text("%lu", globule->vertexData.size());
+        ImGui::Text("%lu", globule->numVertices);
 
         ImGui::TableNextColumn();
         ImGui::Checkbox("##visible", &globule->isVisible);

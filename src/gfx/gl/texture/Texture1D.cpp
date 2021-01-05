@@ -94,7 +94,7 @@ void Texture1D::dump(const std::string &base) {
             char *buffer = new char[bufferSz];
 
             this->bind();
-            glGetTexImage(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, GL_INT, buffer);
+            glGetTexImage(GL_TEXTURE_1D, 0, GL_DEPTH_COMPONENT, GL_INT, buffer);
 
             file.write(buffer, bufferSz);
 
@@ -160,7 +160,7 @@ void Texture1D::allocateBlank(const size_t width, const TextureFormat format) {
     // allocate memory
     GLint type = (GLint) this->glFormat();
 
-    glTexImage2D(GL_TEXTURE_1D, 0, type, (GLsizei) width, 1, 0, colourFormat, dataType, nullptr);
+    glTexImage1D(GL_TEXTURE_1D, 0, type, (GLsizei) width, 0, colourFormat, dataType, nullptr);
 
     // use nearest neighbour interpolation
     if(!this->usesLinearFiltering) {
@@ -204,8 +204,7 @@ void Texture1D::bufferSubData(const size_t width, const size_t xOff, const Textu
             dataType = GL_UNSIGNED_BYTE;
     }
 
-    glTexSubImage2D(GL_TEXTURE_1D, 0, (GLint) xOff, 0, (GLsizei) width, 1, colourFormat,
-            dataType, data);
+    glTexSubImage1D(GL_TEXTURE_1D, 0, (GLint) xOff, (GLsizei) width, colourFormat, dataType, data);
 
     // unbind texture
     Texture1D::unbind();

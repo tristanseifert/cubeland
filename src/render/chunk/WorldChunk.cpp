@@ -167,10 +167,6 @@ WorldChunk::~WorldChunk() {
  * Also invoke all globules, which may kick off background buffer filling.
  */
 void WorldChunk::frameBegin() {
-    // invoke the handlers of all globules
-    for(auto &[key, globule] : this->globules) {
-        globule->startOfFrame();
-    }
     // highlight related stuff
     if(this->highlightsNeedUpdate) { // queue updating of buffer in background
         this->highlightsNeedUpdate = false;
@@ -276,7 +272,12 @@ void WorldChunk::setChunk(std::shared_ptr<world::Chunk> chunk) {
  */
 void WorldChunk::vtxGenCallback(const glm::ivec2 &chunkPos, const chunk::VertexGenerator::BufList &buffers) {
     // ensure we've still got the same chunk
-    XASSERT(this->chunk && this->chunk->worldPos == chunkPos, "Received vertex generator callback with invalid chunk");
+    if(!this->chunk || this->chunk->worldPos != chunkPos) {
+        if(this->chunk) {
+            Logging::error("Received vertex generator callback for chunk {}, but have {}", chunkPos, this->chunk->worldPos);
+        }
+        return;
+    }
 
     // for each of the buffers, assign it to the corresponding globule
     for(const auto &[globulePos, bufInfo] : buffers) {

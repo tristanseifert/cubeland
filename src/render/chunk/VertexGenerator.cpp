@@ -1,9 +1,13 @@
 #include "VertexGenerator.h"
+#include "VertexGeneratorData.h"
+#include "ChunkWorker.h"
 
 #include "world/chunk/Chunk.h"
 #include "world/chunk/ChunkSlice.h"
 #include "world/block/BlockRegistry.h"
 #include "world/block/Block.h"
+
+#include "gfx/gl/buffer/Buffer.h"
 
 #include "gui/MainWindow.h"
 #include "io/Format.h"
@@ -12,6 +16,7 @@
 
 #include <mutils/time/profiler.h>
 #include <SDL.h>
+#include <uuid.h>
 
 #include <algorithm>
 
@@ -96,7 +101,7 @@ uint32_t VertexGenerator::addCallback(const glm::ivec2 &chunkPos, const Callback
         this->chunkCallbackMap.emplace(chunkPos, id);
     }
 
-    Logging::trace("Adding vtx gen callback for chunk {} (id ${:x})", chunkPos, id);
+    // Logging::trace("Adding vtx gen callback for chunk {} (id ${:x})", chunkPos, id);
     return id;
 }
 
@@ -130,7 +135,18 @@ void VertexGenerator::removeCallback(const uint32_t token) {
  * bitmask.
  */
 void VertexGenerator::generate(std::shared_ptr<world::Chunk> &chunk, const uint64_t bits) {
-    Logging::trace("Generate for chunk {}: {:x}", (void *) chunk.get(), bits);
+    // TODO: check that we're not already generating this
+
+    // queue a generating request
+    GenerateRequest req;
+    req.chunk = chunk;
+    req.globules = bits;
+
+    // submit the work item
+    WorkItem i;
+    i.payload = req;
+
+    this->submitWorkItem(i);
 }
 
 
@@ -160,9 +176,510 @@ void VertexGenerator::workerMain() {
         if(std::holds_alternative<std::monostate>(p)) {
             // nothing. duh
         }
+        // generate data for the given globules
+        else if(std::holds_alternative<GenerateRequest>(p)) {
+            const auto &gr = std::get<GenerateRequest>(p);
+            this->workerGenerate(gr);
+        }
+        // unknown
+        else {
+            XASSERT(false, "Unknown vertex generator work item payload");
+        }
     }
 
     // detach context
     SDL_GL_MakeCurrent(this->window->getSDLWindow(), nullptr);
+}
+
+/**
+ * Performs generation of the given chunk's data.
+ */
+void VertexGenerator::workerGenerate(const GenerateRequest &req) {
+    // for each globule, queue generation in the background if needed
+    for(size_t y = 0; y < 256; y += 64) {
+        for(size_t z = 0; z < 256; z += 64) {
+            for(size_t x = 0; x < 256; x += 64) {
+                // ensure that this bit is set
+                const glm::ivec3 origin(x, y, z);
+                const uint64_t bits = blockPosToBits(origin);
+                if((bits & req.globules) == 0) continue;
+
+                // handle generation
+                auto chunk = req.chunk;
+                ChunkWorker::pushWork([&, chunk, origin]() -> void {
+                    this->workerGenerate(chunk, origin);
+                });
+            }
+        }
+    }
+}
+
+/**
+ * Generates vertices for the given globule using the CPU on the chunk worker queue.
+ */
+void VertexGenerator::workerGenerate(const std::shared_ptr<world::Chunk> &chunk, const glm::ivec3 &origin) {
+    using namespace world;
+
+    PROFILE_SCOPE(GenerateGlobule);
+    // Logging::trace("Generating {} for {}", origin, (void *) chunk.get());
+
+    // counters
+    size_t numCulled = 0, numTotal = 0;
+    // get the chunk pos
+    const auto chunkPos = glm::ivec3(chunk->worldPos.x * 256, 0, chunk->worldPos.y * 256);
+
+    // convert the 8 bit block ID -> UUID maps into 8 bit ID -> block transparency
+    ExposureMaps exposureIdMaps;
+    this->generateBlockIdMap(chunk, exposureIdMaps);
+
+    // convert the 8 bit -> UUID maps to 8 bit -> block instance maps
+    std::vector<std::array<Block *, 256>> blockPtrMaps;
+    blockPtrMaps.reserve(chunk->sliceIdMaps.size());
+
+    {
+        PROFILE_SCOPE(BuildBlockPtrMap);
+        for(const auto &map : chunk->sliceIdMaps) {
+            std::array<Block *, 256> list;
+            std::fill(list.begin(), list.end(), nullptr);
+
+            for(size_t i = 0; i < list.size(); i++) {
+                const auto &id = map.idMap[i];
+                if(id.is_nil() || BlockRegistry::isAirBlock(id)) {
+                    continue;
+                }
+
+                list[i] = BlockRegistry::getBlock(id);
+            }
+
+            blockPtrMaps.push_back(list);
+        }
+    }
+
+    // temporary index data buffer. we'll either take this as-is or convert to 16-bit later
+    std::vector<gl::GLuint> indices;
+    std::vector<BlockVertex> vertices;
+
+    // initial air map filling
+    AirMap am;
+    am.below.reset();
+    this->buildAirMap(chunk->slices[origin.y], exposureIdMaps, am.current);
+    this->buildAirMap(chunk->slices[origin.y + 1], exposureIdMaps, am.above);
+
+    // update the actual instance buffer itself
+    {
+        PROFILE_SCOPE(ProcessSlices);
+        for(size_t y = origin.y; y <= std::min((size_t) origin.y + 64, Chunk::kMaxY-1); y++) {
+            // if there's no blocks at this Y level, check the next one
+            auto slice = chunk->slices[y];
+            if(!slice) {
+                goto nextRow;
+            }
+
+            // iterate over each of the slice's rows
+            for(size_t z = origin.z; z < (origin.z + 64); z++) {
+                // skip empty rows
+                auto row = slice->rows[z];
+                if(!row) {
+                    continue;
+                }
+
+                // process each block in this row
+                const auto &map = chunk->sliceIdMaps[row->typeMap];
+                const auto &blockMap = blockPtrMaps[row->typeMap];
+
+                for(size_t x = origin.x; x < (origin.x + 64); x++) {
+                    bool visible = false;
+
+                    // update exposure map for this position if needed
+                    {
+                        const size_t airMapOff = ((z & 0xFF) << 8) | (x & 0xFF);
+
+                        // above or below
+                        if(am.above[airMapOff]) {
+                            visible = true;
+                            goto writeResult;
+                        }
+                        if(am.below[airMapOff]) {
+                            visible = true;
+                            goto writeResult;
+                        }
+
+                        // check adjacent faces
+                        for(int i = -1; i <= 1; i+=2) {
+                            // left or right
+                            if((x == origin.x && i == -1) || (x == (origin.x+63) && i == 1) || am.current[airMapOff + i]) {
+                                visible = true;
+                                goto writeResult;
+                            }
+                            // front or back
+                            if((z == origin.z && i == -1) || (z == (origin.z+63) && i == 1) || am.current[airMapOff + (i * 256)]) {
+                                visible = true;
+                                goto writeResult;
+                            }
+                        }
+
+        writeResult:;
+                    }
+
+                    // skip block if not exposed
+                    if(!visible) {
+                        numCulled++;
+                        continue;
+                    }
+
+                    // skip blocks to not draw (e.g. air)
+                    uint8_t temp = row->at(x);
+                    auto &block = blockMap[temp];
+                    const auto &id = map.idMap[temp];
+
+                    if(!block || BlockRegistry::isAirBlock(id)) {
+                        continue;
+                    }
+                    numTotal++;
+
+                    // figure out what edges are exposed
+                    Block::BlockFlags flags = Block::kFlagsNone;
+                    this->flagsForBlock(am, x, y, z, flags);
+
+                    // determine block data ID
+                    const auto worldPos = glm::ivec3(x, y, z) + chunkPos;
+                    uint16_t type = block->getBlockId(worldPos, flags);
+
+                    // append the vertices for this block
+                    this->insertCubeVertices(am, vertices, indices, x, y, z, type);
+                }
+            }
+
+            // set up for processing the next row
+    nextRow:;
+            am.below = std::move(am.current);
+            am.current = std::move(am.above);
+
+            if((y+2) < chunk->slices.size()) {
+                am.above.reset();
+                this->buildAirMap(chunk->slices[y+2], exposureIdMaps, am.above);
+            } else {
+                am.above.set();
+            }
+        }
+    }
+
+    // convert indices to 16-bit quantity, if required
+    BufferRequest req;
+    req.chunkPos = chunk->worldPos;
+    req.globuleOff = origin;
+
+    if(!indices.empty() && indices.size() < 65536) {
+        std::vector<gl::GLushort> shortIndices;
+        shortIndices.resize(indices.size());
+
+        for(size_t i = 0; i < indices.size(); i++) {
+            shortIndices[i] = indices[i];
+        }
+
+        req.indices = std::move(shortIndices);
+    } else {
+        req.indices = std::move(indices);
+    }
+
+    req.vertices = std::move(vertices);
+
+    this->bufferReqs.enqueue(req);
+}
+
+
+
+/**
+ * Generates the mapping of 8-bit block ids to whether they're air or not
+ */
+void VertexGenerator::generateBlockIdMap(const std::shared_ptr<world::Chunk> &c, ExposureMaps &maps) {
+    maps.clear();
+    maps.reserve(c->sliceIdMaps.size());
+
+    // iterate over each input ID map...
+    for(const auto &map : c->sliceIdMaps) {
+        PROFILE_SCOPE(ProcessMap);
+
+        // all blocks should be air by default
+        std::array<bool, 256> isAir;
+        std::fill(isAir.begin(), isAir.end(), true);
+
+        // then, check each of the UUIDs
+        for(size_t i = 0; i < map.idMap.size(); i++) {
+            const auto &uuid = map.idMap[i];
+
+            // skip if nil UUID
+            if(uuid.is_nil()) {
+                continue;
+            }
+
+            // query the block registry if this is an air block
+            isAir[i] = world::BlockRegistry::isAirBlock(uuid);
+        }
+
+        maps.push_back(isAir);
+    }
+}
+
+/**
+ * For a particular Y layer, generates a bitmap indicating whether the block at the given (Z, X)
+ * position is air-like or not.
+ *
+ * Indices into the bitset are 16-bit 0xZZXX coordinates.
+ *
+ * We no longer go through all 256 rows/columns, but instead at least 64, and at most 66; one
+ * extra on each end, if possible.
+ */
+void VertexGenerator::buildAirMap(world::ChunkSlice *slice, const ExposureMaps &exposureMaps, std::bitset<256*256> &b) {
+    // if the slice is empty (e.g. nonexistent,) bail; the entire thing is air
+    if(!slice) {
+        b.set();
+        return;
+    }
+
+    // iterate over every row
+    for(size_t z = 0; z < 256; z++) {
+    // for(size_t z = std::max((int)this->position.z - 1, 0); z < std::min((int)this->position.z + 65, 256); z++) {
+        // ignore empty rows
+        const size_t zOff = ((z & 0xFF) << 8);
+        auto row = slice->rows[z];
+
+        if(!row) {
+            // fill the entire row anyways; not a lot of overhead here
+            for(size_t x = 0; x < 256; x++) {
+                b[zOff + x] = true;
+            }
+            continue;
+        }
+
+        // iterate each block in the row to determine if it's air or not
+        const auto &airMap = exposureMaps[row->typeMap];
+        for(size_t x = 0; x < 256; x++) {
+        // for(size_t x = std::max((int)this->position.x, 0); x < std::min((int)this->position.x + 65, 256); x++) {
+            const bool isAir = airMap[row->at(x)];
+            b[zOff + x] = isAir;
+        }
+    }
+}
+
+/**
+ * Calculates the flags for the given block. Currently, this is just the exposed edges.
+ */
+void VertexGenerator::flagsForBlock(const AirMap &am, const size_t x, const size_t y, const size_t z, world::Block::BlockFlags &flags) {
+    using namespace world;
+
+    // calculate offsets into air map
+    const size_t airMapOff = ((z & 0xFF) << 8) | (x & 0xFF);
+
+    // is the left edge exposed?
+    if(x == 0 || am.current[airMapOff - 1]) {
+        flags |= Block::kExposedXMinus;
+    }
+    // is the right edge exposed?
+    if(x == 255 || am.current[airMapOff + 1]) {
+        flags |= Block::kExposedXPlus;
+    }
+    // is the bottom exposed?
+    if(y == 0 || am.below[airMapOff]) {
+        flags |= Block::kExposedYMinus;
+    }
+    // is the top exposed?
+    if((y + 1) >= 255 || am.above[airMapOff]) {
+        flags |= Block::kExposedYPlus;
+    }
+    // is the z-1 edge exposed?
+    if(z == 0 || am.current[airMapOff - 0x100]) {
+        flags |= Block::kExposedZMinus;
+    }
+    // is the z+1 edge exposed?
+    if(z == 255 || am.current[airMapOff + 0x100]) {
+        flags |= Block::kExposedZPlus;
+    }
+}
+
+/**
+ * For a visible (e.g. at least one exposed face) block at the given coordinates, insert the
+ * necessary vertices to the vertex buffer.
+ *
+ * Note that this works only for FULLY SOLID blocks, e.g. ones where they want to look like a
+ * textured cube.
+ */
+void VertexGenerator::insertCubeVertices(const AirMap &am, std::vector<BlockVertex> &vertices, std::vector<gl::GLuint> &indices, const size_t x, const size_t y, const size_t z, const uint16_t blockId) {
+    const size_t airMapOff = ((z & 0xFF) << 8) | (x & 0xFF);
+
+    const glm::i16vec3 pos(x, y, z);
+
+    gl::GLuint iVtx = vertices.size();
+
+    // is the bottom exposed? (or bottom of globule)
+    if(y == 0 || (y % 64) == 0 || am.below[airMapOff]) {
+        vertices.insert(vertices.end(), {
+            {.p = pos + glm::i16vec3(0,0,0), .blockId = blockId, .face = (0x0), .vertexId = 0},
+            {.p = pos + glm::i16vec3(1,0,0), .blockId = blockId, .face = (0x0), .vertexId = 1},
+            {.p = pos + glm::i16vec3(1,0,1), .blockId = blockId, .face = (0x0), .vertexId = 2},
+            {.p = pos + glm::i16vec3(0,0,1), .blockId = blockId, .face = (0x0), .vertexId = 3},
+        });
+        indices.insert(indices.end(), 
+                {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
+        iVtx += 4;
+    }
+    // is the top exposed? (or top edge of globule)
+    if((y + 1) >= 255 || (y % 64) == 63 || am.above[airMapOff]) {
+        vertices.insert(vertices.end(), {
+            {.p = pos + glm::i16vec3(0,1,1), .blockId = blockId, .face = (0x1), .vertexId = 0},
+            {.p = pos + glm::i16vec3(1,1,1), .blockId = blockId, .face = (0x1), .vertexId = 1},
+            {.p = pos + glm::i16vec3(1,1,0), .blockId = blockId, .face = (0x1), .vertexId = 2},
+            {.p = pos + glm::i16vec3(0,1,0), .blockId = blockId, .face = (0x1), .vertexId = 3},
+        });
+        indices.insert(indices.end(), 
+                {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
+        iVtx += 4;
+    }
+    // is the left edge exposed?
+    if(x == 0 || am.current[airMapOff - 1]) {
+        vertices.insert(vertices.end(), {
+            {.p = pos + glm::i16vec3(0,0,1), .blockId = blockId, .face = (0x2), .vertexId = 0},
+            {.p = pos + glm::i16vec3(0,1,1), .blockId = blockId, .face = (0x2), .vertexId = 1},
+            {.p = pos + glm::i16vec3(0,1,0), .blockId = blockId, .face = (0x2), .vertexId = 2},
+            {.p = pos + glm::i16vec3(0,0,0), .blockId = blockId, .face = (0x2), .vertexId = 3},
+        });
+        indices.insert(indices.end(), 
+                {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
+        iVtx += 4;
+    }
+    // is the right edge exposed?
+    if(x == 255 || am.current[airMapOff + 1]) {
+        vertices.insert(vertices.end(), {
+            {.p = pos + glm::i16vec3(1,0,0), .blockId = blockId, .face = (0x3), .vertexId = 0},
+            {.p = pos + glm::i16vec3(1,1,0), .blockId = blockId, .face = (0x3), .vertexId = 1},
+            {.p = pos + glm::i16vec3(1,1,1), .blockId = blockId, .face = (0x3), .vertexId = 2},
+            {.p = pos + glm::i16vec3(1,0,1), .blockId = blockId, .face = (0x3), .vertexId = 3},
+        });
+        indices.insert(indices.end(), 
+                {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
+        iVtx += 4;
+    }
+    // is the z-1 edge exposed?
+    if(z == 0 || am.current[airMapOff - 0x100]) {
+        vertices.insert(vertices.end(), {
+            {.p = pos + glm::i16vec3(0,1,0), .blockId = blockId, .face = (0x4), .vertexId = 0},
+            {.p = pos + glm::i16vec3(1,1,0), .blockId = blockId, .face = (0x4), .vertexId = 1},
+            {.p = pos + glm::i16vec3(1,0,0), .blockId = blockId, .face = (0x4), .vertexId = 2},
+            {.p = pos + glm::i16vec3(0,0,0), .blockId = blockId, .face = (0x4), .vertexId = 3},
+        });
+        indices.insert(indices.end(), 
+                {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
+        iVtx += 4;
+    }
+    // is the z+1 edge exposed?
+    if(z == 255 || am.current[airMapOff + 0x100]) {
+        vertices.insert(vertices.end(), {
+            {.p = pos + glm::i16vec3(0,0,1), .blockId = blockId, .face = (0x5), .vertexId = 0},
+            {.p = pos + glm::i16vec3(1,0,1), .blockId = blockId, .face = (0x5), .vertexId = 1},
+            {.p = pos + glm::i16vec3(1,1,1), .blockId = blockId, .face = (0x5), .vertexId = 2},
+            {.p = pos + glm::i16vec3(0,1,1), .blockId = blockId, .face = (0x5), .vertexId = 3},
+        });
+        indices.insert(indices.end(), 
+                {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
+        iVtx += 4;
+    }
+}
+
+
+
+/**
+ * Runs a certain number of globule buffer filling operations on the main thread.
+ */
+void VertexGenerator::copyBuffers() {
+    PROFILE_SCOPE(CopyChunkBufs);
+
+    for(size_t i = 0; i < this->maxCopiesPerFrame; i++) {
+        BufferRequest req;
+        if(this->bufferReqs.try_dequeue(req)) {
+            this->workerGenBuffers(req);
+        }
+    }
+}
+
+/**
+ * Builds OpenGL buffers for the given vertex and index buffers. The appropriate callback
+ * methods are invoked as well.
+ */
+void VertexGenerator::workerGenBuffers(const BufferRequest &req) {
+    Buffer outBuf;
+    outBuf.numVertices = req.vertices.size();
+
+    // create vertex buffer
+    const auto vtxSize = sizeof(BlockVertex) * req.vertices.size();
+    if(vtxSize) {
+        PROFILE_SCOPE(XferVertexBuf);
+
+        auto buf = std::make_shared<gfx::Buffer>(gfx::Buffer::Array, gfx::Buffer::StaticDraw);
+
+        buf->bind();
+        buf->replaceData(vtxSize, req.vertices.data());
+        buf->unbind();
+
+        outBuf.buffer = buf;
+    }
+
+    // then, the index data buffer
+    {
+        void const *ptr = nullptr;
+        size_t size = 0;
+
+        if(std::holds_alternative<std::vector<gl::GLuint>>(req.indices)) {
+            const auto &vec = std::get<std::vector<gl::GLuint>>(req.indices);
+            outBuf.numIndices = vec.size();
+
+            outBuf.bytesPerIndex = sizeof(gl::GLuint);
+            size = sizeof(gl::GLuint) * vec.size();
+            ptr = vec.data();
+        } else if(std::holds_alternative<std::vector<gl::GLushort>>(req.indices)) {
+            const auto &vec = std::get<std::vector<gl::GLushort>>(req.indices);
+            outBuf.numIndices = vec.size();
+
+            outBuf.bytesPerIndex = sizeof(gl::GLushort);
+            size = sizeof(gl::GLushort) * vec.size();
+            ptr = vec.data();
+        }
+
+        if(ptr && size) {
+            PROFILE_SCOPE(XferIndexBuf);
+
+            auto buf = std::make_shared<gfx::Buffer>(gfx::Buffer::ElementArray, gfx::Buffer::StaticDraw);
+
+            buf->bind();
+            buf->replaceData(size, ptr);
+            buf->unbind();
+
+            outBuf.indexBuffer = buf;
+        }
+    }
+
+    // invoke the appropriate callbacks
+    std::vector<CallbackInfo> cbs;
+
+    {
+        LOCK_GUARD(this->chunkCallbackMapLock, ChunkCbMap);
+        LOCK_GUARD(this->callbacksLock, Callbacks);
+        auto range = this->chunkCallbackMap.equal_range(req.chunkPos);
+
+        for(auto it = range.first; it != range.second; it++) {
+            const auto token = it->second;
+            cbs.push_back(this->callbacks.at(token));
+        }
+    }
+
+    PROFILE_SCOPE(InvokeCallbacks);
+
+    if(!cbs.empty()) {
+        BufList bufs;
+        bufs.emplace_back(req.globuleOff, std::move(outBuf));
+
+        for(auto &cb : cbs) {
+            cb.callback(req.chunkPos, bufs);
+        }
+    }
 }
 

@@ -193,6 +193,9 @@ void WorldRenderer::willBeginFrame() {
         // @60fps: 60 sec * 24 min
         this->time += 1./(3600. * 24);
     }
+
+    // perform transfers of chunk datas
+    render::chunk::VertexGenerator::startOfFrame();
 }
 
 /**
