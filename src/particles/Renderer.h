@@ -98,6 +98,8 @@ class Renderer: public render::RenderStep {
         std::vector<ParticleInfo> particleInfo;
         /// when set, the particle buffer is yeeted to the GPU next frame
         bool particleInfoDirty = false;
+        /// when not set, we skip the drawing process entirely
+        bool hasVisibleSystems = false;
 
         /// lock over particle systems
         std::mutex particleSystemsLock;

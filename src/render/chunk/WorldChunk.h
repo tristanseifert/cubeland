@@ -88,7 +88,7 @@ class WorldChunk: public Drawable {
 
     private:
         void vtxGenCallback(const glm::ivec2 &chunkPos, const chunk::VertexGenerator::BufList &buffers);
-        void blockDidChange(world::Chunk *, const glm::ivec3 &blockCoord, const world::Chunk::ChangeHints hints);
+        void blockDidChange(world::Chunk *, const glm::ivec3 &, const world::Chunk::ChangeHints, const uuids::uuid &);
 
     private:
         /// size of a globule, cubed

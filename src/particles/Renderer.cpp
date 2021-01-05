@@ -120,6 +120,16 @@ void Renderer::addSystem(std::shared_ptr<System> &system) {
     this->particleSystems.push_back(system);
 }
 
+/**
+ * Removes an existing particle system.
+ */
+void Renderer::removeSystem(std::shared_ptr<System> &system) {
+    LOCK_GUARD(this->particleSystemsLock, ParticleSystems);
+
+    this->particleSystems.erase(std::remove(this->particleSystems.begin(), 
+                this->particleSystems.end(), system), this->particleSystems.end());
+}
+
 
 
 /**
@@ -157,6 +167,8 @@ void Renderer::startOfFrame() {
         // set flags
         this->particleInfoDirty = true;
     }
+
+    this->hasVisibleSystems = (numVisibleSystems > 0);
     this->mVisibleSystems->AddNewValue(numVisibleSystems);
 
     // particles have to be sorted; draw the furthest particles first
@@ -208,6 +220,8 @@ void Renderer::preRender(render::WorldRenderer *) {
 void Renderer::render(render::WorldRenderer *) {
     using namespace gl;
     PROFILE_SCOPE(Particles);
+
+    if(!this->hasVisibleSystems) return;
 
     // prepare the shader
     this->shader->bind();

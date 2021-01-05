@@ -1,10 +1,5 @@
 /*
- * PointLight.h
- *
  * A point light, which is modeled as a sphere that radiates light outwards.
- *
- *  Created on: Sep 1, 2015
- *      Author: tristan
  */
 
 #ifndef GFX_LEVEL_PRIMITIVES_LIGHTS_POINTLIGHT_H_
@@ -25,6 +20,11 @@ class PointLight: public lights::LightPosition,
         virtual ~PointLight() = default;
 
         void sendToProgram(const int index, std::shared_ptr<ShaderProgram> program);
+            
+    protected:
+        virtual void markDirty() {
+            this->dirty = true;
+        }
 };
 } /* namespace gfx */
 

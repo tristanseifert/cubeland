@@ -4,6 +4,10 @@
 #include "world/block/TextureLoader.h"
 #include "world/block/BlockRegistry.h"
 
+#include "gfx/lights/PointLight.h"
+#include "particles/System.h"
+
+#include "io/Format.h"
 #include <Logging.h>
 
 using namespace world::blocks;
@@ -107,4 +111,121 @@ uint16_t Torch::getBlockId(const glm::ivec3 &pos, const BlockFlags flags) {
 uint16_t Torch::getModelId(const glm::ivec3 &pos, const BlockFlags flags) {
     // TODO: select correct model
     return this->modelVertical;
+}
+
+
+/**
+ * Adds chunk observers on load such that we can determine when torches are removed.
+ */
+void Torch::chunkWasLoaded(std::shared_ptr<Chunk> chunk) {
+    const auto &chunkPos = chunk->worldPos;
+
+    // add change handlers
+    using namespace std::placeholders;
+    const auto token = chunk->registerChangeCallback(std::bind(&Torch::blockDidChange, this,
+                _1, _2, _3, _4));
+
+    std::lock_guard<std::mutex> lg(this->chunkObserversLock);
+    this->chunkObservers[chunkPos] = token;
+}
+
+/**
+ * Remove particle systems for all torches in the given chunk.
+ */
+void Torch::chunkWillUnload(std::shared_ptr<Chunk> chunk) {
+    const auto &chunkPos = chunk->worldPos;
+
+    // remove change handler
+    std::lock_guard<std::mutex> lg(this->chunkObserversLock);
+
+    if(this->chunkObservers.contains(chunkPos)) {
+        chunk->unregisterChangeCallback(this->chunkObservers[chunkPos]);
+        this->chunkObservers.erase(chunkPos);
+    }
+}
+
+/**
+ * Create torch particle systems (as needed) when torches are loaded into the world
+ */
+void Torch::blockWillDisplay(const glm::ivec3 &pos) {
+    this->addedTorch(pos);
+}
+
+/**
+ * Chunk change callback
+ */
+void Torch::blockDidChange(world::Chunk *chunk, const glm::ivec3 &blockCoord, const world::Chunk::ChangeHints hints, const uuids::uuid &blockId) {
+    // ignore all non-torch blocks
+    if(blockId != this->id) return;
+
+    auto worldPos = blockCoord;
+    worldPos += glm::ivec3(chunk->worldPos.x * 256, 0, chunk->worldPos.y * 256);
+
+    // if a torch was added, create its particle system
+    if(hints & Chunk::ChangeHints::kBlockAdded) {
+        this->addedTorch(worldPos);
+    }
+    // a torch was removed
+    else if(hints & Chunk::ChangeHints::kBlockRemoved) {
+        this->removedTorch(worldPos);
+    }
+}
+
+
+
+/**
+ * Creates a torch's particle system when it appears, if it doesn't exist already.
+ */
+void Torch::addedTorch(const glm::ivec3 &worldPos) {
+    std::lock_guard<std::mutex> lg(this->infoLock);
+
+    // bail if we've already got torch info for that position
+    if(this->info.contains(worldPos)) {
+        return;
+    }
+
+    // create particle system
+    const auto particleOrigin = glm::vec3(worldPos) + glm::vec3(.5, .74, .5);
+
+    auto sys = std::make_shared<particles::System>(particleOrigin);
+    this->addParticleSystem(sys);
+
+    // create its light
+    auto light = std::make_shared<gfx::PointLight>();
+    light->setPosition(particleOrigin);
+    light->setColors(kLightColor, glm::vec3(.4, .4, .4));
+    light->setLinearAttenuation(kLinearAttenuation);
+    light->setQuadraticAttenuation(kQuadraticAttenuation);
+
+    this->addLight(std::dynamic_pointer_cast<gfx::lights::AbstractLight>(light));
+
+    // build info struct and save it
+    Info i;
+
+    i.smoke = sys;
+    i.light = light;
+
+    this->info[worldPos] = i;
+}
+
+/**
+ * Removes a torch's particle systems when removed.
+ */
+void Torch::removedTorch(const glm::ivec3 &worldPos) {
+    std::lock_guard<std::mutex> lg(this->infoLock);
+
+    // bail if we've not got torch info at that position
+    if(!this->info.contains(worldPos)) {
+        Logging::error("Removing torch at {} with no torch info!", worldPos);
+        return;
+    }
+
+    // remove the particle system
+    auto &i = this->info[worldPos];
+
+    this->removeParticleSystem(i.smoke);
+    this->removeLight(std::dynamic_pointer_cast<gfx::lights::AbstractLight>(i.light));
+
+    // remove the info object
+    this->info.erase(worldPos);
 }

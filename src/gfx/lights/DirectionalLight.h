@@ -1,10 +1,5 @@
 /*
- * DirectionalLight.h
- *
  * A directional light, which models many parallel light rays—such as the sun.
- *
- *  Created on: Sep 1, 2015
- *      Author: tristan
  */
 
 #ifndef GFX_LEVEL_PRIMITIVES_LIGHTS_DIRECTIONALLIGHT_H_

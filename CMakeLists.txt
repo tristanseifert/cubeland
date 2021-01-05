@@ -102,6 +102,7 @@ add_executable(cubeland
     src/world/WorldSource.cpp
     src/world/debug/WorldDebugger.cpp
     src/world/chunk/Chunk.cpp
+    src/world/block/Block.cpp
     src/world/block/BlockRegistry.cpp
     src/world/block/BlockDataGenerator.cpp
     src/world/block/RegisterBuiltins.cpp

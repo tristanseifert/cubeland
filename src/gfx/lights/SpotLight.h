@@ -1,6 +1,4 @@
 /*
- * SpotLight.h
- *
  * A spot light, which casts light within a circle of a specific radius, as
  * defined in degrees.
  */
@@ -34,6 +32,11 @@ class SpotLight: public lights::AbstractLight,
         void setOuterCutOff(float cutoff);
         float getOuterCutOff(void) {
             return this->outerCutOff;
+        }
+        
+    protected:
+        virtual void markDirty() {
+            this->dirty = true;
         }
 
     private:

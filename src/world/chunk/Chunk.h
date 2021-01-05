@@ -90,7 +90,14 @@ struct Chunk {
         using BlockCoord = uint32_t;
 
         using ChangeToken = uint32_t;
-        using ChangeCallback = std::function<void(Chunk *, const glm::ivec3 &, const ChangeHints)>;
+
+        /**
+         * Change callback type 
+         *
+         * The provided UUID is either that of the block that was added, or, that of the block that
+         * used to be at the given location and was removed.
+         */
+        using ChangeCallback = std::function<void(Chunk *, const glm::ivec3 &, const ChangeHints, const uuids::uuid &)>;
 
     public:
         /// Position of the Y position in the block coordinate integer
@@ -372,6 +379,11 @@ inline Chunk::ChangeHints operator|(Chunk::ChangeHints a, Chunk::ChangeHints b) 
 }
 inline Chunk::ChangeHints operator|=(Chunk::ChangeHints &a, Chunk::ChangeHints b) {
     return (Chunk::ChangeHints &) ((uint32_t &) a |= (uint32_t) b);
+}
+
+// checks whether flag B is set in A
+inline bool operator&(Chunk::ChangeHints a, Chunk::ChangeHints b) {
+    return (static_cast<uint32_t>(a) & static_cast<uint32_t>(b)) != 0;
 }
 }
 

@@ -49,7 +49,7 @@ class Lighting : public RenderStep {
         void reshape(int w, int h);
 
         void addLight(std::shared_ptr<gfx::lights::AbstractLight> light);
-        int removeLight(std::shared_ptr<gfx::lights::AbstractLight> light);
+        void removeLight(std::shared_ptr<gfx::lights::AbstractLight> light);
 
         void bindGBuffer(void);
         void unbindGBuffer(void);

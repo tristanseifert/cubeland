@@ -35,6 +35,8 @@
 using namespace render;
 
 std::shared_ptr<SceneRenderer> gSceneRenderer = nullptr;
+std::shared_ptr<Lighting> gLightRenderer = nullptr;
+std::shared_ptr<particles::Renderer> gParticleRenderer = nullptr;
 
 /**
  * Creates the renderer resources.
@@ -73,9 +75,11 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
     this->steps.push_back(physDbg);
 
     this->lighting = std::make_shared<Lighting>();
+    gLightRenderer = this->lighting;
     this->steps.push_back(this->lighting);
 
     auto particles = std::make_shared<particles::Renderer>();
+    gParticleRenderer = particles;
     this->steps.push_back(particles);
 
     this->hdr = std::make_shared<HDR>();
@@ -142,9 +146,11 @@ WorldRenderer::~WorldRenderer() {
     delete this->inventory;
 
     this->lighting = nullptr;
+    gLightRenderer = nullptr;
     this->hdr = nullptr;
     this->fxaa = nullptr;
 
+    gParticleRenderer = nullptr;
     gSceneRenderer = nullptr;
     this->steps.clear();
 

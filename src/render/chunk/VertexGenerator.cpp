@@ -111,7 +111,7 @@ uint32_t VertexGenerator::addCallback(const glm::ivec2 &chunkPos, const Callback
 void VertexGenerator::removeCallback(const uint32_t token) {
     PROFILE_SCOPE(RemoveVtxGenCb);
 
-    Logging::trace("Removing vtx gen callback with token ${:x}", token);
+    // Logging::trace("Removing vtx gen callback with token ${:x}", token);
 
     // erase it from the chunk callback mapping
     {
@@ -372,6 +372,8 @@ void VertexGenerator::workerGenerate(const std::shared_ptr<world::Chunk> &chunk,
                     } else if(BlockRegistry::hasModel(model)) {
                         const auto &modelData = BlockRegistry::getModel(model);
                         this->insertModelVertices(am, vertices, indices, x, y, z, type, modelData);
+
+                        block->blockWillDisplay(worldPos);
                     } else {
                         XASSERT(false, "Unknown model id ${:04x} for block {}", model, worldPos);
                     }

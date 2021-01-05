@@ -102,8 +102,8 @@ class AbstractLight {
         bool dirty = true;
 
     private:
-        glm::vec3 diffuseColor;
-        glm::vec3 specularColor;
+        glm::vec3 diffuseColor = glm::vec3(1);
+        glm::vec3 specularColor = glm::vec3(1);
 
         bool lightEnabled = true;
 };

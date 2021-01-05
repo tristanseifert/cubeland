@@ -26,6 +26,14 @@
 
 #include <glm/vec3.hpp>
 
+namespace particles {
+class System;
+}
+
+namespace gfx::lights {
+class AbstractLight;
+}
+
 namespace world {
 struct Chunk;
 
@@ -114,6 +122,19 @@ class Block {
         virtual void chunkWasLoaded(std::shared_ptr<Chunk> chunk) {};
         /// A chunk is about to be unloaded
         virtual void chunkWillUnload(std::shared_ptr<Chunk> chunk) {};
+
+        /**
+         * A block of this type is to be rendered at the given world position. This is called for
+         * blocks with non-standard models when the chunk they're in is generated for display.
+         */
+        virtual void blockWillDisplay(const glm::ivec3 &pos) {};
+
+    protected:
+        void addParticleSystem(std::shared_ptr<particles::System> &sys);
+        void removeParticleSystem(std::shared_ptr<particles::System> &sys);
+
+        void addLight(std::shared_ptr<gfx::lights::AbstractLight> light);
+        void removeLight(std::shared_ptr<gfx::lights::AbstractLight> light);
 
     protected:
         /// Unique identifier for the block

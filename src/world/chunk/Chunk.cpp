@@ -166,6 +166,9 @@ dispensary:;
 
     }
 
+    // get the previous value at this row
+    const auto oldMapValue = row->at(pos.x);
+
     // insert value. this should never fail
     row->set(pos.x, mapValue);
 
@@ -177,8 +180,12 @@ dispensary:;
 
     // callbacks
     ChangeHints hints = ChangeHints::kNone;
+    auto callbackBlockId = blockId;
 
     if(BlockRegistry::isAirBlock(blockId)) {
+        const auto &oldId = map.idMap[oldMapValue];
+        callbackBlockId = oldId;
+
         hints |= ChangeHints::kBlockRemoved;
     } else {
         hints |= ChangeHints::kBlockAdded;
@@ -187,7 +194,7 @@ dispensary:;
     {
         LOCK_GUARD(this->changeCbsLock, InvokeChangeCb);
         for(auto &i : this->changeCbs) {
-            i.second(this, pos, hints);
+            i.second(this, pos, hints, callbackBlockId);
         }
     }
 }

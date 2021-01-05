@@ -42,8 +42,6 @@ Stone::Stone() {
     // register appearance
     this->appearanceId = BlockRegistry::registerBlockAppearance();
     BlockRegistry::appearanceSetTextures(this->appearanceId, this->texture, this->texture, this->texture);
-
-    Logging::trace("Stone appearance {}, texture {}", this->appearanceId, this->texture);
 }
 
 

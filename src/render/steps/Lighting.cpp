@@ -249,28 +249,38 @@ void Lighting::sendLightsToShader(void) {
     PROFILE_SCOPE(LightingSend);
 
     // set up counters
-    int numDirectional, numPoint, numSpot;
-    numDirectional = numPoint = numSpot = 0;
+    int numDirectional = 0, numPoint = 0, numSpot = 0;
 
     // go through each type of light
     for(const auto &light : this->lights) {
         // ignore disabled, or lights whose state hasn't changed
         if(!light->isEnabled()) continue;
-        if(!light->isDirty()) continue;
 
         // send data and increment our per-light counters
         switch(light->getType()) {
-            case AbstractLight::Directional:
-                light->sendToProgram(numDirectional++, this->program);
-                break;
+            case AbstractLight::Directional: {
+                const auto i = numDirectional++;
+                if(!light->isDirty()) continue;
 
-            case AbstractLight::Point:
-                light->sendToProgram(numPoint++, this->program);
+                light->sendToProgram(i, this->program);
                 break;
+            }
 
-            case AbstractLight::Spot:
-                light->sendToProgram(numSpot++, this->program);
+            case AbstractLight::Point: {
+                const auto i = numPoint++;
+                if(!light->isDirty()) continue;
+
+                light->sendToProgram(i, this->program);
                 break;
+            }
+
+            case AbstractLight::Spot: {
+                const auto i = numSpot++;
+                if(!light->isDirty()) continue;
+
+                light->sendToProgram(i, this->program);
+                break;
+            }
 
             default:
                 Logging::warn("Invalid light type: {}", light->getType());
@@ -591,23 +601,14 @@ void Lighting::unbindGBuffer(void) {
  * Adds a light to the list of lights. Each frame, these lights are sent to the GPU.
  */
 void Lighting::addLight(std::shared_ptr<gfx::lights::AbstractLight> light) {
-    this->lights.push_back(light);;
+    this->lights.push_back(light);
 }
 
 /**
  * Removes a previously added light.
- *
- * @return 0 if the light was removed, -1 otherwise.
  */
-int Lighting::removeLight(std::shared_ptr<gfx::lights::AbstractLight> light) {
-    auto position = std::find(this->lights.begin(), this->lights.end(), light);
-
-    if(position > this->lights.end()) {
-        return -1;
-    } else {
-        this->lights.erase(position);
-        return 0;
-    }
+void Lighting::removeLight(std::shared_ptr<gfx::lights::AbstractLight> light) {
+    this->lights.erase(std::remove(this->lights.begin(), this->lights.end(), light), this->lights.end());
 }
 
 
@@ -837,9 +838,9 @@ void Lighting::drawLightsTable() {
                     ImGui::PushItemWidth(175);
 
                     ImGui::TableNextColumn();
-                    ImGui::DragFloat3("##diff", &light->diffuseColor.x, 0.01, -10, 10);
+                    if(ImGui::DragFloat3("##diff", &light->diffuseColor.x, 0.01, -10, 10)) light->markDirty();
                     ImGui::TableNextColumn();
-                    ImGui::DragFloat3("##spec", &light->specularColor.x, 0.01, -10, 10);
+                    if(ImGui::DragFloat3("##spec", &light->specularColor.x, 0.01, -10, 10)) light->markDirty();
 
                     ImGui::PopItemWidth();
                     break;
@@ -856,15 +857,15 @@ void Lighting::drawLightsTable() {
                     ImGui::PushItemWidth(175);
 
                     ImGui::TableNextColumn();
-                    ImGui::DragFloat3("##diff", &light->diffuseColor.x, 0.01, -10, 10);
+                    if(ImGui::DragFloat3("##diff", &light->diffuseColor.x, 0.01, -10, 10)) light->markDirty();
                     ImGui::TableNextColumn();
-                    ImGui::DragFloat3("##spec", &light->specularColor.x, 0.01, -10, 10);
+                    if(ImGui::DragFloat3("##spec", &light->specularColor.x, 0.01, -10, 10)) light->markDirty();
 
                     ImGui::TableNextColumn();
                     ImGui::TextDisabled("-");
 
                     ImGui::TableNextColumn();
-                    ImGui::DragFloat3("##dir", &dir->direction.x, 0.01);
+                    if(ImGui::DragFloat3("##dir", &dir->direction.x, 0.01)) light->markDirty();
 
                     ImGui::PopItemWidth();
 
@@ -885,12 +886,12 @@ void Lighting::drawLightsTable() {
                     ImGui::PushItemWidth(175);
 
                     ImGui::TableNextColumn();
-                    ImGui::DragFloat3("##diff", &light->diffuseColor.x, 0.01, -10, 10);
+                    if(ImGui::DragFloat3("##diff", &light->diffuseColor.x, 0.01, -10, 10)) light->markDirty();
                     ImGui::TableNextColumn();
-                    ImGui::DragFloat3("##spec", &light->specularColor.x, 0.01, -10, 10);
+                    if(ImGui::DragFloat3("##spec", &light->specularColor.x, 0.01, -10, 10)) light->markDirty();
 
                     ImGui::TableNextColumn();
-                    ImGui::DragFloat3("##pos", &pt->position.x);
+                    if(ImGui::DragFloat3("##pos", &pt->position.x)) light->markDirty();
 
                     ImGui::PopItemWidth();
 
@@ -898,7 +899,9 @@ void Lighting::drawLightsTable() {
                     ImGui::TextDisabled("-");
 
                     ImGui::TableNextColumn();
-                    ImGui::Text("%.3g/%.3g", pt->linearAttenuation, pt->quadraticAttenuation);
+                    if(ImGui::DragFloat("##linear", &pt->linearAttenuation, 0.001, 0.01)) light->markDirty();
+                    if(ImGui::DragFloat("##quad", &pt->quadraticAttenuation, 0.001, 0.01)) light->markDirty();
+                    // ImGui::Text("%.3g/%.3g", pt->linearAttenuation, pt->quadraticAttenuation);
                     break;
                 }
 
