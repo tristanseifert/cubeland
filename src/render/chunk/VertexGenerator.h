@@ -7,6 +7,7 @@
 
 #include "world/chunk/Chunk.h"
 #include "world/block/Block.h"
+#include "world/block/BlockRegistry.h"
 
 #include <memory>
 #include <thread>
@@ -57,6 +58,9 @@ class VertexGenerator {
 
         /// Vertices used to render blocks
         struct BlockVertex {
+            constexpr static const uint16_t kPointFactor = 0x7F;
+
+            /// vertex position, each value is multiplied by kPointFactor
             glm::i16vec3 p;
             gl::GLushort blockId;
             gl::GLubyte face;
@@ -91,17 +95,17 @@ class VertexGenerator {
         }
 
         /// Generates vertices for ALL globules in the given chunk
-        static void update(std::shared_ptr<world::Chunk> &chunk) {
-            gShared->generate(chunk, kAllGlobulesMask);
+        static void update(std::shared_ptr<world::Chunk> &chunk, const bool highPriority = false) {
+            gShared->generate(chunk, kAllGlobulesMask, highPriority);
         }
         /// Generates vertices for the globule with the given block offset
-        static void update(std::shared_ptr<world::Chunk> &chunk, const glm::ivec3 &globulePos) {
+        static void update(std::shared_ptr<world::Chunk> &chunk, const glm::ivec3 &globulePos, const bool highPriority = false) {
             const auto bits = blockPosToBits(globulePos);
-            gShared->generate(chunk, bits);
+            gShared->generate(chunk, bits, highPriority);
         }
         /// Generates vertices for all globules set in the specified bit mask.
-        static void update(std::shared_ptr<world::Chunk> &chunk, const uint64_t bits) {
-            gShared->generate(chunk, bits);
+        static void update(std::shared_ptr<world::Chunk> &chunk, const uint64_t bits, const bool highPriority = false) {
+            gShared->generate(chunk, bits, highPriority);
         }
 
         /**
@@ -189,17 +193,19 @@ class VertexGenerator {
         uint32_t addCallback(const glm::ivec2 &chunkPos, const Callback &func);
         void removeCallback(const uint32_t token);
 
-        void generate(std::shared_ptr<world::Chunk> &chunk, const uint64_t globuleMask);
+        void generate(std::shared_ptr<world::Chunk> &chunk, const uint64_t globuleMask, const bool highPriority);
 
         void workerMain();
-        void workerGenerate(const GenerateRequest &);
-        void workerGenerate(const std::shared_ptr<world::Chunk> &, const glm::ivec3 &);
+        void workerGenerate(const GenerateRequest &, const bool useChunkWorker);
+        void workerGenerate(const std::shared_ptr<world::Chunk> &, const glm::ivec3 &, const bool highPriority = false);
         void workerGenBuffers(const BufferRequest &req);
 
         void buildAirMap(world::ChunkSlice *, const ExposureMaps &, std::bitset<256*256> &);
         void generateBlockIdMap(const std::shared_ptr<world::Chunk> &, ExposureMaps &);
         void flagsForBlock(const AirMap &, const size_t, const size_t, const size_t, world::Block::BlockFlags &);
+
         void insertCubeVertices(const AirMap &, std::vector<BlockVertex> &, std::vector<gl::GLuint> &, const size_t, const size_t, const size_t, const uint16_t);
+        void insertModelVertices(const AirMap &, std::vector<BlockVertex> &, std::vector<gl::GLuint> &, const size_t, const size_t, const size_t, const uint16_t, const world::BlockRegistry::Model &);
 
         /// Enqueues a new item to the work queue
         void submitWorkItem(WorkItem &item) {
@@ -217,6 +223,7 @@ class VertexGenerator {
         std::atomic_bool run;
         std::unique_ptr<std::thread> worker;
         moodycamel::BlockingConcurrentQueue<WorkItem> workQueue;
+        moodycamel::ConcurrentQueue<WorkItem> highPriorityWork;
 
         /// ID to use for the next globule update callback
         std::atomic_uint32_t nextCallbackId = 1;
@@ -237,7 +244,7 @@ class VertexGenerator {
         std::mutex chunkCallbackMapLock;
 
         /// maximum numbers of buffers to copy every frame
-        size_t maxCopiesPerFrame = 5;
+        size_t maxCopiesPerFrame = 8;
         /// buffers to be created
         moodycamel::ConcurrentQueue<BufferRequest> bufferReqs;
 };

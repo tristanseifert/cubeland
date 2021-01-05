@@ -306,7 +306,7 @@ void WorldChunk::markBlockChanged(const glm::ivec3 &pos) {
     const auto globuleOff = pos / glm::ivec3(kGlobuleSize);
     const auto globuleOrigin = globuleOff * glm::ivec3(kGlobuleSize);
 
-    VertexGenerator::update(this->chunk, globuleOrigin);
+    VertexGenerator::update(this->chunk, globuleOrigin, true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

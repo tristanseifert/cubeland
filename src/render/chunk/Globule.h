@@ -56,11 +56,9 @@ class Globule {
         Globule(WorldChunk *chunk, const glm::ivec3 pos);
         ~Globule();
 
-        void chunkChanged(const bool isDifferentChunk);
         void clearBuffers();
         void setBuffer(const VertexGenerator::Buffer &buf);
 
-        void startOfFrame();
         void draw(std::shared_ptr<gfx::RenderProgram> &program);
 
         void eraseBlockAt(const glm::ivec3 &pos);

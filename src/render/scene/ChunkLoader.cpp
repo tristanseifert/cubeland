@@ -372,6 +372,9 @@ void ChunkLoader::updateLookAtBlock() {
             for(int x = -kPointingDistance; x <= kPointingDistance; x++) {
                 const auto lb = lbo + glm::vec3(x, y, z), rt = rto + glm::vec3(x, y, z);
 
+                // bail if the block is below y=0
+                if(lb.y < 0 || rt.y < 0) continue;
+
                 if(Intersect::rayArbb(this->lastPos, dirfrac, lb, rt)) {
                     const auto middle = lb + glm::vec3(.5, .5, .5);
                     const auto dist = glm::distance(middle, this->lastPos);
@@ -412,7 +415,7 @@ void ChunkLoader::updateLookAtBlock() {
         const auto &map = chunk->sliceIdMaps[row->typeMap];
         const auto uuid = map.idMap[temp];
 
-        if(!BlockRegistry::isAirBlock(uuid)) {
+        if(!BlockRegistry::isAirBlock(uuid) && BlockRegistry::isSelectable(uuid, blockPos)) {
             // it is not air, we've found the block we're looking at
             this->lookAtBlock = glm::ivec3(blockPos);
             this->lookAtBlockRelative = glm::ivec3(blockOff.x, blockOff.y, blockOff.z);
@@ -908,8 +911,6 @@ void ChunkLoader::drawChunk(std::shared_ptr<gfx::RenderProgram> &program, const 
 
     // check the frustum
     {
-        PROFILE_SCOPE(CheckFustrum);
-
         // build the lower and upper edges
         const glm::vec3 chunkOrigin((pos.x * 256.), 0, (pos.y * 256.));
 

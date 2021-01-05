@@ -182,8 +182,9 @@ void BlockCollision::update() {
     for(int y = -kLoadYRangeN; y <= kLoadYRangeP; y++) {
         for(int z = -kLoadXZRange; z <= kLoadXZRange; z++) {
             for(int x = -kLoadXZRange; x <= kLoadXZRange; x++) {
-                // skip if we already have a body generated for this block
+                // skip if we already have a body generated for this block or it'd be a negative Y
                 const auto blockPos = bodyPos + glm::ivec3(x, y, z);
+                if(blockPos.y < 0) continue;
                 if(this->bodies.contains(blockPos)) continue;
 
                 // get the position of this block, and the chunk that holds it
@@ -214,7 +215,7 @@ void BlockCollision::update() {
                 }
 
                 // check if it's collidable
-                if(world::BlockRegistry::isCollidableBlock(*block)) {
+                if(world::BlockRegistry::isCollidableBlock(*block, blockPos)) {
                     BlockBody b;
 
                     Transform transform(vec(blockPos), Quaternion::identity());

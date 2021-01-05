@@ -134,7 +134,7 @@ void VertexGenerator::removeCallback(const uint32_t token) {
  * Kicks off vertex generation for the given chunk, generating data for all globules in the
  * bitmask.
  */
-void VertexGenerator::generate(std::shared_ptr<world::Chunk> &chunk, const uint64_t bits) {
+void VertexGenerator::generate(std::shared_ptr<world::Chunk> &chunk, const uint64_t bits, const bool highPriority) {
     // TODO: check that we're not already generating this
 
     // queue a generating request
@@ -146,7 +146,15 @@ void VertexGenerator::generate(std::shared_ptr<world::Chunk> &chunk, const uint6
     WorkItem i;
     i.payload = req;
 
-    this->submitWorkItem(i);
+    if(!highPriority) {
+        this->submitWorkItem(i);
+    } else {
+        this->highPriorityWork.enqueue(i);
+
+        // to wake up the thread if it's asleeping...
+        WorkItem dummy;
+        this->workQueue.enqueue(dummy);
+    }
 }
 
 
@@ -165,11 +173,17 @@ void VertexGenerator::workerMain() {
     while(this->run) {
         // block on dequeuing a work item
         WorkItem item;
+        bool highPriority = false;
         {
             PROFILE_SCOPE_STR("WaitWork", 0xFF000050);
+            if(this->highPriorityWork.try_dequeue(item)) {
+                highPriority = true;
+                goto process;
+            }
             this->workQueue.wait_dequeue(item);
         }
 
+process:;
         const auto &p = item.payload;
 
         // no-op
@@ -179,7 +193,7 @@ void VertexGenerator::workerMain() {
         // generate data for the given globules
         else if(std::holds_alternative<GenerateRequest>(p)) {
             const auto &gr = std::get<GenerateRequest>(p);
-            this->workerGenerate(gr);
+            this->workerGenerate(gr, !highPriority);
         }
         // unknown
         else {
@@ -194,7 +208,7 @@ void VertexGenerator::workerMain() {
 /**
  * Performs generation of the given chunk's data.
  */
-void VertexGenerator::workerGenerate(const GenerateRequest &req) {
+void VertexGenerator::workerGenerate(const GenerateRequest &req, const bool useChunkWorker) {
     // for each globule, queue generation in the background if needed
     for(size_t y = 0; y < 256; y += 64) {
         for(size_t z = 0; z < 256; z += 64) {
@@ -205,10 +219,14 @@ void VertexGenerator::workerGenerate(const GenerateRequest &req) {
                 if((bits & req.globules) == 0) continue;
 
                 // handle generation
-                auto chunk = req.chunk;
-                ChunkWorker::pushWork([&, chunk, origin]() -> void {
-                    this->workerGenerate(chunk, origin);
-                });
+                if(useChunkWorker) {
+                    auto chunk = req.chunk;
+                    ChunkWorker::pushWork([&, chunk, origin]() -> void {
+                        this->workerGenerate(chunk, origin);
+                    });
+                } else {
+                    this->workerGenerate(req.chunk, origin, true);
+                }
             }
         }
     }
@@ -217,7 +235,7 @@ void VertexGenerator::workerGenerate(const GenerateRequest &req) {
 /**
  * Generates vertices for the given globule using the CPU on the chunk worker queue.
  */
-void VertexGenerator::workerGenerate(const std::shared_ptr<world::Chunk> &chunk, const glm::ivec3 &origin) {
+void VertexGenerator::workerGenerate(const std::shared_ptr<world::Chunk> &chunk, const glm::ivec3 &origin, const bool highPriority) {
     using namespace world;
 
     PROFILE_SCOPE(GenerateGlobule);
@@ -268,7 +286,8 @@ void VertexGenerator::workerGenerate(const std::shared_ptr<world::Chunk> &chunk,
     // update the actual instance buffer itself
     {
         PROFILE_SCOPE(ProcessSlices);
-        for(size_t y = origin.y; y <= std::min((size_t) origin.y + 64, Chunk::kMaxY-1); y++) {
+        const size_t yMax = std::min((size_t) origin.y + 64, Chunk::kMaxY-1);
+        for(size_t y = origin.y; y <= yMax; y++) {
             // if there's no blocks at this Y level, check the next one
             auto slice = chunk->slices[y];
             if(!slice) {
@@ -343,10 +362,19 @@ void VertexGenerator::workerGenerate(const std::shared_ptr<world::Chunk> &chunk,
 
                     // determine block data ID
                     const auto worldPos = glm::ivec3(x, y, z) + chunkPos;
-                    uint16_t type = block->getBlockId(worldPos, flags);
+                    const uint16_t type = block->getBlockId(worldPos, flags);
 
                     // append the vertices for this block
-                    this->insertCubeVertices(am, vertices, indices, x, y, z, type);
+                    const uint16_t model = block->getModelId(worldPos, flags);
+
+                    if(model == 0) {
+                        this->insertCubeVertices(am, vertices, indices, x, y, z, type);
+                    } else if(BlockRegistry::hasModel(model)) {
+                        const auto &modelData = BlockRegistry::getModel(model);
+                        this->insertModelVertices(am, vertices, indices, x, y, z, type, modelData);
+                    } else {
+                        XASSERT(false, "Unknown model id ${:04x} for block {}", model, worldPos);
+                    }
                 }
             }
 
@@ -355,7 +383,7 @@ void VertexGenerator::workerGenerate(const std::shared_ptr<world::Chunk> &chunk,
             am.below = std::move(am.current);
             am.current = std::move(am.above);
 
-            if((y+2) < chunk->slices.size()) {
+            if((y+2) < chunk->slices.size() && y != yMax) {
                 am.above.reset();
                 this->buildAirMap(chunk->slices[y+2], exposureIdMaps, am.above);
             } else {
@@ -413,8 +441,8 @@ void VertexGenerator::generateBlockIdMap(const std::shared_ptr<world::Chunk> &c,
                 continue;
             }
 
-            // query the block registry if this is an air block
-            isAir[i] = world::BlockRegistry::isAirBlock(uuid);
+            // query the block registry if this is an opaque block
+            isAir[i] = !world::BlockRegistry::isOpaqueBlock(uuid);
         }
 
         maps.push_back(isAir);
@@ -507,7 +535,8 @@ void VertexGenerator::flagsForBlock(const AirMap &am, const size_t x, const size
 void VertexGenerator::insertCubeVertices(const AirMap &am, std::vector<BlockVertex> &vertices, std::vector<gl::GLuint> &indices, const size_t x, const size_t y, const size_t z, const uint16_t blockId) {
     const size_t airMapOff = ((z & 0xFF) << 8) | (x & 0xFF);
 
-    const glm::i16vec3 pos(x, y, z);
+    const uint16_t f = BlockVertex::kPointFactor;
+    const glm::i16vec3 pos(x * f, y * f, z * f);
 
     gl::GLuint iVtx = vertices.size();
 
@@ -515,9 +544,9 @@ void VertexGenerator::insertCubeVertices(const AirMap &am, std::vector<BlockVert
     if(y == 0 || (y % 64) == 0 || am.below[airMapOff]) {
         vertices.insert(vertices.end(), {
             {.p = pos + glm::i16vec3(0,0,0), .blockId = blockId, .face = (0x0), .vertexId = 0},
-            {.p = pos + glm::i16vec3(1,0,0), .blockId = blockId, .face = (0x0), .vertexId = 1},
-            {.p = pos + glm::i16vec3(1,0,1), .blockId = blockId, .face = (0x0), .vertexId = 2},
-            {.p = pos + glm::i16vec3(0,0,1), .blockId = blockId, .face = (0x0), .vertexId = 3},
+            {.p = pos + glm::i16vec3(f,0,0), .blockId = blockId, .face = (0x0), .vertexId = 1},
+            {.p = pos + glm::i16vec3(f,0,f), .blockId = blockId, .face = (0x0), .vertexId = 2},
+            {.p = pos + glm::i16vec3(0,0,f), .blockId = blockId, .face = (0x0), .vertexId = 3},
         });
         indices.insert(indices.end(), 
                 {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
@@ -526,10 +555,10 @@ void VertexGenerator::insertCubeVertices(const AirMap &am, std::vector<BlockVert
     // is the top exposed? (or top edge of globule)
     if((y + 1) >= 255 || (y % 64) == 63 || am.above[airMapOff]) {
         vertices.insert(vertices.end(), {
-            {.p = pos + glm::i16vec3(0,1,1), .blockId = blockId, .face = (0x1), .vertexId = 0},
-            {.p = pos + glm::i16vec3(1,1,1), .blockId = blockId, .face = (0x1), .vertexId = 1},
-            {.p = pos + glm::i16vec3(1,1,0), .blockId = blockId, .face = (0x1), .vertexId = 2},
-            {.p = pos + glm::i16vec3(0,1,0), .blockId = blockId, .face = (0x1), .vertexId = 3},
+            {.p = pos + glm::i16vec3(0,f,f), .blockId = blockId, .face = (0x1), .vertexId = 0},
+            {.p = pos + glm::i16vec3(f,f,f), .blockId = blockId, .face = (0x1), .vertexId = 1},
+            {.p = pos + glm::i16vec3(f,f,0), .blockId = blockId, .face = (0x1), .vertexId = 2},
+            {.p = pos + glm::i16vec3(0,f,0), .blockId = blockId, .face = (0x1), .vertexId = 3},
         });
         indices.insert(indices.end(), 
                 {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
@@ -538,9 +567,9 @@ void VertexGenerator::insertCubeVertices(const AirMap &am, std::vector<BlockVert
     // is the left edge exposed?
     if(x == 0 || am.current[airMapOff - 1]) {
         vertices.insert(vertices.end(), {
-            {.p = pos + glm::i16vec3(0,0,1), .blockId = blockId, .face = (0x2), .vertexId = 0},
-            {.p = pos + glm::i16vec3(0,1,1), .blockId = blockId, .face = (0x2), .vertexId = 1},
-            {.p = pos + glm::i16vec3(0,1,0), .blockId = blockId, .face = (0x2), .vertexId = 2},
+            {.p = pos + glm::i16vec3(0,0,f), .blockId = blockId, .face = (0x2), .vertexId = 0},
+            {.p = pos + glm::i16vec3(0,f,f), .blockId = blockId, .face = (0x2), .vertexId = 1},
+            {.p = pos + glm::i16vec3(0,f,0), .blockId = blockId, .face = (0x2), .vertexId = 2},
             {.p = pos + glm::i16vec3(0,0,0), .blockId = blockId, .face = (0x2), .vertexId = 3},
         });
         indices.insert(indices.end(), 
@@ -550,10 +579,10 @@ void VertexGenerator::insertCubeVertices(const AirMap &am, std::vector<BlockVert
     // is the right edge exposed?
     if(x == 255 || am.current[airMapOff + 1]) {
         vertices.insert(vertices.end(), {
-            {.p = pos + glm::i16vec3(1,0,0), .blockId = blockId, .face = (0x3), .vertexId = 0},
-            {.p = pos + glm::i16vec3(1,1,0), .blockId = blockId, .face = (0x3), .vertexId = 1},
-            {.p = pos + glm::i16vec3(1,1,1), .blockId = blockId, .face = (0x3), .vertexId = 2},
-            {.p = pos + glm::i16vec3(1,0,1), .blockId = blockId, .face = (0x3), .vertexId = 3},
+            {.p = pos + glm::i16vec3(f,0,0), .blockId = blockId, .face = (0x3), .vertexId = 0},
+            {.p = pos + glm::i16vec3(f,f,0), .blockId = blockId, .face = (0x3), .vertexId = 1},
+            {.p = pos + glm::i16vec3(f,f,f), .blockId = blockId, .face = (0x3), .vertexId = 2},
+            {.p = pos + glm::i16vec3(f,0,f), .blockId = blockId, .face = (0x3), .vertexId = 3},
         });
         indices.insert(indices.end(), 
                 {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
@@ -562,9 +591,9 @@ void VertexGenerator::insertCubeVertices(const AirMap &am, std::vector<BlockVert
     // is the z-1 edge exposed?
     if(z == 0 || am.current[airMapOff - 0x100]) {
         vertices.insert(vertices.end(), {
-            {.p = pos + glm::i16vec3(0,1,0), .blockId = blockId, .face = (0x4), .vertexId = 0},
-            {.p = pos + glm::i16vec3(1,1,0), .blockId = blockId, .face = (0x4), .vertexId = 1},
-            {.p = pos + glm::i16vec3(1,0,0), .blockId = blockId, .face = (0x4), .vertexId = 2},
+            {.p = pos + glm::i16vec3(0,f,0), .blockId = blockId, .face = (0x4), .vertexId = 0},
+            {.p = pos + glm::i16vec3(f,f,0), .blockId = blockId, .face = (0x4), .vertexId = 1},
+            {.p = pos + glm::i16vec3(f,0,0), .blockId = blockId, .face = (0x4), .vertexId = 2},
             {.p = pos + glm::i16vec3(0,0,0), .blockId = blockId, .face = (0x4), .vertexId = 3},
         });
         indices.insert(indices.end(), 
@@ -574,14 +603,39 @@ void VertexGenerator::insertCubeVertices(const AirMap &am, std::vector<BlockVert
     // is the z+1 edge exposed?
     if(z == 255 || am.current[airMapOff + 0x100]) {
         vertices.insert(vertices.end(), {
-            {.p = pos + glm::i16vec3(0,0,1), .blockId = blockId, .face = (0x5), .vertexId = 0},
-            {.p = pos + glm::i16vec3(1,0,1), .blockId = blockId, .face = (0x5), .vertexId = 1},
-            {.p = pos + glm::i16vec3(1,1,1), .blockId = blockId, .face = (0x5), .vertexId = 2},
-            {.p = pos + glm::i16vec3(0,1,1), .blockId = blockId, .face = (0x5), .vertexId = 3},
+            {.p = pos + glm::i16vec3(0,0,f), .blockId = blockId, .face = (0x5), .vertexId = 0},
+            {.p = pos + glm::i16vec3(f,0,f), .blockId = blockId, .face = (0x5), .vertexId = 1},
+            {.p = pos + glm::i16vec3(f,f,f), .blockId = blockId, .face = (0x5), .vertexId = 2},
+            {.p = pos + glm::i16vec3(0,f,f), .blockId = blockId, .face = (0x5), .vertexId = 3},
         });
         indices.insert(indices.end(), 
                 {iVtx, iVtx+1, iVtx+2, iVtx+2, iVtx+3, iVtx});
         iVtx += 4;
+    }
+}
+
+void VertexGenerator::insertModelVertices(const AirMap &am, std::vector<BlockVertex> &vertices, std::vector<gl::GLuint> &indices, const size_t x, const size_t y, const size_t z, const uint16_t blockId, const world::BlockRegistry::Model &model) {
+    const uint16_t f = BlockVertex::kPointFactor;
+    const glm::i16vec3 origin(x * f, y * f, z * f);
+
+    gl::GLuint iVtx = vertices.size();
+
+    // create vertices
+    for(size_t i = 0; i < model.vertices.size(); i++) {
+        const auto &vtx = model.vertices[i];
+        const auto &faceInfo = model.faceVertIds[i];
+
+        const auto pos = origin + glm::i16vec3(vtx * glm::vec3(f));
+
+        const BlockVertex vtxData = {
+            .p = pos, .blockId = blockId, .face = faceInfo.first, .vertexId = faceInfo.second
+        };
+        vertices.push_back(vtxData);
+    }
+
+    // copy the indices
+    for(size_t i = 0; i < model.indices.size(); i++) {
+        indices.emplace_back(model.indices[i] + iVtx);
     }
 }
 

@@ -121,7 +121,7 @@ class WorldChunk: public Drawable {
         // lock for the highlights array
         std::mutex highlightsLock;
         // cached flag indicating whether there are any highlights
-        std::atomic_bool hasHighlights;
+        std::atomic_bool hasHighlights = false;
         // regions of blocks to highlight
         std::unordered_map<uint64_t, HighlightInfo> highlights;
         // next id for highlights

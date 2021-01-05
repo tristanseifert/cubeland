@@ -20,7 +20,7 @@ class Dirt: public Block {
         void chunkWasLoaded(std::shared_ptr<Chunk> chunk) override;
         void chunkWillUnload(std::shared_ptr<Chunk> chunk) override;
 
-        const size_t destroyTicks() const override {
+        const size_t destroyTicks(const glm::ivec3 &pos) const override {
             return 10;
         }
 

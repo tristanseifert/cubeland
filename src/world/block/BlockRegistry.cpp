@@ -87,6 +87,52 @@ void BlockRegistry::iterateBlocks(const std::function<void(const uuids::uuid &, 
     }
 }
 
+/**
+ * Checks if the block with the given ID can be collided with.
+ */
+bool BlockRegistry::isCollidableBlock(const uuids::uuid &id, const glm::ivec3 &pos) {
+    if(isAirBlock(id)) return false;
+
+    std::lock_guard<std::mutex> lg(gShared->blocksLock);
+    auto block = gShared->blocks[id].block;
+    if(block) {
+        return block->isCollidable(pos);
+    } else {
+        return false;
+    }
+}
+
+/**
+ * Checks whether the given block is opaque.
+ */
+bool BlockRegistry::isOpaqueBlock(const uuids::uuid &id) {
+    if(isAirBlock(id)) return false;
+
+    std::lock_guard<std::mutex> lg(gShared->blocksLock);
+    auto block = gShared->blocks[id].block;
+    if(block) {
+        return block->isOpaque();
+    } else {
+        return true;
+    }
+}
+
+/**
+ * Checks if the block with the given ID can be selected.
+ */
+bool BlockRegistry::isSelectable(const uuids::uuid &id, const glm::ivec3 &pos) {
+    if(isAirBlock(id)) return false;
+
+    std::lock_guard<std::mutex> lg(gShared->blocksLock);
+    auto block = gShared->blocks[id].block;
+    if(block) {
+        return block->isSelectable(pos);
+    } else {
+        return false;
+    }
+}
+
+
 
 
 /**
@@ -204,6 +250,20 @@ glm::vec4 BlockRegistry::getTextureUv(const TextureId id) {
         default:
             throw std::runtime_error("Failed to get UV coords for texture");
     }
+}
+
+
+
+/**
+ * Registers a new model.
+ */
+uint16_t BlockRegistry::registerModel(const Model &mod) {
+    std::lock_guard<std::mutex> lg(gShared->modelsLock);
+    const auto id = gShared->lastModelId++;
+
+    gShared->models[id] = mod;
+
+    return id;
 }
 
 

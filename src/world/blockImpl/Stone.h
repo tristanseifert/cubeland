@@ -16,7 +16,7 @@ class Stone: public Block {
     public:
         uint16_t getBlockId(const glm::ivec3 &pos, const BlockFlags flags) override;
 
-        const size_t destroyTicks() const override {
+        const size_t destroyTicks(const glm::ivec3 &pos) const override {
             return 25;
         }
 

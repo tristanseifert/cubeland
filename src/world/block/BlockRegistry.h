@@ -10,10 +10,12 @@
 #include <memory>
 #include <functional>
 #include <unordered_map>
+#include <utility>
 #include <mutex>
 
 #include <uuid.h>
 #include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
 namespace world {
@@ -38,6 +40,22 @@ class BlockRegistry {
             kTypeInventory,
         };
 
+        /**
+         * Blocks can register custom models, which are just vertices whose coordinates are in the
+         * range of [0, 1], and an index buffer. Note that the bottom left corner of the block is
+         * at the origin.
+         *
+         * Each vertex position also must correspond to a face/vertex id pair. The faces are
+         * ordered as 0 = bottom, 1 = top, 2 = left, 3 = right, 4 = front, 5 = back.
+         *
+         * A maximum of about 60 vertices is suggested.
+         */
+        struct Model {
+            std::vector<glm::vec3> vertices;
+            std::vector<std::pair<uint8_t, uint8_t>> faceVertIds;
+            std::vector<uint8_t> indices;
+        };
+
     public:
         // you should not call this
         BlockRegistry();
@@ -55,9 +73,11 @@ class BlockRegistry {
             return (id == kAirBlockId);
         }
         /// Determines whether a block can be collided with
-        static bool isCollidableBlock(const uuids::uuid &id) {
-            return !isAirBlock(id);
-        }
+        static bool isCollidableBlock(const uuids::uuid &id, const glm::ivec3 &pos);
+        /// Determines whether a block is fully opaque.
+        static bool isOpaqueBlock(const uuids::uuid &id);
+        /// Determines whether the given block can be selected.
+        static bool isSelectable(const uuids::uuid &id, const glm::ivec3 &pos);
 
         /// Returns the total number of registered blocks
         static size_t getNumRegistered() {
@@ -90,6 +110,17 @@ class BlockRegistry {
         /// Sets the texture IDs for all three faces from an array.
         static void appearanceSetTextures(const uint16_t id, const TextureId ids[3]) {
             appearanceSetTextures(id, ids[0], ids[1], ids[2]);
+        }
+
+        /// Registers a new model.
+        static uint16_t registerModel(const Model &mod);
+        /// Checks whether the given model exists.
+        static const bool hasModel(const uint16_t modelId) {
+            return gShared->models.contains(modelId);
+        }
+        /// Returns a reference to the given model.
+        static const Model &getModel(const uint16_t modelId) {
+            return gShared->models[modelId];
         }
 
         /// Returns UV coordinates for the given texture.
@@ -158,6 +189,13 @@ class BlockRegistry {
         std::mutex texturesLock;
         /// last used texture id
         TextureId lastTextureId = 1;
+
+        /// registered models
+        std::unordered_map<uint16_t, Model> models;
+        /// lock protecting models
+        std::mutex modelsLock;
+        /// last used model id
+        uint16_t lastModelId = 1;
 
         /// used to generate the block info textures
         BlockDataGenerator *dataGen = nullptr;

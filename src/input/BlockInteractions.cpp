@@ -113,7 +113,7 @@ void BlockInteractions::destroyBlock() {
     XASSERT(block, "Failed to get block for id {}", uuids::to_string(*oldId));
 
     // figure out how long the block needs to consume 
-    const auto ticksToDestroy = block->destroyTicks();
+    const auto ticksToDestroy = block->destroyTicks(pos);
 
     if(!ticksToDestroy) {
         // it's immediate, so don't bother with the timer

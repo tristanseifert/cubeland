@@ -1,26 +1,15 @@
 #include "Globule.h"
-#include "WorldChunk.h"
-#include "ChunkWorker.h"
 
 #include "gfx/gl/buffer/Buffer.h"
-#include "gfx/gl/buffer/VertexArray.h"
 #include "gfx/gl/texture/Texture2D.h"
-#include "gfx/model/RenderProgram.h"
-#include "world/chunk/Chunk.h"
-#include "world/chunk/ChunkSlice.h"
-#include "world/block/BlockRegistry.h"
-#include "world/block/Block.h"
+#include "gfx/gl/buffer/VertexArray.h"
 
 #include <Logging.h>
 #include <mutils/time/profiler.h>
 
 #include <glm/glm.hpp>
-#include <glm/gtc/type_precision.hpp>
 
 using namespace render::chunk;
-
-// uncomment to log buffer transfers
-// #define LOG_BUFFER_XFER
 
 /**
  * Initializes a new globule.

@@ -210,7 +210,7 @@ void Engine::startFrame() {
                 playerTransform, factor);
 
         // update camera with this transform, plus offset from origin of physics body
-        const glm::vec3 newPos = vec(interp.getPosition()) - glm::vec3(.45, 0, .45);
+        const glm::vec3 newPos = vec(interp.getPosition()) + glm::vec3(.45, 0, .45);
         this->camera->setCameraPosition(newPos);
     }
 

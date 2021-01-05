@@ -111,6 +111,7 @@ add_executable(cubeland
 # built in block types
     src/world/blockImpl/Dirt.cpp
     src/world/blockImpl/Stone.cpp
+    src/world/blockImpl/Torch.cpp
 # inventory support
     src/inventory/Manager.cpp
     src/inventory/ItemDrawing.cpp

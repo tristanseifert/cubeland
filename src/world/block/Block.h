@@ -63,8 +63,22 @@ class Block {
         }
 
         /// Number of ticks required to destroy the block (0 = instant)
-        virtual const size_t destroyTicks() const {
+        virtual const size_t destroyTicks(const glm::ivec3 &pos) const {
             return 0;
+        }
+
+        /// Whether the block is fully opaque
+        virtual const bool isOpaque() const {
+            return true;
+        }
+        /// Whether the block can be collided with
+        virtual const bool isCollidable(const glm::ivec3 &pos) const {
+            return true;
+        }
+
+        /// Whether the block may be selected
+        virtual const bool isSelectable(const glm::ivec3 &pos) const {
+            return true;
         }
 
         /**
@@ -83,6 +97,16 @@ class Block {
          * on.
          */
         virtual uint16_t getBlockId(const glm::ivec3 &pos, const BlockFlags flags) = 0;
+
+        /**
+         * Returns the 16-bit model ID to use for drawing this block. This is of interest mostly to
+         * non-solid blocks.
+         *
+         * A value of 0 uses the standard block/cube model.
+         */
+        virtual uint16_t getModelId(const glm::ivec3 &pos, const BlockFlags flags) {
+            return 0;
+        }
 
         /// Whether this block type is interested in chunk load/unload notifications
         virtual const bool wantsChunkLoadNotifications() const { return false; }

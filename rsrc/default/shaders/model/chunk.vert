@@ -36,7 +36,8 @@ void main() {
     }
 
     // Forward the world position and texture coordinates
-    vec4 worldPos = model * vec4(position, 1);
+    vec3 posConverted = vec3(position) / vec3(0x7F);
+    vec4 worldPos = model * vec4(posConverted, 1);
     WorldPos = worldPos.xyz;
 
     // Set position of the vertex pls
