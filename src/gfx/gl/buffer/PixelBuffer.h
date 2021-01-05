@@ -1,11 +1,6 @@
 /*
- * PixelBuffer.h
- *
- * Wraps an OpenGL pixel buffer object, which can be used to stream new texture
- * data to VRAM efficiently.
- *
- *  Created on: Aug 29, 2015
- *      Author: tristan
+ * Wraps an OpenGL pixel buffer object, which can be used to stream new texture data to VRAM
+ * efficiently.
  */
 
 #ifndef GFX_BUFFER_TEXTURE_PIXELBUFFER_H_
@@ -16,11 +11,11 @@
 #include <glbinding/gl/gl.h>
 
 namespace gfx {
-class Texture;
+class Texture2D;
 
 class PixelBuffer {
     public:
-        PixelBuffer(std::shared_ptr<Texture> tex);
+        PixelBuffer(std::shared_ptr<Texture2D> tex);
         virtual ~PixelBuffer();
 
         void *getBuffer(size_t size);
@@ -37,7 +32,7 @@ class PixelBuffer {
         gl::GLuint pbo;
 
         // texture backing the pixel buffer
-        std::shared_ptr<Texture> texture = nullptr;
+        std::shared_ptr<Texture2D> texture = nullptr;
     };
 } /* namespace gfx */
 

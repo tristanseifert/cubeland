@@ -154,6 +154,8 @@ struct Chunk {
     public:
         /// Gets the chunk containing an absolute world space block position
         static void absoluteToRelative(const glm::ivec3 &pos, glm::ivec2 &chunkPos);
+        /// Gets the block offset into a chunk for a given block posittion
+        static void absoluteToRelative(const glm::ivec3 &pos, glm::ivec3 &blockOff);
         /// Converts an absolute world space block position into a chunk and local block offset
         static void absoluteToRelative(const glm::ivec3 &pos, glm::ivec2 &chunkPos, glm::ivec3 &blockPos);
 

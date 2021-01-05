@@ -1,10 +1,3 @@
-/*
- * Texture2D.h
- *
- *  Created on: Aug 21, 2015
- *      Author: tristan
- */
-
 #ifndef GFX_BUFFER_TEXTURE2D_H_
 #define GFX_BUFFER_TEXTURE2D_H_
 
@@ -28,10 +21,10 @@ class Texture2D: public Texture {
 
         void dump(const std::string &base);
 
-        void allocateBlank(unsigned int width, unsigned int height, TextureFormat format);
+        void allocateBlank(const size_t width, const size_t height, const TextureFormat format);
 
-        void bufferSubData(unsigned int width, unsigned int height, unsigned int xOff,
-                           unsigned int yOff, TextureFormat format, void *data);
+        void bufferSubData(const size_t width, const size_t height, const size_t xOff,
+                           const size_t yOff, const TextureFormat format, const void *data);
 
         void loadFromImage(const std::string &path, bool sRGB = false);
 

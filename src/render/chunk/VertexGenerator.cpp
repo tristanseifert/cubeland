@@ -1,5 +1,10 @@
 #include "VertexGenerator.h"
 
+#include "world/chunk/Chunk.h"
+#include "world/chunk/ChunkSlice.h"
+#include "world/block/BlockRegistry.h"
+#include "world/block/Block.h"
+
 #include "gui/MainWindow.h"
 #include "io/Format.h"
 #include "util/Thread.h"
@@ -118,6 +123,14 @@ void VertexGenerator::removeCallback(const uint32_t token) {
         const auto count = this->callbacks.erase(token);
         XASSERT(count, "No callback with token ${:x} registered", token);
     }
+}
+
+/**
+ * Kicks off vertex generation for the given chunk, generating data for all globules in the
+ * bitmask.
+ */
+void VertexGenerator::generate(std::shared_ptr<world::Chunk> &chunk, const uint64_t bits) {
+    Logging::trace("Generate for chunk {}: {:x}", (void *) chunk.get(), bits);
 }
 
 

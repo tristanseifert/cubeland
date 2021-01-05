@@ -1,11 +1,4 @@
-/*
- * Texture2D.cpp
- *
- *  Created on: Aug 21, 2015
- *      Author: tristan
- */
-
-#include "Texture2D.h"
+#include "Texture1D.h"
 #include "TextureDumper.h"
 
 #include "io/Format.h"
@@ -27,7 +20,9 @@ using namespace gfx;
 /**
  * Allocates a texture object.
  */
-Texture2D::Texture2D(int unit, bool bind) {
+Texture1D::Texture1D(int unit, bool bind) {
+    this->height = 1;
+
     // allocate a texture
     glGenTextures(1, &this->texture);
     this->unit = unit;
@@ -37,12 +32,12 @@ Texture2D::Texture2D(int unit, bool bind) {
         this->bind();
 
         this->wrapS = MirroredRepeat;
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, (GLint) GL_MIRRORED_REPEAT);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, (GLint) GL_MIRRORED_REPEAT);
         this->wrapT = MirroredRepeat;
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, (GLint) GL_MIRRORED_REPEAT);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, (GLint) GL_MIRRORED_REPEAT);
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (GLint) GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (GLint) GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, (GLint) GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, (GLint) GL_LINEAR);
     }
 
     // connect to dumper
@@ -52,7 +47,7 @@ Texture2D::Texture2D(int unit, bool bind) {
 /**
  * Deallocates the texture.
  */
-Texture2D::~Texture2D() {
+Texture1D::~Texture1D() {
     glDeleteTextures(1, &this->texture);
 
     // remove from dumper
@@ -62,37 +57,37 @@ Texture2D::~Texture2D() {
 /**
  * Binds the texture on the specified texture unit.
  */
-void Texture2D::bind(void) {
+void Texture1D::bind(void) {
     // activate texture unit
     glActiveTexture(GL_TEXTURE0 + ((unsigned int) this->unit));
 
     // bind
-    glBindTexture(GL_TEXTURE_2D, this->texture);
+    glBindTexture(GL_TEXTURE_1D, this->texture);
 }
 
 /**
  * Unbinds the texture.
  */
-void Texture2D::unbind(void) {
+void Texture1D::unbind(void) {
     // select the correct texture unit
     // glActiveTexture(GL_TEXTURE0);
 
     // unbind
-    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindTexture(GL_TEXTURE_1D, 0);
 }
 
 /**
- * Writes the 2D texture out to disk.
+ * Writes the 1D texture out to disk.
  */
-void Texture2D::dump(const std::string &base) {
+void Texture1D::dump(const std::string &base) {
     // save colour textures as TGA
     if(this->format == DepthGeneric || this->format == Depth24Stencil8) {
         // figure out the filename
-        const auto name = f("{}tex2D_{}.raw", base, this->debugName);
+        const auto name = f("{}tex1D_{}.raw", base, this->debugName);
         std::fstream file(name, std::ios::out | std::ios::binary | std::ios::trunc);
 
         if(file.is_open()) {
-            Logging::info("Dumping to {}: {} x {}", name, this->width, this->height);
+            Logging::info("Dumping to {}: width = {}", name, this->width);
 
             // bind texture and allocate a buffer, read texture and write to file
             size_t bufferSz = this->width * this->height * 4;
@@ -111,15 +106,15 @@ void Texture2D::dump(const std::string &base) {
         }
     } else {
         // store TGA
-        const auto name = f("{}tex2D_{}.tga", base, this->debugName);
-        Logging::info("Dumping to {}: {} x {}", name, this->width, this->height);
+        const auto name = f("{}tex1D_{}.tga", base, this->debugName);
+        Logging::info("Dumping to {}: width = {}", name, this->width);
 
         // bind texture and allocate a buffer, read texture and write to file
         size_t bufferSz = this->width * this->height * 4;
         char *buffer = new char[bufferSz];
 
         this->bind();
-        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+        glGetTexImage(GL_TEXTURE_1D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
 
         SOIL_save_image(name.c_str(), SOIL_SAVE_TYPE_TGA, width, height, 4,
                                         (const unsigned char *) buffer);
@@ -129,70 +124,62 @@ void Texture2D::dump(const std::string &base) {
 }
 
 /**
- * Allocates texture memory of the given width and height, but does not fill it
- * with anything.
+ * Allocates texture memory of the given width and height, but does not fill it with anything.
  */
-void Texture2D::allocateBlank(const size_t width, const size_t height, TextureFormat format) {
+void Texture1D::allocateBlank(const size_t width, const TextureFormat format) {
     this->bind();
 
     // copy format
     this->format = format;
-
     this->width = width;
-    this->height = height;
 
     // Get the colour format
     GLenum colourFormat = GL_RGB;
     GLenum dataType = GL_FLOAT;
 
     if(format == RGBA || format == RGBA8 || format == RGBA16F || format == RGBA32F) {
-        colourFormat = GL_RGBA;
+            colourFormat = GL_RGBA;
     } else if(format == DepthGeneric || format == Depth24Stencil8) {
-        colourFormat = GL_DEPTH_COMPONENT;
+            colourFormat = GL_DEPTH_COMPONENT;
     } else if(format == RG8 || format == RG16F || format == RG32F) {
-        colourFormat = GL_RG;
+            colourFormat = GL_RG;
     } else if(format == RED8 || format == RED16F || format == RED32F) {
-        colourFormat = GL_RED;
+            colourFormat = GL_RED;
     }
 
-    if(format == RGB || format == RGBA || format == RGB8 || format == RGBA8 ||
-       format == RED8 || format == RG8) {
-        dataType = GL_UNSIGNED_BYTE;
+    if(format == RGB || format == RGBA || format == RGB8 || format == RGBA8 || format == RED8 ||
+            format == RG8) {
+            dataType = GL_UNSIGNED_BYTE;
     }
 
     if(format == RG16F || format == RGBA16F || format == RGB16F || format == RED16F ||
        format == DepthGeneric) {
-        dataType = GL_FLOAT;
+            dataType = GL_FLOAT;
     }
 
     // allocate memory
     GLint type = (GLint) this->glFormat();
 
-    glTexImage2D(GL_TEXTURE_2D, 0, type, (GLsizei) width, (GLsizei) height, 0,
-                    colourFormat, dataType, NULL);
+    glTexImage2D(GL_TEXTURE_1D, 0, type, (GLsizei) width, 1, 0, colourFormat, dataType, nullptr);
 
     // use nearest neighbour interpolation
     if(!this->usesLinearFiltering) {
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (GLint) GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (GLint) GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, (GLint) GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, (GLint) GL_NEAREST);
     } else {
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (GLint) GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (GLint) GL_LINEAR);
-
-        // enable antistropic filtering
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 4.f);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, (GLint) GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, (GLint) GL_LINEAR);
     }
 
 
     // unbind texture
-    Texture2D::unbind();
+    Texture1D::unbind();
 }
 
 /**
  * Loads a subset of data to the texture.
  */
-void Texture2D::bufferSubData(const size_t width, const size_t height, const size_t xOff,
-                              const size_t yOff, const TextureFormat format, const void *data) {
+void Texture1D::bufferSubData(const size_t width, const size_t xOff, const TextureFormat format, const void *data) {
     this->bind();
 
     // copy format
@@ -203,32 +190,31 @@ void Texture2D::bufferSubData(const size_t width, const size_t height, const siz
     GLenum dataType = GL_FLOAT;
 
     if(format == RGBA || format == RGBA8 || format == RGBA16F || format == RGBA32F) {
-        colourFormat = GL_RGBA;
+            colourFormat = GL_RGBA;
     } else if(format == DepthGeneric || format == Depth24Stencil8) {
-        colourFormat = GL_DEPTH_COMPONENT;
+            colourFormat = GL_DEPTH_COMPONENT;
     } else if(format == RG8) {
-        colourFormat = GL_RG;
+            colourFormat = GL_RG;
     } else if(format == RED8 || format == RED16F || format == RED32F) {
-        colourFormat = GL_RED;
+            colourFormat = GL_RED;
     }
 
-    if(format == RGB || format == RGBA || format == RGB8 || format == RGBA8 ||
-       format == RED8 || format == RG8) {
+    if(format == RGB || format == RGBA || format == RGB8 || format == RGBA8 || format == RED8 ||
+            format == RG8) {
             dataType = GL_UNSIGNED_BYTE;
     }
 
-    glTexSubImage2D(GL_TEXTURE_2D, 0, (GLint) xOff, (GLint) yOff,
-        (GLsizei) width, (GLsizei) height, colourFormat, dataType, data);
+    glTexSubImage2D(GL_TEXTURE_1D, 0, (GLint) xOff, 0, (GLsizei) width, 1, colourFormat,
+            dataType, data);
 
     // unbind texture
-    Texture2D::unbind();
+    Texture1D::unbind();
 }
 
 /**
- * Loads the texture's image from the given path. The texture is loaded as a
- * solid RGB image, and mipmaps are created.
+ * Loads the texture's image from the given path. The texture is loaded as an RGB image.
  */
-void Texture2D::loadFromImage(const std::string &path, bool sRGB) {
+void Texture1D::loadFromImage(const std::string &path, bool sRGB) {
     this->bind();
 
     // store path
@@ -253,78 +239,66 @@ void Texture2D::loadFromImage(const std::string &path, bool sRGB) {
     }
 
     // load the data to a texture and create mipmaps
-    glTexImage2D(GL_TEXTURE_2D, 0, (GLint) internalFormat, width, height, 0,
-                 format, GL_UNSIGNED_BYTE, data);
+    glTexImage1D(GL_TEXTURE_1D, 0, (GLint) internalFormat, width, 0, format, GL_UNSIGNED_BYTE, data);
 
-    // allocate mipmaps
-    glGenerateMipmap(GL_TEXTURE_2D);
     releaseImageData(data);
 
     this->format = RGB;
-
-    this->width = width;
-    this->height = height;
+    this->width = (unsigned int) width;
 
     // unbind texture
-    Texture2D::unbind();
+    Texture1D::unbind();
 }
 
 /**
  * Sets whether the texture interpolates linearly or not.
  */
-void Texture2D::setUsesLinearFiltering(bool enabled) {
+void Texture1D::setUsesLinearFiltering(bool enabled) {
     // bind texture
-    this->bind();
+    bind();
 
     this->usesLinearFiltering = enabled;
 
     // set the filtering state
     if(enabled) {
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (GLint) GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (GLint) GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, (GLint) GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, (GLint) GL_LINEAR);
     } else {
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (GLint) GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (GLint) GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, (GLint) GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, (GLint) GL_NEAREST);
     }
 
     // unbind
-    Texture2D::unbind();
+    Texture1D::unbind();
 }
 
 /**
  * Sets the wrapping mode of the texture.
  */
-void Texture2D::setWrapMode(WrapMode s, WrapMode t) {
+void Texture1D::setWrapMode(WrapMode s, WrapMode t) {
     // store
     this->wrapS = s;
     this->wrapT = t;
 
     // send to texture
-    this->bind();
+    bind();
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, (GLint) glWrapMode(s));
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, (GLint) glWrapMode(t));
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, (GLint) glWrapMode(s));
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, (GLint) glWrapMode(t));
 
     // unbind
-    Texture2D::unbind();
-}
-
-/**
- * Generates mipmaps for this texture.
- */
-void Texture2D::generateMipMaps(void) {
-    this->bind();
-    glGenerateMipmap(GL_TEXTURE_2D);
-    Texture2D::unbind();
+    Texture1D::unbind();
 }
 
 /**
  * Sets the colour of the border of the texture.
  */
-void Texture2D::setBorderColour(glm::vec4 border) {
+void Texture1D::setBorderColor(const glm::vec4 &border) {
     this->borderColour = border;
 
     this->bind();
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, glm::value_ptr(border));
-    Texture2D::unbind();
+    glTexParameterfv(GL_TEXTURE_1D, GL_TEXTURE_BORDER_COLOR, glm::value_ptr(border));
+
+    // unbind
+    Texture1D::unbind();
 }

@@ -262,10 +262,10 @@ void WorldChunk::setChunk(std::shared_ptr<world::Chunk> chunk) {
             std::bind(&WorldChunk::vtxGenCallback, this, _1, _2));
 
     // request generation of vertices for ALL globules in the chunk
-    // TODO: this
+    VertexGenerator::update(chunk);
 
     // install new observer
-    this->chunkChangeToken = this->chunk->registerChangeCallback(
+    this->chunkChangeToken = chunk->registerChangeCallback(
             std::bind(&WorldChunk::blockDidChange, this, _1, _2, _3));
 }
 
@@ -292,6 +292,20 @@ void WorldChunk::blockDidChange(world::Chunk *, const glm::ivec3 &blockCoord, co
     // update the block
     this->markBlockChanged(blockCoord);
     // Logging::trace("Block {} changed, flags {}", blockCoord, hints);
+}
+/**
+ * Marks a block as changed. This will cause the globule at the given coordinate to regenerate its
+ * internal buffers.
+ *
+ * TODO: we should coalesce multiple update requests for the same globule.
+ *
+ * @note `pos` is relative to the origin of the chunk.
+ */
+void WorldChunk::markBlockChanged(const glm::ivec3 &pos) {
+    const auto globuleOff = pos / glm::ivec3(kGlobuleSize);
+    const auto globuleOrigin = globuleOff * glm::ivec3(kGlobuleSize);
+
+    VertexGenerator::update(this->chunk, globuleOrigin);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -460,16 +474,3 @@ void WorldChunk::drawHighlights(std::shared_ptr<gfx::RenderProgram> &program) {
     glEnable(GL_DEPTH_TEST);
 }
 
-/**
- * Marks a block as changed. This will cause the globule at the given coordinate to regenerate its
- * internal buffers.
- *
- * @note `pos` is relative to the origin of the chunk.
- */
-void WorldChunk::markBlockChanged(const glm::ivec3 &pos) {
-    const auto globuleOff = pos / glm::ivec3(kGlobuleSize);
-    const auto globuleOrigin = globuleOff * glm::ivec3(kGlobuleSize);
-
-    auto globule = this->globules[globuleOrigin];
-    globule->markDirty();
-}

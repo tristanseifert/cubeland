@@ -1,11 +1,5 @@
-/*
- * PixelBuffer.cpp
- *
- *  Created on: Aug 29, 2015
- *      Author: tristan
- */
 #include "PixelBuffer.h"
-#include "../texture/Texture.h"
+#include "../texture/Texture2D.h"
 
 #include <Logging.h>
 
@@ -19,7 +13,7 @@ using namespace gfx;
 /**
  * Allocates a new pixel buffer, which transfers to the specified texture.
  */
-PixelBuffer::PixelBuffer(std::shared_ptr<Texture> tex) : texture(tex) {
+PixelBuffer::PixelBuffer(std::shared_ptr<Texture2D> tex) : texture(tex) {
     XASSERT(tex != nullptr, "Invalid texture");
 
     // allocate a pixel buffer

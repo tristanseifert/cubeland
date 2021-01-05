@@ -1,15 +1,7 @@
-/*
- * Texture.h
- *
- * An abstract type that exposes common functions for textures of any kind.
- *
- *  Created on: Aug 24, 2015
- *      Author: tristan
- */
-
 #ifndef GFX_BUFFER_TEXTURE_TEXTURE_H_
 #define GFX_BUFFER_TEXTURE_TEXTURE_H_
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -89,13 +81,6 @@ class Texture {
         virtual void bind(void) = 0;
         static void unbind(void);
 
-        virtual void allocateBlank(unsigned int width, unsigned int height,
-                                   TextureFormat format) = 0;
-
-        virtual void bufferSubData(unsigned int width, unsigned int height,
-                                   unsigned int xOff, unsigned int yOff,
-                                   TextureFormat format, void *data) = 0;
-
         virtual void dump(const std::string &base) = 0;
 
         void setBorderColour(glm::vec4 border);
@@ -103,10 +88,10 @@ class Texture {
         TextureFormat getFormat(void) {
             return this->format;
         }
-        unsigned int getWidth(void) {
+        const size_t getWidth(void) {
             return this->width;
         }
-        unsigned int getHeight(void) {
+        const size_t getHeight(void) {
             return this->height;
         }
 
@@ -146,8 +131,8 @@ class Texture {
         TextureFormat format = Unknown;
         TextureLoadFormat loadedFormat = Uncompressed;
 
-        unsigned int width = 0;
-        unsigned int height = 0;
+        size_t width = 0;
+        size_t height = 0;
         unsigned int mipMapCount = 0;
 
         WrapMode wrapS = Clamp, wrapT = Clamp, wrapR = Clamp;

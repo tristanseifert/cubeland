@@ -39,13 +39,15 @@ class BlockCollision {
         void removeAllBlocks();
 
     private:
-        /// +/- y range of blocks to create for collision
-        constexpr static const int kLoadYRange = 4;
+        /// - y range of blocks to create for collision
+        constexpr static const int kLoadYRangeN = 2;
+        /// + y range of blocks to create for collision
+        constexpr static const int kLoadYRangeP = 3;
         /// +/- x/z range of blocks to create for collision
-        constexpr static const int kLoadXZRange = 5;
+        constexpr static const int kLoadXZRange = 4;
 
         /// Block bodies further than this distance are discarded (squared)
-        constexpr static const float kBlockMaxDistance = 10.*10.;
+        constexpr static const float kBlockMaxDistance = 8.*8.;
 
         /// Default friction coefficient for blocks
         constexpr static const float kFrictionCoefficient = 0.25;

@@ -57,6 +57,7 @@ add_executable(cubeland
     src/input/PlayerPosPersistence.cpp
 # GL wrappers
     src/gfx/gl/texture/Texture.cpp
+    src/gfx/gl/texture/Texture1D.cpp
     src/gfx/gl/texture/Texture2D.cpp
     src/gfx/gl/texture/TextureCube.cpp
     src/gfx/gl/texture/TextureDumper.cpp

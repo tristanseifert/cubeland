@@ -5,6 +5,8 @@
 #ifndef RENDER_CHUNK_VERTEXGENERATOR_H
 #define RENDER_CHUNK_VERTEXGENERATOR_H
 
+#include "world/chunk/Chunk.h"
+
 #include <memory>
 #include <thread>
 #include <mutex>
@@ -13,6 +15,7 @@
 #include <functional>
 #include <unordered_map>
 #include <utility>
+#include <cstdint>
 
 #include <glbinding/gl/types.h>
 #include <blockingconcurrentqueue.h>
@@ -47,6 +50,9 @@ class VertexGenerator {
          */
         using Callback = std::function<void(const glm::ivec2 &, const BufList &)>;
 
+        /// Mask indicating all globules are to be reprocessed
+        constexpr static const uint64_t kAllGlobulesMask = 0xFFFFFFFFFFFFFFFF;
+
     public:
         static void init(gui::MainWindow *window);
         static void shutdown();
@@ -60,6 +66,46 @@ class VertexGenerator {
             /// if we've been deallocated, don't worry about callbacks since they're gone too
             if(!gShared) return;
             gShared->removeCallback(token);
+        }
+
+        /// Generates vertices for ALL globules in the given chunk
+        static void update(std::shared_ptr<world::Chunk> &chunk) {
+            gShared->generate(chunk, kAllGlobulesMask);
+        }
+        /// Generates vertices for the globule with the given block offset
+        static void update(std::shared_ptr<world::Chunk> &chunk, const glm::ivec3 &globulePos) {
+            const auto bits = blockPosToBits(globulePos);
+            gShared->generate(chunk, bits);
+        }
+        /// Generates vertices for all globules set in the specified bit mask.
+        static void update(std::shared_ptr<world::Chunk> &chunk, const uint64_t bits) {
+            gShared->generate(chunk, bits);
+        }
+
+        /**
+         * Given a block index, returns a bitmask with the bit for the globule containing it. This
+         * is organized as follows, roughly:
+         *
+         * YYYY-YYYY-YYYY-YYYY-YYYY-YYYY-YYYY-YYYY
+         * ZZZZ-ZZZZ-ZZZZ-ZZZZ ZZZZ-ZZZZ-ZZZZ-ZZZZ
+         * XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX
+         *
+         * Each section of letters corresponds to an X/Y/Z coordinate; those connected with dashes
+         * are for segments of the same value.
+         *
+         * In other words, 4 bits encode the X position; this is shifted by 4*Z offset, which
+         * in turn is shifted by 16*Y offset.
+         */
+        static inline uint64_t blockPosToBits(const glm::ivec3 &pos) {
+            glm::ivec3 idx;
+            world::Chunk::absoluteToRelative(pos, idx);
+            idx /= glm::ivec3(64);
+
+            uint64_t temp = 0;
+
+            temp |= ((1 << idx.x) << (4 * idx.z)) << (16 * idx.y);
+
+            return temp;
         }
 
     private:
@@ -86,6 +132,8 @@ class VertexGenerator {
 
         uint32_t addCallback(const glm::ivec2 &chunkPos, const Callback &func);
         void removeCallback(const uint32_t token);
+
+        void generate(std::shared_ptr<world::Chunk> &chunk, const uint64_t globuleMask);
 
         void workerMain();
 

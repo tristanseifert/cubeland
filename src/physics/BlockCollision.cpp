@@ -179,7 +179,7 @@ void BlockCollision::update() {
     // check the blocks around us
     LOCK_GUARD(this->bodiesLock, BodiesLock);
 
-    for(int y = -kLoadYRange; y <= kLoadYRange; y++) {
+    for(int y = -kLoadYRangeN; y <= kLoadYRangeP; y++) {
         for(int z = -kLoadXZRange; z <= kLoadXZRange; z++) {
             for(int x = -kLoadXZRange; x <= kLoadXZRange; x++) {
                 // skip if we already have a body generated for this block

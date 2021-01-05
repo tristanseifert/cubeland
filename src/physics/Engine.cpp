@@ -116,6 +116,8 @@ void Engine::setPlayerPosition(const glm::vec3 &pos, const glm::vec3 &angles) {
 
     this->lastPlayerTransform = transform;
     this->playerBody->setTransform(transform);
+
+    this->camera->setCameraPosition(pos);
 }
 
 /**
