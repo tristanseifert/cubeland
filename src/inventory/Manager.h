@@ -74,7 +74,7 @@ class Manager {
 
     public:
         /// total number of inventory slots
-        constexpr static const size_t kNumInventorySlots = 50;
+        constexpr static const size_t kNumInventorySlots = 60;
         /// maximum number of items per inventory slot
         constexpr static const size_t kMaxItemsPerSlot = 99;
 

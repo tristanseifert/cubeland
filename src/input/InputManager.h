@@ -119,8 +119,6 @@ class InputManager {
         bool inputUpdatesCamera = false;
         // when set, the input debug view is visible
         bool showDebugWindow = false;
-        // when set, the profiler window is shown
-        bool showProfiler = false;
 
         // main window handle (for adjusting mouse behavior)
         gui::MainWindow *window = nullptr;

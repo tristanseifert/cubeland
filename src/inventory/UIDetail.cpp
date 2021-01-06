@@ -46,7 +46,7 @@ void UIDetail::draw(gui::GameUI *ui) {
     }
 
     // main inventory area
-    const glm::vec2 mainSize((ItemDrawing::kItemSize * 11.5), (ItemDrawing::kItemSize * 7.33));
+    const glm::vec2 mainSize((ItemDrawing::kItemSize * 11.5), (ItemDrawing::kItemSize * 8.42));
     if(ImGui::BeginChild("Inventory Contents", mainSize, false, ImGuiWindowFlags_NoScrollbar)) {
         // trash and actions
         this->drawDeleteItem(ImGui::GetCursorScreenPos(), ui);

@@ -79,6 +79,8 @@ class MainWindow {
         double frameTimeLastTrue = 0.f;
 
         size_t frameStartTime = 0;
+
+        bool showProfiler = false;
 };
 }
 

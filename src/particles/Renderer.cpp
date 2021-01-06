@@ -74,7 +74,7 @@ Renderer::Renderer() : RenderStep("Physics", "Particle Renderer") {
 
     // read particle texture atlas
     this->particleAtlas = new Texture2D(0);
-    this->particleAtlas->setUsesLinearFiltering(true);
+    // this->particleAtlas->setUsesLinearFiltering(true);
     this->particleAtlas->setDebugName("ParticleAtlas");
 
     // load shader for drawing particles
@@ -217,7 +217,7 @@ void Renderer::preRender(render::WorldRenderer *) {
     glDepthMask(GL_FALSE);
 
     // blending additively (to get a nice glow)
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    // glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
     // update the particle info buffer if it became dirtied
     if(this->particleInfoDirty) {

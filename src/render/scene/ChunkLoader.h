@@ -68,6 +68,15 @@ class ChunkLoader {
             this->fov = fov;
         }
 
+        /// Returns visibility state of the info overlay.
+        const bool isOverlayShown() const {
+            return this->showsOverlay;
+        }
+        /// Sets whether the info overlay is shown.
+        void setOverlayShown(const bool show) {
+            this->showsOverlay = show;
+        }
+
     private:
         /// minimum amount of movement required before we do any sort of processing
         constexpr static const float kMoveThreshold = 0.1f;

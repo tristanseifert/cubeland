@@ -51,9 +51,6 @@ class System {
                 /// when this particle shall die (age wise)
                 size_t maxAge = 0;
 
-                /// tint for the particle
-                glm::vec3 tint = glm::vec3(1.);
-
             public:
                 const glm::vec3 getPosition() const;
 
@@ -68,6 +65,12 @@ class System {
         /// Returns the UV coordinates in the particle engine texture map.
         virtual glm::vec4 uvForParticle(const Particle &) {
             return this->defaultUv;
+        }
+
+        /// Returns the tint color to use for the particle.
+        virtual glm::vec3 tintForParticle(const Particle &particle) {
+            std::uniform_real_distribution<float> fucker(0, 1);
+            return glm::vec3(fucker(this->randGen), fucker(this->randGen), fucker(this->randGen));
         }
 
     private:

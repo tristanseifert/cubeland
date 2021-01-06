@@ -136,7 +136,7 @@ void PlayerPosPersistence::writePosition() {
     data.position = this->lastPosition;
     data.cameraAngles = this->lastAngles;
 
-    Logging::trace("Saving position {} angles {}", data.position, data.cameraAngles);
+    // Logging::trace("Saving position {} angles {}", data.position, data.cameraAngles);
 
     // serialize and compress it
     std::stringstream stream;

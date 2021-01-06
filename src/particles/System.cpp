@@ -130,10 +130,6 @@ void System::allocNewParticle() {
     col->setCollideWithMaskBits(0);
     p.physCol = col;
 
-    // TODO: better default color
-    // std::uniform_real_distribution<float> fucker(0, 1);
-    // p.tint = glm::vec3(fucker(this->randGen), fucker(this->randGen), fucker(this->randGen));
-
     // apply its initial force
     auto force = this->initialForce;
 
@@ -178,7 +174,7 @@ void System::buildParticleBuf(std::vector<Renderer::ParticleInfo> &particles) {
         // insert the info
         particles.emplace_back(Renderer::ParticleInfo({
             .pos = particle.getPosition(),
-            .color = particle.tint,
+            .color = this->tintForParticle(particle),
             .uv = this->uvForParticle(particle),
             .scale = ((this->particleRadius * 2) / 1.f),
             .alpha = alpha

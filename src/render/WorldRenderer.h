@@ -27,6 +27,7 @@ class PlayerPosPersistence;
 
 namespace world {
 class WorldSource;
+class TimePersistence;
 }
 
 namespace physics {
@@ -89,6 +90,8 @@ class WorldRenderer: public gui::RunLoopStep {
         std::shared_ptr<gui::GameUI> gui;
 
         physics::Engine *physics = nullptr;
+
+        world::TimePersistence *timeSaver = nullptr;
 
     private:
         /**

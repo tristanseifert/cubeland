@@ -67,6 +67,13 @@ class TorchSmoke: public particles::System {
             return uv;
         }
 
+        /**
+         * Smoke particles from torches are darker.
+         */
+        glm::vec3 tintForParticle(const Particle &particle) override {
+            return glm::vec3(.5);
+        }
+
     private:
         /// UV for the entire 16x192 smoke particle texture
         glm::vec4 smokeUv;

@@ -285,6 +285,12 @@ int MainWindow::run() {
             }
         }
 
+        // render the profiler UI
+        if(this->showProfiler) {
+            PROFILE_SCOPE(ProfilerUI);
+            MUtils::Profiler::ShowProfile(&this->showProfiler);
+        }
+
         // clear the output buffer, then draw the scene and UI ontop
         {
             PROFILE_SCOPE(Draw);
@@ -363,6 +369,24 @@ void MainWindow::handleEvent(const SDL_Event &event, int &reason) {
                 // we ignore all other window events
                 default:
                     break;
+            }
+            break;
+        }
+
+        // certain key events
+        case SDL_KEYDOWN: {
+            const auto &k = event.key.keysym;
+
+            // toggle the profiler display
+            if(k.scancode == SDL_SCANCODE_F7) {
+                this->showProfiler = !this->showProfiler;
+            }
+
+            // TODO: ensure cursor is visible if not already
+            if(this->showProfiler) {
+
+            } else {
+
             }
             break;
         }

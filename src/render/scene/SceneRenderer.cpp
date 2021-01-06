@@ -205,3 +205,10 @@ void SceneRenderer::setPhysicsEngine(physics::Engine *engine) {
     this->chunkLoader->physics = engine;
 }
 
+/**
+ * Toggles debug overlays; in this case, it's just the chunk loader's info.
+ */
+void SceneRenderer::toggleDebugOverlays() {
+    auto old = this->chunkLoader->isOverlayShown();
+    this->chunkLoader->setOverlayShown(!old);
+}

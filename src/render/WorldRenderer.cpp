@@ -12,6 +12,7 @@
 #include "render/chunk/VertexGenerator.h"
 #include "world/FileWorldReader.h"
 #include "world/WorldSource.h"
+#include "world/TimePersistence.h"
 #include "world/generators/Terrain.h"
 #include "physics/Engine.h"
 #include "physics/EngineDebugRenderer.h"
@@ -99,9 +100,10 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
     ssao->setDepthTex(this->lighting->gDepth);
     ssao->setNormalTex(this->lighting->gNormal);
 
-#ifndef NDEBUG
     this->debugger = new WorldRendererDebugger(this);
-#endif
+
+    // load the current world time
+    this->timeSaver = new world::TimePersistence(this->source, &this->time);
 
     // interactions and some game UI
     this->physics = new physics::Engine(scnRnd, &this->camera);
@@ -132,6 +134,8 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
  * Releases all of our render resources.
  */
 WorldRenderer::~WorldRenderer() {
+    delete this->timeSaver;
+
     this->source->flushDirtyChunksSync();
 
     if(this->debugItemToken) {
@@ -272,10 +276,16 @@ bool WorldRenderer::handleEvent(const SDL_Event &event) {
         }
     }
 
-    // toggle menu bar with F9
+    // handle a few special key events
     if(event.type == SDL_KEYDOWN) {
         const auto &k = event.key.keysym;
-        if(k.scancode == SDL_SCANCODE_F9) {
+
+        // F3 toggles the scene debugging overlays
+        if(k.scancode == SDL_SCANCODE_F3) {
+            gSceneRenderer->toggleDebugOverlays();
+        }
+        // F9 toggles menu bar
+        else if(k.scancode == SDL_SCANCODE_F9) {
             bool vis = gui::MenuBarHandler::isVisible();
 
             if(vis) {

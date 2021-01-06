@@ -100,6 +100,7 @@ add_executable(cubeland
     src/world/FileWorldReader+Writing.cpp
     src/world/FileWorldReader+Reading.cpp
     src/world/WorldSource.cpp
+    src/world/TimePersistence.cpp
     src/world/debug/WorldDebugger.cpp
     src/world/chunk/Chunk.cpp
     src/world/block/Block.cpp
