@@ -7,11 +7,15 @@
 #include <mutex>
 #include <vector>
 #include <memory>
+#include <string>
+#include <unordered_map>
+#include <atomic>
 #include <cstddef>
 
 #include <glbinding/gl/types.h>
 
 #include "render/RenderStep.h"
+#include "util/TexturePacker.h"
 
 struct MetricsGuiMetric;
 struct MetricsGuiPlot;
@@ -64,6 +68,13 @@ class Renderer: public render::RenderStep {
         /// Removes an existing particle system
         void removeSystem(std::shared_ptr<System> &system);
 
+        /// Loads the given texture into the particle image atlas.
+        bool addTexture(const glm::ivec2 &size, const std::string &path);
+        /// Gets the texture atlas UV of the given texture.
+        glm::vec4 getUv(const std::string &path) {
+            return this->texturesPacker.uvBoundsForTexture(path);
+        }
+
     private:
         struct ParticleInfo {
             glm::vec3 pos;
@@ -71,6 +82,13 @@ class Renderer: public render::RenderStep {
             glm::vec4 uv = glm::vec4(0, 0, 1, 1);
             float scale = 1.;
             float alpha = 1.;
+        };
+
+        struct TextureInfo {
+            /// resource directory path
+            std::string path;
+            /// size of the texture
+            glm::ivec2 size;
         };
 
     private:
@@ -105,6 +123,15 @@ class Renderer: public render::RenderStep {
         std::mutex particleSystemsLock;
         /// all particle systems in the world
         std::vector<std::shared_ptr<System>> particleSystems;
+
+        /// currently loaded textures
+        std::unordered_map<std::string, TextureInfo> textures;
+        /// lock protecting this map
+        std::mutex texturesLock;
+        /// texture packer for these textures
+        util::TexturePacker<std::string> texturesPacker;
+        /// whether we need to update the texture atlas
+        std::atomic_bool needsAtlasUpdate = false;
 
         MetricsGuiPlot *mPlot;
         MetricsGuiMetric *mNumParticles, *mVisibleSystems;

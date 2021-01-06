@@ -131,8 +131,8 @@ void System::allocNewParticle() {
     p.physCol = col;
 
     // TODO: better default color
-    std::uniform_real_distribution<float> fucker(0, 1);
-    p.tint = glm::vec3(fucker(this->randGen), fucker(this->randGen), fucker(this->randGen));
+    // std::uniform_real_distribution<float> fucker(0, 1);
+    // p.tint = glm::vec3(fucker(this->randGen), fucker(this->randGen), fucker(this->randGen));
 
     // apply its initial force
     auto force = this->initialForce;
@@ -179,6 +179,7 @@ void System::buildParticleBuf(std::vector<Renderer::ParticleInfo> &particles) {
         particles.emplace_back(Renderer::ParticleInfo({
             .pos = particle.getPosition(),
             .color = particle.tint,
+            .uv = this->uvForParticle(particle),
             .scale = ((this->particleRadius * 2) / 1.f),
             .alpha = alpha
         }));
@@ -193,4 +194,22 @@ void System::buildParticleBuf(std::vector<Renderer::ParticleInfo> &particles) {
  */
 const glm::vec3 System::Particle::getPosition() const {
     return physics::vec(this->physBody->getTransform().getPosition());
+}
+
+
+
+/**
+ * Registers the default particle texture.
+ */
+void System::registerTextures(Renderer *rend) {
+    if(!rend->addTexture(glm::vec2(32, 32), "particle/default.png")) {
+        this->textureAtlasUpdated(rend);
+    }
+}
+
+/**
+ * Gets the UV of the default texture and saves it as the cached UV. value.
+ */
+void System::textureAtlasUpdated(Renderer *rend) {
+    this->defaultUv = rend->getUv("particle/default.png");
 }

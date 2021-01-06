@@ -124,7 +124,7 @@ class ChunkLoader {
         void updateLookAt();
         void updateLookAtBlock();
         void removeLookAtSelection();
-        void updateLookAtSelection(const glm::ivec2 chunkPos, const glm::ivec3 blockOff);
+        void updateLookAtSelection(const glm::ivec2 chunkPos, const glm::ivec3 blockOff, const glm::mat4 &transform = glm::mat4(1));
 
         bool updateCenterChunk(const glm::vec3 &delta, const glm::vec3 &camera);
         void loadChunk(const glm::ivec2 position);

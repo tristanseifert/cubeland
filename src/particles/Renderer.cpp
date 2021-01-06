@@ -2,11 +2,15 @@
 #include "System.h"
 
 #include "util/Frustum.h"
+#include "world/block/TextureLoader.h"
 
 #include "gfx/gl/program/ShaderProgram.h"
 #include "gfx/gl/texture/Texture2D.h"
 #include "gfx/gl/buffer/Buffer.h"
 #include "gfx/gl/buffer/VertexArray.h"
+
+#include "io/Format.h"
+#include <Logging.h>
 
 #include <mutils/time/profiler.h>
 #include <glm/ext.hpp>
@@ -15,6 +19,8 @@
 #include <glm/gtc/matrix_access.hpp>
 #include <imgui.h>
 #include <metricsgui/metrics_gui.h>
+
+#include <cstring>
 
 using namespace particles;
 
@@ -70,7 +76,6 @@ Renderer::Renderer() : RenderStep("Physics", "Particle Renderer") {
     this->particleAtlas = new Texture2D(0);
     this->particleAtlas->setUsesLinearFiltering(true);
     this->particleAtlas->setDebugName("ParticleAtlas");
-    this->particleAtlas->loadFromImage("textures/particle/default.png");
 
     // load shader for drawing particles
     this->shader = new ShaderProgram("misc/particle.vert", "misc/particle.frag");
@@ -117,6 +122,8 @@ void Renderer::addSystem(std::shared_ptr<System> &system) {
     LOCK_GUARD(this->particleSystemsLock, ParticleSystems);
 
     system->setPhysicsEngine(this->phys);
+    system->registerTextures(this);
+
     this->particleSystems.push_back(system);
 }
 
@@ -139,6 +146,7 @@ void Renderer::removeSystem(std::shared_ptr<System> &system) {
  * out into info buffers.
  */
 void Renderer::startOfFrame() {
+    LOCK_GUARD(this->particleSystemsLock, ParticleSystems);
     PROFILE_SCOPE(Particles);
 
     // get the positions of particles from visible particle systems
@@ -179,6 +187,19 @@ void Renderer::startOfFrame() {
         // return true if distance A < B
         return (distA < distB);
     });
+
+    // atlas updates
+    if(this->needsAtlasUpdate) {
+        this->rebuildAtlas();
+
+        // do not force a sync to other processors on write for clearing the flag
+        this->needsAtlasUpdate.store(false, std::memory_order_relaxed);
+
+        // then run all systems' change callbacks
+        for(auto &system : this->particleSystems) {
+            system->textureAtlasUpdated(this);
+        }
+    }
 
     // also, render debugging window if needed
     if(this->showDebugWindow) {
@@ -229,9 +250,9 @@ void Renderer::render(render::WorldRenderer *) {
     const auto projView = this->projectionMatrix * this->viewMatrix;
     this->shader->setUniformMatrix("projectionView", projView);
 
+    // send the camera right and up vectors; used for billboarding particles
     const auto camRightWs = glm::vec3(row(this->viewMatrix, 0));
     this->shader->setUniformVec("cameraRightWs", camRightWs);
-
     const auto camUpWs = glm::vec3(row(this->viewMatrix, 1));
     this->shader->setUniformVec("cameraUpWs", camUpWs);
 
@@ -257,11 +278,95 @@ void Renderer::postRender(render::WorldRenderer *) {
 }
 
 
+
+/**
+ * Loads a new texture.
+ *
+ * @return Whether a new texture was allocated or not.
+ */
+bool Renderer::addTexture(const glm::ivec2 &size, const std::string &path) {
+    // build texture info
+    TextureInfo info;
+    info.size = size;
+    info.path = path;
+
+    // add the texture info if needed, or exit if already registered
+    {
+        LOCK_GUARD(this->texturesLock, ParticleTextures);
+        if(this->textures.contains(path)) {
+            return false;
+        }
+
+        this->textures[path] = info;
+    }
+
+    // rebuild the atlas on the next main loop iteration (so it can be directly uploaded)
+    this->needsAtlasUpdate = true;
+
+    return true;
+}
+
+
+
 /**
  * Rebuilds the particle system texture atlas.
  */
 void Renderer::rebuildAtlas() {
+    // get lock to the textures map
+    LOCK_GUARD(this->texturesLock, ParticleTextures);
+    PROFILE_SCOPE(RebuildParticleAtlas);
 
+    // repack that hoe
+    std::unordered_map<std::string, glm::ivec2> sizes;
+    sizes.reserve(this->textures.size());
+    for(const auto &[path, info] : this->textures) {
+        sizes[path] = info.size;
+    }
+
+    this->texturesPacker.updateLayout(sizes);
+
+    // set up the texture data buffer
+    const auto atlasSize = this->texturesPacker.getAtlasSize();
+    XASSERT(atlasSize.x && atlasSize.y, "Invalid atlas size {}", atlasSize);
+
+    std::vector<std::byte> out;
+
+    const size_t bytesPerPixel = 4 /* components */ * sizeof(float) /*bytes per*/;
+    const size_t bytesPerRow = bytesPerPixel * atlasSize.x;
+
+    const size_t numBytes = (atlasSize.x * atlasSize.y) * bytesPerPixel;
+
+    out.resize(numBytes);
+
+    // for each output texture, place it
+    std::vector<float> textureBuffer;
+    for(const auto &[textureId, bounds] : this->texturesPacker.getLayout()) {
+        // get texture and yeet it into the buffer
+        const auto &texture = this->textures[textureId];
+
+        textureBuffer.clear();
+        textureBuffer.resize(texture.size.x * texture.size.y * 4, 0);
+
+        world::TextureLoader::load(texture.path, textureBuffer);
+
+        // write pointer to the top left of the output
+        const auto bytesPerTextureRow = texture.size.x * sizeof(float) * 4;
+        std::byte *writePtr = out.data() + (bytesPerRow * bounds.y) + (bytesPerPixel * bounds.x);
+
+        for(size_t y = 0; y < texture.size.y; y++) {
+            // calculate offset into texture buffer and yeet it up
+            const size_t textureYOff = y * texture.size.x * 4;
+            memcpy(writePtr, textureBuffer.data() + textureYOff, bytesPerTextureRow);
+
+            // advance write pointer
+            writePtr += bytesPerRow;
+        }
+    }
+
+    // upload texture
+    this->particleAtlas->allocateBlank(atlasSize.x, atlasSize.y, gfx::Texture2D::RGBA16F);
+    this->particleAtlas->bufferSubData(atlasSize.x, atlasSize.y, 0, 0,  gfx::Texture2D::RGBA16F,
+            out.data());
 }
 
 /**

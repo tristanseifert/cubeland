@@ -33,8 +33,13 @@ class System {
         System(const glm::vec3 &origin);
         virtual ~System();
 
-        void getBounds(glm::vec3 &lb, glm::vec3 &rt);
-        void agingStep(const bool canSpawn = true);
+        virtual void getBounds(glm::vec3 &lb, glm::vec3 &rt);
+        virtual void agingStep(const bool canSpawn = true);
+
+        /// Called when the particle system is first added to register its textures
+        virtual void registerTextures(Renderer *rend);
+        /// Invoked when the texture atlas is updated. Cached UVs should be updated.
+        virtual void textureAtlasUpdated(Renderer *rend);
 
     protected:
         struct Particle {
@@ -59,13 +64,19 @@ class System {
                 reactphysics3d::Collider *physCol = nullptr;
         };
 
+    protected:
+        /// Returns the UV coordinates in the particle engine texture map.
+        virtual glm::vec4 uvForParticle(const Particle &) {
+            return this->defaultUv;
+        }
+
     private:
         void setPhysicsEngine(physics::Engine *phys);
 
-        void allocNewParticle();
-        void prepareParticleForDealloc(Particle &p);
+        virtual void allocNewParticle();
+        virtual void prepareParticleForDealloc(Particle &p);
 
-        void buildParticleBuf(std::vector<Renderer::ParticleInfo> &particles);
+        virtual void buildParticleBuf(std::vector<Renderer::ParticleInfo> &particles);
 
     protected:
         glm::vec3 origin;
@@ -109,7 +120,8 @@ class System {
         /// collision shape body for particles
         reactphysics3d::CollisionShape *collideShape = nullptr;
 
-        /// time of last aging step
+        /// UV of the default particle texture
+        glm::vec4 defaultUv = glm::vec4(0, 0, 1, 1);
 };
 }
 

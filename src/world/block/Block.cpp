@@ -18,7 +18,7 @@ extern std::shared_ptr<render::Lighting> gLightRenderer;
 /**
  * Adds the given particle system to the particle renderer for the currently active scene.
  */
-void Block::addParticleSystem(std::shared_ptr<particles::System> &sys) {
+void Block::addParticleSystem(std::shared_ptr<particles::System> sys) {
     if(!gParticleRenderer) return;
     gParticleRenderer->addSystem(sys);
 }
@@ -26,7 +26,7 @@ void Block::addParticleSystem(std::shared_ptr<particles::System> &sys) {
 /**
  * Removes a previously added particle system.
  */
-void Block::removeParticleSystem(std::shared_ptr<particles::System> &sys) {
+void Block::removeParticleSystem(std::shared_ptr<particles::System> sys) {
     if(!gParticleRenderer) return;
     gParticleRenderer->removeSystem(sys);
 }

@@ -55,6 +55,8 @@ class Torch: public Block {
         /// when a torch is first yeeted into the world, create particle systems
         void blockWillDisplay(const glm::ivec3 &pos) override;
 
+        /// allow a different sized selection
+        glm::mat4 getSelectionTransform(const glm::ivec3 &pos) override;
     private:
         void blockDidChange(world::Chunk *, const glm::ivec3 &, const world::Chunk::ChangeHints,
                 const uuids::uuid &);
@@ -69,9 +71,9 @@ class Torch: public Block {
 
     private:
         /// linear attenuation of torch point light
-        constexpr static const float kLinearAttenuation = .033;
+        constexpr static const float kLinearAttenuation = .035;
         /// quadratic attenuation of a torch point light
-        constexpr static const float kQuadraticAttenuation = .0074;
+        constexpr static const float kQuadraticAttenuation = .0088;
 
         /// color for the point light; it's slightly orange-ish
         constexpr static const glm::vec3 kLightColor = glm::vec3(1.15, .8, .8);
@@ -86,8 +88,8 @@ class Torch: public Block {
         };
 
     private:
-        /// texture (for now, just side textures)
-        BlockRegistry::TextureId texture;
+        /// textures for side and top
+        BlockRegistry::TextureId sideTexture, topTexture;
         /// type id for the primary block appearance
         uint16_t appearanceId;
 

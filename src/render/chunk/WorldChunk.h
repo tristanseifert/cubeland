@@ -77,7 +77,7 @@ class WorldChunk: public Drawable {
 
         void markBlockChanged(const glm::ivec3 &pos);
 
-        uint64_t addHighlight(const glm::vec3 &start, const glm::vec3 &end, const glm::vec4 &color = glm::vec4(0, 1, 0, .74));
+        uint64_t addHighlight(const glm::vec3 &start, const glm::vec3 &end, const glm::vec4 &color = glm::vec4(0, 1, 0, .74), const glm::mat4 &transform = glm::mat4(1));
         void setHighlightColor(const uint64_t id, const glm::vec4 &color);
         bool removeHighlight(const uint64_t id);
 
@@ -104,6 +104,9 @@ class WorldChunk: public Drawable {
 
             // color of the highlight
             glm::vec4 color = glm::vec4(0, 1, 0, .74);
+
+            // transformation matrix for highlight block vertices
+            glm::mat4 transform = glm::mat4(1);
         };
 
         struct HighlightInstanceData {

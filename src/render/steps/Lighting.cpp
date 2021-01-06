@@ -72,6 +72,7 @@ Lighting::Lighting() : RenderStep("Render Debug", "Lighting") {
 
     // create our lights (defaults)
     this->sun = std::make_shared<gfx::DirectionalLight>();
+    this->sun->setColor(this->sunColorNormal);
     this->addLight(this->sun);
 
     this->moon = std::make_shared<gfx::DirectionalLight>();

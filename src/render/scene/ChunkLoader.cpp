@@ -421,7 +421,10 @@ void ChunkLoader::updateLookAtBlock() {
             this->lookAtBlockRelative = glm::ivec3(blockOff.x, blockOff.y, blockOff.z);
 
             // update selection
-            this->updateLookAtSelection(chunkPos, glm::ivec3(blockOff.x, blockOff.y, blockOff.z));
+            auto block = BlockRegistry::getBlock(uuid);
+            const auto transform = block->getSelectionTransform(blockPos);
+
+            this->updateLookAtSelection(chunkPos, glm::ivec3(blockOff.x, blockOff.y, blockOff.z), transform);
             return;
         }
     }
@@ -463,7 +466,7 @@ beach:;
  *
  * Assuemes that the chunk for the block is loaded.
  */
-void ChunkLoader::updateLookAtSelection(const glm::ivec2 chunkPos, const glm::ivec3 blockOff) {
+void ChunkLoader::updateLookAtSelection(const glm::ivec2 chunkPos, const glm::ivec3 blockOff, const glm::mat4 &transform) {
     // remove old selection
     this->removeLookAtSelection();
 
@@ -476,7 +479,7 @@ void ChunkLoader::updateLookAtSelection(const glm::ivec2 chunkPos, const glm::iv
     // build selection range
     const glm::vec3 start = glm::vec3(blockOff), end = start + glm::vec3(1.);
 
-    auto id = chunk->addHighlight(start, end, kLookAtSelectionColor);
+    auto id = chunk->addHighlight(start, end, kLookAtSelectionColor, transform);
     this->lookAtSelectionMarker = std::make_pair(chunkPos, id);
 }
 

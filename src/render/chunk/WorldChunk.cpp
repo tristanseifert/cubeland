@@ -314,7 +314,7 @@ void WorldChunk::markBlockChanged(const glm::ivec3 &pos) {
 /**
  * Adds a new highlighting section.
  */
-uint64_t WorldChunk::addHighlight(const glm::vec3 &start, const glm::vec3 &end, const glm::vec4 &color) {
+uint64_t WorldChunk::addHighlight(const glm::vec3 &start, const glm::vec3 &end, const glm::vec4 &color, const glm::mat4 &transform) {
     uint64_t id = this->highlightsId++;
 
     // create highlights info and submit it
@@ -322,6 +322,7 @@ uint64_t WorldChunk::addHighlight(const glm::vec3 &start, const glm::vec3 &end, 
     info.start = start;
     info.end = end;
     info.color = color;
+    info.transform = transform;
 
     {
         LOCK_GUARD(this->highlightsLock, AddHighlight);
@@ -418,8 +419,8 @@ void WorldChunk::updateHighlightBuffer() {
         scaled = glm::scale(scaled, scale);
 
         data.color = info.color;
-        data.transform = translation;
-        data.scaled = scaled;
+        data.transform = translation * info.transform;
+        data.scaled = scaled * info.transform;
 
         // inscrete it
         this->highlightData.push_back(data);

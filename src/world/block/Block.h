@@ -25,6 +25,7 @@
 #include <uuid.h>
 
 #include <glm/vec3.hpp>
+#include <glm/mat4x4.hpp>
 
 namespace particles {
 class System;
@@ -129,9 +130,18 @@ class Block {
          */
         virtual void blockWillDisplay(const glm::ivec3 &pos) {};
 
+        /**
+         * The coordinates used to draw a block's selection can be transformed by a matrix to
+         * better match the model. By default, a selection is a 1x1x1 cube, with its origin at the
+         * block's origin.
+         */
+        virtual glm::mat4 getSelectionTransform(const glm::ivec3 &pos) {
+            return glm::mat4(1);
+        }
+
     protected:
-        void addParticleSystem(std::shared_ptr<particles::System> &sys);
-        void removeParticleSystem(std::shared_ptr<particles::System> &sys);
+        void addParticleSystem(std::shared_ptr<particles::System> sys);
+        void removeParticleSystem(std::shared_ptr<particles::System> sys);
 
         void addLight(std::shared_ptr<gfx::lights::AbstractLight> light);
         void removeLight(std::shared_ptr<gfx::lights::AbstractLight> light);

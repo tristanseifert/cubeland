@@ -13,21 +13,81 @@
 using namespace world::blocks;
 
 /**
+ * Torch smoke particle system
+ */
+class TorchSmoke: public particles::System {
+    public:
+        TorchSmoke(const glm::vec3 &pos) : System(pos) {
+            this->maxParticles = 35;
+            this->spawnRounds = 2;
+            this->spawnProbability = .05;
+
+            this->deathLength = 42;
+            this->minParticleAge = 30;
+            this->maxParticleAge = 180;
+
+            this->initialForce = glm::vec3(0, .001, 0);
+            this->forceVariation = glm::vec3(.00033, .0005, .00033);
+        }
+
+        /**
+         * Register the smoke texture; it is 16x16, with 12 frames of animation.
+         */
+        void registerTextures(particles::Renderer *rend) override {
+            if(!rend->addTexture(glm::vec2(16, 192), "particle/bigsmoke.png")) {
+                this->textureAtlasUpdated(rend);
+            }
+        }
+
+        /**
+         * Gets the UV of the default texture and saves it as the cached UV. value.
+         */
+        void textureAtlasUpdated(particles::Renderer *rend) override {
+            this->smokeUv = rend->getUv("particle/bigsmoke.png");
+        }
+
+        /**
+         * Based on the age of the particle, pick the correct of the 12 animation frames, and
+         * scale the UV coordinates appropriately.
+         */
+        glm::vec4 uvForParticle(const particles::System::Particle &particle) override {
+            // calculate the UV Y range for a single one of the 12 textures
+            const float yRange = this->smokeUv.w - this->smokeUv.y;
+            const float frameY = yRange / 12.;
+
+            // select which of the 12 frames we want
+            const float life = ((float) particle.age) / ((float) particle.maxAge);
+            const int frame = floor(life * 11.);
+
+            // scale the UV
+            auto uv = this->smokeUv;
+            uv.y += (frame * frameY);
+            uv.w = uv.y + frameY;
+
+            return uv;
+        }
+
+    private:
+        /// UV for the entire 16x192 smoke particle texture
+        glm::vec4 smokeUv;
+};
+
+/**
  * Model for a vertical torch. This is the same as a block, but it's only .15 units in width/depth
  * and .74 units tall.
  */
 const world::BlockRegistry::Model Torch::kVerticalModel = {
     .vertices = {
         // top face
-        {.35, .74, .65}, {.65, .74, .65}, {.65, .74, .35}, {.35, .74, .35},
+        {.40, .74, .60}, {.60, .74, .60}, {.60, .74, .40}, {.40, .74, .40},
         // left face
-        {.35,   0, .65}, {.35, .74, .65}, {.35, .74, .35}, {.35,   0, .35},
+        {.40,   0, .60}, {.40, .74, .60}, {.40, .74, .40}, {.40,   0, .40},
         // right face
-        {.65,   0, .35}, {.65, .74, .35}, {.65, .74, .65}, {.65,   0, .65},
+        {.60,   0, .40}, {.60, .74, .40}, {.60, .74, .60}, {.60,   0, .60},
         // front face
-        {.35, .74, .35}, {.65, .74, .35}, {.65,   0, .35}, {.35,   0, .35},
+        {.40, .74, .40}, {.60, .74, .40}, {.60,   0, .40}, {.40,   0, .40},
         // back face
-        {.35,   0, .65}, {.65,   0, .65}, {.65, .74, .65}, {.35, .74, .65},
+        {.40,   0, .60}, {.60,   0, .60}, {.60, .74, .60}, {.40, .74, .60},
     },
     .faceVertIds = {
         // top face
@@ -76,14 +136,18 @@ Torch::Torch() {
     this->id = uuids::uuid::from_string("0ACDFBDF-9B26-459D-AA4A-5D09FEB25C94");
 
     // register textures
-    this->texture = BlockRegistry::registerTexture(Type::kTypeBlockFace,
-            glm::ivec2(32, 32), [](auto &out) {
-        TextureLoader::load("block/stone/all.png", out);
+    this->sideTexture = BlockRegistry::registerTexture(Type::kTypeBlockFace,
+            glm::ivec2(8, 32), [](auto &out) {
+        TextureLoader::load("block/torch/side.png", out);
+    });
+    this->topTexture = BlockRegistry::registerTexture(Type::kTypeBlockFace,
+            glm::ivec2(8, 8), [](auto &out) {
+        TextureLoader::load("block/torch/top.png", out);
     });
 
     this->inventoryIcon = BlockRegistry::registerTexture(Type::kTypeInventory,
             glm::ivec2(96, 96), [](auto &out) {
-        TextureLoader::load("block/stone/inventory.png", out);
+        TextureLoader::load("block/torch/inventory.png", out);
     });
 
     // and register the model
@@ -91,10 +155,8 @@ Torch::Torch() {
 
     // register appearance
     this->appearanceId = BlockRegistry::registerBlockAppearance();
-    BlockRegistry::appearanceSetTextures(this->appearanceId, this->texture, this->texture, this->texture);
-
-    Logging::trace("Torch appearance {}, texture {}, vertical model {}", 
-            this->appearanceId, this->texture, this->modelVertical);
+    BlockRegistry::appearanceSetTextures(this->appearanceId, this->topTexture, this->topTexture,
+            this->sideTexture);
 }
 
 
@@ -111,6 +173,14 @@ uint16_t Torch::getBlockId(const glm::ivec3 &pos, const BlockFlags flags) {
 uint16_t Torch::getModelId(const glm::ivec3 &pos, const BlockFlags flags) {
     // TODO: select correct model
     return this->modelVertical;
+}
+
+/**
+ * Gets the selection transform matrix for the torch.
+ */
+glm::mat4 Torch::getSelectionTransform(const glm::ivec3 &pos) {
+    const auto trans = translate(glm::mat4(1), glm::vec3(0, -(1-.74)/2., 0));
+    return scale(trans, glm::vec3(.2, .74, .2));
 }
 
 
@@ -185,14 +255,14 @@ void Torch::addedTorch(const glm::ivec3 &worldPos) {
     }
 
     // create particle system
-    const auto particleOrigin = glm::vec3(worldPos) + glm::vec3(.5, .74, .5);
+    const auto particleOrigin = glm::vec3(worldPos) + glm::vec3(.5, .8, .5);
 
-    auto sys = std::make_shared<particles::System>(particleOrigin);
-    this->addParticleSystem(sys);
+    auto sys = std::make_shared<TorchSmoke>(particleOrigin);
+    this->addParticleSystem(std::dynamic_pointer_cast<particles::System>(sys));
 
     // create its light
     auto light = std::make_shared<gfx::PointLight>();
-    light->setPosition(particleOrigin);
+    light->setPosition(particleOrigin + glm::vec3(0, .15, 0));
     light->setColors(kLightColor, glm::vec3(.4, .4, .4));
     light->setLinearAttenuation(kLinearAttenuation);
     light->setQuadraticAttenuation(kQuadraticAttenuation);
@@ -229,3 +299,4 @@ void Torch::removedTorch(const glm::ivec3 &worldPos) {
     // remove the info object
     this->info.erase(worldPos);
 }
+
