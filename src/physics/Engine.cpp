@@ -54,8 +54,11 @@ Engine::Engine(std::shared_ptr<render::SceneRenderer> &_scene, render::Camera *_
     this->playerBody->enableGravity(false);
     this->playerBody->setAngularVelocityFactor(Vector3(0, 0, 0));
 
-    auto shapnes = this->common->createBoxShape(Vector3(.45, kPlayerHeight/2., .45));
-    Transform shapnesT(Vector3(.45, kPlayerHeight/2., .45), Quaternion::identity());
+    auto shapnes = this->common->createBoxShape(Vector3(.4, kPlayerHeight/2., .4));
+    Transform shapnesT(Vector3(.4, kPlayerHeight/2., .4), Quaternion::identity());
+    // auto shapnes = this->common->createCapsuleShape(.4, kPlayerHeight - .4);
+    // Transform shapnesT(Vector3(.4, (kPlayerHeight-.4)/2., .4), Quaternion::identity());
+
     this->playerCollider = this->playerBody->addCollider(shapnes, shapnesT);
     this->playerCollider->setCollisionCategoryBits(kPlayerCharacter);
     this->playerCollider->setCollideWithMaskBits(kEnvironment);

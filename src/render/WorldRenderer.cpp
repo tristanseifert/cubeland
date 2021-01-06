@@ -37,6 +37,7 @@ using namespace render;
 std::shared_ptr<SceneRenderer> gSceneRenderer = nullptr;
 std::shared_ptr<Lighting> gLightRenderer = nullptr;
 std::shared_ptr<particles::Renderer> gParticleRenderer = nullptr;
+inventory::Manager *gInventoryManager = nullptr;
 
 /**
  * Creates the renderer resources.
@@ -110,6 +111,7 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
 
     this->inventory = new inventory::Manager(this->input);
     this->inventory->loadInventory(this->source);
+    gInventoryManager = this->inventory;
 
     this->inventoryUi = std::make_shared<inventory::UI>(this->inventory);
     _gui->addWindow(this->inventoryUi);
@@ -145,6 +147,8 @@ WorldRenderer::~WorldRenderer() {
 
     this->gui->removeWindow(this->inventoryUi);
     this->inventoryUi = nullptr;
+
+    gInventoryManager = nullptr;
     delete this->inventory;
 
     this->lighting = nullptr;

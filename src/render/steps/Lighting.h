@@ -99,6 +99,8 @@ class Lighting : public RenderStep {
 
         // lights
         std::vector<std::shared_ptr<gfx::lights::AbstractLight>> lights;
+        // forces all lights to be sent
+        bool sendAllLights = false;
 
     private:
         // the sun is modelled as a directional light

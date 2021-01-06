@@ -175,7 +175,7 @@ struct Chunk {
         /// Gets the block ID at the given chunk-relative coordinate
         std::optional<uuids::uuid> getBlock(const glm::ivec3 &pos);
         /// Sets the UUID of a block at the given chunk-relative coordinate.
-        void setBlock(const glm::ivec3 &pos, const uuids::uuid &blockId, const bool prepare = false);
+        void setBlock(const glm::ivec3 &pos, const uuids::uuid &blockId, const bool prepare = false, const bool runCallbacks = true);
 
     private:
         /**

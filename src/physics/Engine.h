@@ -99,9 +99,9 @@ class Engine {
         /// Height of the player, in meters
         constexpr static const float kPlayerHeight = 1.92;
         /// Mass of the player (in kg)
-        constexpr static const float kPlayerMass = 87.5;
+        constexpr static const float kPlayerMass = 88.5;
         /// Linear damping factor for player movement
-        constexpr static const float kPlayerLinearDamping = 0.25;
+        constexpr static const float kPlayerLinearDamping = 0.274;
 
         /// Bounciness of the player
         constexpr static const float kPlayerBounciness = 0.174;

@@ -218,6 +218,7 @@ void Torch::chunkWillUnload(std::shared_ptr<Chunk> chunk) {
  * Create torch particle systems (as needed) when torches are loaded into the world
  */
 void Torch::blockWillDisplay(const glm::ivec3 &pos) {
+    std::lock_guard<std::mutex> lg(this->infoLock);
     this->addedTorch(pos);
 }
 
@@ -225,6 +226,23 @@ void Torch::blockWillDisplay(const glm::ivec3 &pos) {
  * Chunk change callback
  */
 void Torch::blockDidChange(world::Chunk *chunk, const glm::ivec3 &blockCoord, const world::Chunk::ChangeHints hints, const uuids::uuid &blockId) {
+    std::lock_guard<std::mutex> lg(this->infoLock);
+
+    // check adjacent blocks to see if they're a torch and should be yeeted
+    if(hints & Chunk::ChangeHints::kBlockRemoved) {
+        // check above
+        const auto above = blockCoord + glm::ivec3(0, 1, 0);
+        if(chunk->getBlock(above) == this->id) {
+            const auto pos = above + glm::ivec3(chunk->worldPos.x * 256, 0, chunk->worldPos.y * 256);
+
+            // remove torch and add to inventory
+            this->removedTorch(pos);
+
+            chunk->setBlock(above, BlockRegistry::kAirBlockId, true, false);
+            this->addInventoryItem(this->id, 1);
+        }
+    }
+
     // ignore all non-torch blocks
     if(blockId != this->id) return;
 
@@ -245,10 +263,10 @@ void Torch::blockDidChange(world::Chunk *chunk, const glm::ivec3 &blockCoord, co
 
 /**
  * Creates a torch's particle system when it appears, if it doesn't exist already.
+ *
+ * @note Assumes we're holding the torch info lock.
  */
 void Torch::addedTorch(const glm::ivec3 &worldPos) {
-    std::lock_guard<std::mutex> lg(this->infoLock);
-
     // bail if we've already got torch info for that position
     if(this->info.contains(worldPos)) {
         return;
@@ -280,10 +298,10 @@ void Torch::addedTorch(const glm::ivec3 &worldPos) {
 
 /**
  * Removes a torch's particle systems when removed.
+ *
+ * @note Assumes we're holding the torch info lock.
  */
 void Torch::removedTorch(const glm::ivec3 &worldPos) {
-    std::lock_guard<std::mutex> lg(this->infoLock);
-
     // bail if we've not got torch info at that position
     if(!this->info.contains(worldPos)) {
         Logging::error("Removing torch at {} with no torch info!", worldPos);

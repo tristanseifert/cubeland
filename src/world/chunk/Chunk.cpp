@@ -77,7 +77,7 @@ std::optional<uuids::uuid> Chunk::getBlock(const glm::ivec3 &pos) {
  * If the `prepare` argument is set, the row's prepare handler is invoked to make the row data
  * usable for iteration.
  */
-void Chunk::setBlock(const glm::ivec3 &pos, const uuids::uuid &blockId, const bool prepare) {
+void Chunk::setBlock(const glm::ivec3 &pos, const uuids::uuid &blockId, const bool prepare, const bool runCallbacks) {
     // get slice, or allocate if needed
     ChunkSlice *slice = this->slices[pos.y];
     if(!slice) {
@@ -191,7 +191,7 @@ dispensary:;
         hints |= ChangeHints::kBlockAdded;
     }
 
-    {
+    if(runCallbacks) {
         LOCK_GUARD(this->changeCbsLock, InvokeChangeCb);
         for(auto &i : this->changeCbs) {
             i.second(this, pos, hints, callbackBlockId);

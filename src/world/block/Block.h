@@ -146,6 +146,8 @@ class Block {
         void addLight(std::shared_ptr<gfx::lights::AbstractLight> light);
         void removeLight(std::shared_ptr<gfx::lights::AbstractLight> light);
 
+        bool addInventoryItem(const uuids::uuid &id, const size_t count = 1);
+
     protected:
         /// Unique identifier for the block
         uuids::uuid id;

@@ -261,7 +261,7 @@ void Lighting::sendLightsToShader(void) {
         switch(light->getType()) {
             case AbstractLight::Directional: {
                 const auto i = numDirectional++;
-                if(!light->isDirty()) continue;
+                if(!light->isDirty() && !this->sendAllLights) continue;
 
                 light->sendToProgram(i, this->program);
                 break;
@@ -269,7 +269,7 @@ void Lighting::sendLightsToShader(void) {
 
             case AbstractLight::Point: {
                 const auto i = numPoint++;
-                if(!light->isDirty()) continue;
+                if(!light->isDirty() && !this->sendAllLights) continue;
 
                 light->sendToProgram(i, this->program);
                 break;
@@ -277,7 +277,7 @@ void Lighting::sendLightsToShader(void) {
 
             case AbstractLight::Spot: {
                 const auto i = numSpot++;
-                if(!light->isDirty()) continue;
+                if(!light->isDirty() && !this->sendAllLights) continue;
 
                 light->sendToProgram(i, this->program);
                 break;
@@ -292,6 +292,8 @@ void Lighting::sendLightsToShader(void) {
     // send how many of each type of light (directional, point, spot) we have
     glm::vec3 lightNums = glm::vec3(numDirectional, numPoint, numSpot);
     this->program->setUniformVec("LightCount", lightNums);
+
+    this->sendAllLights = false;
 }
 
 
@@ -610,6 +612,7 @@ void Lighting::addLight(std::shared_ptr<gfx::lights::AbstractLight> light) {
  */
 void Lighting::removeLight(std::shared_ptr<gfx::lights::AbstractLight> light) {
     this->lights.erase(std::remove(this->lights.begin(), this->lights.end(), light), this->lights.end());
+    this->sendAllLights = true;
 }
 
 
