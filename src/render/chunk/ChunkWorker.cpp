@@ -18,7 +18,7 @@ std::shared_ptr<ChunkWorker> ChunkWorker::gShared;
 /**
  * Create the thread pool on initialization
  */
-ChunkWorker::ChunkWorker() {
+ChunkWorker::ChunkWorker() : ThreadPool("Chunk Worker") {
     // read number of workers from preferences
     unsigned int hwThreads = std::thread::hardware_concurrency() / 2;
     unsigned int fallback = std::min(hwThreads, 5U);

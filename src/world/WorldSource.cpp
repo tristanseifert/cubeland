@@ -6,6 +6,7 @@
 #include "chunk/ChunkSlice.h"
 #include "io/Format.h"
 #include "io/PrefsManager.h"
+#include "util/Thread.h"
 
 #include <Logging.h>
 #include <mutils/time/profiler.h>
@@ -56,13 +57,7 @@ WorldSource::WorldSource(std::shared_ptr<WorldReader> _r, std::shared_ptr<WorldG
  * Ensures all work threads are shut down cleanly.
  */
 WorldSource::~WorldSource() {
-    // force all chunks to finish writing
-    if(!this->dirtyChunks.empty() && !this->generateOnly) {
-        Logging::info("Waiting for {} dirty chunk(s) to finish writing", this->dirtyChunks.size());
-        for(auto &[pos, info] : this->dirtyChunks) {
-            this->forceChunkWriteSync(info.chunk);
-        }
-    }
+    this->flushDirtyChunksSync();
 
     // set stop flag and queue nThreads+1 NOPs
     this->acceptRequests = false;
@@ -80,6 +75,23 @@ WorldSource::~WorldSource() {
     }
 
     this->writerThread->join();
+}
+
+/**
+ * Synchronously writes all chunks.
+ */
+void WorldSource::flushDirtyChunksSync() {
+    this->inhibitDirtyChunkHandling = true;
+
+    // force all chunks to finish writing
+    if(!this->dirtyChunks.empty() && !this->generateOnly) {
+        Logging::info("Waiting for {} dirty chunk(s) to finish writing", this->dirtyChunks.size());
+        for(auto &[pos, info] : this->dirtyChunks) {
+            this->forceChunkWriteSync(info.chunk);
+        }
+    }
+
+    this->inhibitDirtyChunkHandling = false;
 }
 
 /**
@@ -115,6 +127,7 @@ void WorldSource::workerMain(size_t i) {
     // perform some setup
     const auto threadName = f("WorldSource {}", i+1);
     MUtils::Profiler::NameThread(threadName.c_str());
+    util::Thread::setName(threadName);
 
     // main loop; dequeue work items
     WorkItem item;
@@ -148,6 +161,8 @@ std::promise<std::vector<char>> WorldSource::getPlayerInfo(const std::string &ke
  * Determines chunks to write out.
  */
 void WorldSource::startOfFrame() {
+    if(this->inhibitDirtyChunkHandling) return;
+
     std::vector<std::pair<glm::ivec2, size_t>> toWrite;
 
     LOCK_GUARD(this->dirtyChunksLock, PickWriteChunks);
@@ -193,6 +208,9 @@ void WorldSource::startOfFrame() {
 void WorldSource::writerMain() {
     using namespace std::chrono;
 
+    MUtils::Profiler::NameThread("WorldSource Writer");
+    util::Thread::setName("WorldSource Writer");
+
     while(this->workerRun) {
         // get a new write request
         WriteRequest req;
@@ -205,7 +223,8 @@ void WorldSource::writerMain() {
         const auto start = high_resolution_clock::now();
 
         auto prom = this->reader->putChunk(req.chunk);
-        prom.get_future().get();
+        auto future = prom.get_future();
+        future.get();
 
         const auto diff = high_resolution_clock::now() - start;
         const auto diffUs = duration_cast<microseconds>(diff).count();
@@ -223,7 +242,8 @@ void WorldSource::writerMain() {
  */
 void WorldSource::markChunkDirty(std::shared_ptr<Chunk> &chunk) {
     XASSERT(chunk, "null chunk passed to WorldSource::markChunkDirty()!");
-    LOCK_GUARD(this->dirtyChunksLock, MarkChunkDirty);
+    LOCK_GUARD(this->dirtyChunksLock, DirtyChunks);
+    PROFILE_SCOPE(MarkChunksDirty);
 
     // update an existing entry
     if(this->dirtyChunks.contains(chunk->worldPos)) {
@@ -244,10 +264,11 @@ void WorldSource::markChunkDirty(std::shared_ptr<Chunk> &chunk) {
  */
 void WorldSource::forceChunkWriteSync(std::shared_ptr<Chunk> &chunk) {
     XASSERT(chunk, "null chunk passed to WorldSource::forceChunkWriteSync()!");
+    PROFILE_SCOPE(WriteChunkSync);
 
     // remove from dirty list
     {
-        LOCK_GUARD(this->dirtyChunksLock, RemoveForceWriteChunk);
+        LOCK_GUARD(this->dirtyChunksLock, DirtyChunks);
         this->dirtyChunks.erase(chunk->worldPos);
     }
 
@@ -262,6 +283,7 @@ void WorldSource::forceChunkWriteSync(std::shared_ptr<Chunk> &chunk) {
     this->writeQueue.enqueue(req);
 
     // wait for write request to complete
-    prom.get_future().get();
+    auto future = prom.get_future();
+    future.get();
 }
 

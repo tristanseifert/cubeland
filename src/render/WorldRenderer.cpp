@@ -130,6 +130,8 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
  * Releases all of our render resources.
  */
 WorldRenderer::~WorldRenderer() {
+    this->source->flushDirtyChunksSync();
+
     if(this->debugItemToken) {
         gui::MenuBarHandler::unregisterItem(this->debugItemToken);
     }

@@ -53,6 +53,9 @@ class WorldSource {
             this->generateOnly = value;
         }
 
+        /// Blocks on writing all dirty blocks out to disk
+        void flushDirtyChunksSync();
+
         /// Start of frame; used for deciding which chunks to write out
         void startOfFrame();
 
@@ -162,6 +165,9 @@ class WorldSource {
 
         /// when set, we go directly to the generator for all chunks
         std::atomic_bool generateOnly;
+
+        /// when set, we don't mess with the dirty chunks list
+        std::atomic_bool inhibitDirtyChunkHandling = false;
 
         /// UUID of the current player
         uuids::uuid playerId;

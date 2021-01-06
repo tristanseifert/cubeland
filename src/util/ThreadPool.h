@@ -1,6 +1,8 @@
 #ifndef UTIL_THREADPOOL_H
 #define UTIL_THREADPOOL_H
 
+#include "Thread.h"
+
 #include <stdexcept>
 #include <thread>
 #include <list>
@@ -8,6 +10,8 @@
 #include <future>
 
 #include <blockingconcurrentqueue.h>
+
+#include "io/Format.h"
 
 namespace util {
     template<class T> class ThreadPool {
@@ -47,14 +51,14 @@ namespace util {
              * Initializes a thread pool that does not create any threads. You are responsible for
              * calling `startWorkers()` later.
              */
-            ThreadPool() {
+            ThreadPool(const std::string &_name) : name(_name) {
 
             }
 
             /**
              * Initializes a thread pool with the given number of default threads.
              */
-            ThreadPool(const size_t numThreads) {
+            ThreadPool(const std::string &_name, const size_t numThreads) : name(_name) {
                 this->numWorkers = numThreads;
                 this->startWorkers(numThreads);
             }
@@ -68,6 +72,7 @@ namespace util {
 
         protected:
             virtual void workerMain(size_t i) {
+                Thread::setName(f("{} {}", this->name, i));
                 this->workerThreadStarted(i);
 
                 // main loop; dequeue work items
@@ -129,6 +134,9 @@ namespace util {
 
             /// whether work is accepted
             bool acceptRequests;
+        
+            /// thread pool name (used for naming threads)
+            std::string name = "unnamed thread pool";
     };
 }
 

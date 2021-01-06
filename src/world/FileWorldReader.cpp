@@ -1,6 +1,7 @@
 #include "FileWorldReader.h"
 
 #include "util/LZ4.h"
+#include "util/Thread.h"
 #include "io/Format.h"
 #include <version.h>
 #include <Logging.h>
@@ -141,6 +142,7 @@ void FileWorldReader::workerMain() {
 
     const auto threadName = f("World: {}", this->filename);
     MUtils::Profiler::NameThread(threadName.c_str());
+    util::Thread::setName(threadName);
 
     // wait for work to come in
     WorkItem item;
@@ -351,7 +353,6 @@ void FileWorldReader::setWorldInfo(const std::string &key, const std::string &va
     PROFILE_SCOPE(SetWorldInfo);
 
     int err;
-    bool found = false;
     sqlite3_stmt *stmt = nullptr;
 
     // prepare query and bind the key/value
@@ -424,7 +425,6 @@ bool FileWorldReader::haveChunkAt(int x, int z) {
     found = (count > 0);
 
     // clean up
-beach:;
     sqlite3_finalize(stmt);
     return found;
 }
@@ -563,6 +563,9 @@ std::promise<std::vector<char>> FileWorldReader::getPlayerInfo(const uuids::uuid
             // TODO: figure out a better way to return "not found" than a 0 byte result
             std::vector<char> data;
             bool found = this->readPlayerInfo(player, key, data);
+            if(!found) {
+                data.clear();
+            }
             prom.set_value(data);
         } catch (std::exception &e) {
             Logging::error("Failed to read player info: {}", e.what());

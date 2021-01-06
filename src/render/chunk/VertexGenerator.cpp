@@ -219,13 +219,15 @@ void VertexGenerator::workerGenerate(const GenerateRequest &req, const bool useC
                 if((bits & req.globules) == 0) continue;
 
                 // handle generation
+                auto chunk = req.chunk;
+                auto fxn = [&, chunk, origin](const bool uiUpdate = false) -> void {
+                    this->workerGenerate(chunk, origin, uiUpdate);
+                };
+
                 if(useChunkWorker) {
-                    auto chunk = req.chunk;
-                    ChunkWorker::pushWork([&, chunk, origin]() -> void {
-                        this->workerGenerate(chunk, origin);
-                    });
+                    ChunkWorker::pushWork(fxn);
                 } else {
-                    this->workerGenerate(req.chunk, origin, true);
+                    this->highPriorityWorkQueue.queueWorkItem(std::bind(fxn, true));
                 }
             }
         }

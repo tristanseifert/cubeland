@@ -14,7 +14,7 @@ using namespace world;
 
 /// shared thread pool
 using WorkItem = std::function<void(void)>;
-static util::ThreadPool<WorkItem> gBlockCallbackQueue(4);
+static util::ThreadPool<WorkItem> gBlockCallbackQueue("Block Callbacks", 4);
 
 /// shared block registry instance
 BlockRegistry *BlockRegistry::gShared = nullptr;

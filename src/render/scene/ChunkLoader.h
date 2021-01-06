@@ -206,7 +206,7 @@ class ChunkLoader {
         /**
          * All chunk loading happens on this thread pool.
          */
-        util::ThreadPool<WorkItem> chunkWorkQueue = util::ThreadPool<WorkItem>(4);
+        util::ThreadPool<WorkItem> chunkWorkQueue = util::ThreadPool<WorkItem>("ChunkLoader", 4);
 
 
         /**

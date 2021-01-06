@@ -70,7 +70,7 @@ class PlayerPosPersistence {
         glm::vec2 lastAngles = glm::vec2(0);
 
         // all saving happens on this background queue
-        WorkQueue saveWorker = WorkQueue(1);
+        WorkQueue saveWorker = WorkQueue("PlayerPos Persistence", 1);
 };
 
 }

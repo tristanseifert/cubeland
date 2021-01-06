@@ -68,18 +68,18 @@ class FileWorldReader: public WorldReader {
 
     // chunk writing functions
     private:
-        void writeChunk(std::shared_ptr<Chunk>);
-        void serializeChunkMeta(std::shared_ptr<Chunk> chunk, std::vector<char> &data);
+        void writeChunk(const std::shared_ptr<Chunk> &);
+        void serializeChunkMeta(const std::shared_ptr<Chunk> &chunk, std::vector<char> &data);
 
         void removeSlice(const int sliceId);
-        void insertSlice(std::shared_ptr<Chunk> chunk, const int chunkId, const ChunkSliceFileBlockMeta &, const int y);
-        void updateSlice(const int sliceId, std::shared_ptr<Chunk> chunk, const ChunkSliceFileBlockMeta &, const int y);
+        void insertSlice(const std::shared_ptr<Chunk> &chunk, const int chunkId, const ChunkSliceFileBlockMeta &, const int y);
+        void updateSlice(const int sliceId, const std::shared_ptr<Chunk> &chunk, const ChunkSliceFileBlockMeta &, const int y);
 
-        void serializeSliceBlocks(std::shared_ptr<Chunk> chunk, const int y, std::vector<char> &data);
+        void serializeSliceBlocks(const std::shared_ptr<Chunk> &chunk, const int y, std::vector<char> &data);
         void buildFileIdMap(std::unordered_map<uuids::uuid, uint16_t> &);
-        void serializeSliceMeta(std::shared_ptr<Chunk> chunk, const int y, const ChunkSliceFileBlockMeta &, std::vector<char> &data);
+        void serializeSliceMeta(const std::shared_ptr<Chunk> &chunk, const int y, const ChunkSliceFileBlockMeta &, std::vector<char> &data);
 
-        void extractBlockMeta(std::shared_ptr<Chunk> chunk, std::array<ChunkSliceFileBlockMeta, 256> &meta);
+        void extractBlockMeta(const std::shared_ptr<Chunk> &chunk, std::array<ChunkSliceFileBlockMeta, 256> &meta);
 
     // chunk reading functions
     private:

@@ -9,6 +9,8 @@
 #include "world/block/Block.h"
 #include "world/block/BlockRegistry.h"
 
+#include "util/ThreadPool.h"
+
 #include <memory>
 #include <thread>
 #include <mutex>
@@ -247,6 +249,11 @@ class VertexGenerator {
         size_t maxCopiesPerFrame = 8;
         /// buffers to be created
         moodycamel::ConcurrentQueue<BufferRequest> bufferReqs;
+
+        using WorkFunc = std::function<void(void)>;
+
+        /// thread pool for high priority globule updates
+        util::ThreadPool<WorkFunc> highPriorityWorkQueue = util::ThreadPool<WorkFunc>("VtxGen User Update", 3);
 };
 }
 

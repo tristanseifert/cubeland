@@ -303,10 +303,51 @@ void WorldChunk::blockDidChange(world::Chunk *, const glm::ivec3 &blockCoord, co
  * @note `pos` is relative to the origin of the chunk.
  */
 void WorldChunk::markBlockChanged(const glm::ivec3 &pos) {
+    // we want to update the globule that holds this chunk
     const auto globuleOff = pos / glm::ivec3(kGlobuleSize);
     const auto globuleOrigin = globuleOff * glm::ivec3(kGlobuleSize);
 
-    VertexGenerator::update(this->chunk, globuleOrigin, true);
+    uint64_t bits = VertexGenerator::blockPosToBits(globuleOrigin);
+
+    // if the X coordinate is on an edge of the globule, update its neighbor
+    if(pos.x % 64 == 0) {
+        if(globuleOrigin.x >= 64) {
+            bits |= VertexGenerator::blockPosToBits(globuleOrigin - glm::ivec3(64, 0, 0));
+        } else {
+            // TODO: this globule is in an adjacent chunk
+        }
+    } else if(pos.x % 64 == 63) {
+        if(globuleOrigin.x < 192) {
+            bits |= VertexGenerator::blockPosToBits(globuleOrigin + glm::ivec3(0, 0, 64));
+        } else {
+            // TODO: this globule is in an adjacent chunk
+        }
+    }
+
+    // if the Y coordinate is on the edge of a globule, update its neighbor
+    if(pos.y % 64 == 0 && globuleOrigin.y >= 64) {
+        bits |= VertexGenerator::blockPosToBits(globuleOrigin - glm::ivec3(0, 64, 0));
+    } else if(pos.y % 64 == 63 && globuleOrigin.y < 192) {
+        bits |= VertexGenerator::blockPosToBits(globuleOrigin + glm::ivec3(0, 64, 0));
+    }
+
+    // if the Z coordinate is on an edge of the globule, update its neighbor
+    if(pos.z % 64 == 0) {
+        if(globuleOrigin.z >= 64) {
+            bits |= VertexGenerator::blockPosToBits(globuleOrigin - glm::ivec3(0, 0, 64));
+        } else {
+            // TODO: this globule is in an adjacent chunk
+        }
+    } else if(pos.z % 64 == 63) {
+        if(globuleOrigin.z < 192) {
+            bits |= VertexGenerator::blockPosToBits(globuleOrigin + glm::ivec3(0, 0, 64));
+        } else {
+            // TODO: this globule is in an adjacent chunk
+        }
+    }
+
+    // update all of the globules we requested
+    VertexGenerator::update(this->chunk, bits, true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
