@@ -58,7 +58,7 @@ ChunkLoader::ChunkLoader() {
     gl::glTexParameterf(gl::GL_TEXTURE_2D, gl::GL_TEXTURE_MAX_ANISOTROPY_EXT, 4.f);
     gl::glTexParameteri(gl::GL_TEXTURE_2D, gl::GL_TEXTURE_MIN_FILTER, gl::GL_LINEAR_MIPMAP_LINEAR);
 
-    // allocate a material info
+    // allocate a material info texture
     this->materialAtlasTex = new gfx::Texture2D(3);
     this->materialAtlasTex->setUsesLinearFiltering(false);
     this->materialAtlasTex->setDebugName("ChunkMatPropsAtlas");
@@ -72,11 +72,6 @@ ChunkLoader::ChunkLoader() {
         this->materialAtlasTex->allocateBlank(atlasSize.x, atlasSize.y, gfx::Texture2D::RGBA16F);
         this->materialAtlasTex->bufferSubData(atlasSize.x, atlasSize.y, 0, 0,  gfx::Texture2D::RGBA16F, data.data());
     }
-
-    this->materialAtlasTex->bind();
-    gl::glGenerateMipmap(gl::GL_TEXTURE_2D);
-    gl::glTexParameterf(gl::GL_TEXTURE_2D, gl::GL_TEXTURE_MAX_ANISOTROPY_EXT, 4.f);
-    gl::glTexParameteri(gl::GL_TEXTURE_2D, gl::GL_TEXTURE_MIN_FILTER, gl::GL_LINEAR_MIPMAP_LINEAR);
 
     // allocate a texture holding block ID info data
     this->blockInfoTex = new gfx::Texture2D(2);
@@ -866,6 +861,8 @@ void ChunkLoader::loadChunk(const glm::ivec2 position) {
  * Draws all of the chunks currently loaded.
  */
 void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> &program, const glm::mat4 &projView, const glm::vec3 &viewDirection) {
+    using namespace gl;
+
     const bool withNormals = program->rendersColor();
 
     // bind data textures/buffers
@@ -888,19 +885,44 @@ void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> &program, const glm::
     // set up frustum for culling
     util::Frustum frust(projView);
 
-    // use the draw order if we have one
+    // draw the first pass (regular)
     if(!this->drawOrder.empty()) {
         for(const auto &pos : this->drawOrder) {
             const auto &info = this->chunks[pos];
             this->drawChunk(program, pos, info, withNormals, frust);
         }
-    }
-    // otherwise, draw them in iteration order
-    else {
+    } else {
         for(auto [pos, info] : this->chunks) {
             this->drawChunk(program, pos, info, withNormals, frust);
         }
     }
+
+    /*
+     * Transparent blocks are drawn in a second pass with face culling disabled, and the less than
+     * or equal depth function. Since transparent blocks may have textures on all six sides, and
+     * these may all be shown, we can't cull them so that transparent areas look correct.
+     *
+     * Likewise, we need to change from the less than depth function normally used or we'll get
+     * some really nasty Z fighting at planes of overlapping adjacent block faces. This doesn't
+     * totally eliminate it, but it's much less obvious unless the camera is very close to the
+     * blocks, but it's better than nothing.
+     */
+    glDisable(GL_CULL_FACE);
+    glDepthFunc(GL_LEQUAL);
+
+    if(!this->drawOrder.empty()) {
+        for(const auto &pos : this->drawOrder) {
+            const auto &info = this->chunks[pos];
+            this->drawChunk(program, pos, info, withNormals, frust, true);
+        }
+    } else {
+        for(auto [pos, info] : this->chunks) {
+            this->drawChunk(program, pos, info, withNormals, frust, true);
+        }
+    }
+
+    glEnable(GL_CULL_FACE);
+    glDepthFunc(GL_LESS);
 
     // update counts
     if(program->rendersColor()) {
@@ -917,7 +939,7 @@ void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> &program, const glm::
  */
 void ChunkLoader::drawChunk(std::shared_ptr<gfx::RenderProgram> &program, const glm::ivec2 &pos,
         const RenderChunk &info, const bool withNormals, const util::Frustum &frustum,
-        const bool cull) {
+        const bool special, const bool cull) {
     // ignore chunks without any data or if they're invisible
     if(!info.wc || !info.wc->chunk) return;
     else if(!info.cameraVisible) return;
@@ -953,7 +975,7 @@ void ChunkLoader::drawChunk(std::shared_ptr<gfx::RenderProgram> &program, const 
 
 draw:;
     // otherwise, draw them
-    info.wc->draw(program);
+    info.wc->draw(program, special);
     return;
 
 cull:;

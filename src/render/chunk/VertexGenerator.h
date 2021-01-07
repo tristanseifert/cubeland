@@ -52,6 +52,8 @@ class VertexGenerator {
 
             /// number of indices, if indexed drawing shall be used
             gl::GLuint numIndices = 0;
+            /// index of the first "special block," or 0 if none
+            gl::GLuint specialIdxOffset = 0;
             /// bytes per index value (only 2 or 4 are allowed)
             gl::GLuint bytesPerIndex = 4;
             /// index buffer, if any
@@ -154,6 +156,9 @@ class VertexGenerator {
             glm::ivec2 chunkPos;
             /// Globule inside that chunk for which the data is
             glm::ivec3 globuleOff;
+
+            /// offset to the first index of the transparent drawing pass if any
+            size_t specialIdxOffset = 0;
 
             std::variant<std::vector<gl::GLushort>, std::vector<gl::GLuint>> indices;
             std::vector<BlockVertex> vertices;

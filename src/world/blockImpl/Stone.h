@@ -16,6 +16,10 @@ class Stone: public Block {
     public:
         uint16_t getBlockId(const glm::ivec3 &pos, const BlockFlags flags) override;
 
+        const std::string getDisplayName() const override {
+            return "Stone";
+        }
+
         const size_t destroyTicks(const glm::ivec3 &pos) const override {
             return 25;
         }

@@ -32,6 +32,10 @@ class Torch: public Block {
         uint16_t getBlockId(const glm::ivec3 &pos, const BlockFlags flags) override;
         uint16_t getModelId(const glm::ivec3 &pos, const BlockFlags flags) override;
 
+        const std::string getDisplayName() const override {
+            return "Torch";
+        }
+
         /// Torch has blank spaces so it's not fully opaque
         const bool isOpaque() const override {
             return false;

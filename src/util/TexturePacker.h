@@ -26,11 +26,15 @@ template<typename T> class TexturePacker {
 
         /**
          * Returns UV coords (top/left and bottom/right) of the given texture.
+         *
+         * The adding of .5 makes sure the UV coordinates are at the center of a pixel; otherwise,
+         * we can sample adjacent pixels which gives us some rather annoying gaps at the edges of
+         * the blocks.
          */
         glm::vec4 uvBoundsForTexture(T id) {
             const auto bounds = this->atlasLayout.at(id);
-            const auto topLeft = glm::vec2(bounds.x, bounds.y);
-            const auto size = glm::vec2(bounds.z, bounds.w);
+            const auto topLeft = glm::vec2(bounds.x, bounds.y) + glm::vec2(.5, .5);
+            const auto size = glm::vec2(bounds.z, bounds.w) - glm::vec2(.5, .5);
 
             return glm::vec4(topLeft, topLeft + size) / glm::vec4(this->atlasSize, this->atlasSize);
         }

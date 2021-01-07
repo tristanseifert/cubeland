@@ -14,7 +14,6 @@
 #include "VertexGenerator.h"
 
 #include "world/chunk/Chunk.h"
-#include "render/scene/Drawable.h"
 
 #include <memory>
 #include <atomic>
@@ -52,7 +51,7 @@ namespace scene {
 class ChunkLoader;
 }
 
-class WorldChunk: public Drawable {
+class WorldChunk {
     friend class chunk::WorldChunkDebugger;
     friend class chunk::Globule;
     friend class scene::ChunkLoader;
@@ -61,7 +60,7 @@ class WorldChunk: public Drawable {
         WorldChunk();
         virtual ~WorldChunk();
 
-        virtual void draw(std::shared_ptr<gfx::RenderProgram> &program);
+        virtual void draw(std::shared_ptr<gfx::RenderProgram> &program, const bool special = false);
         void drawHighlights(std::shared_ptr<gfx::RenderProgram> &program);
 
         virtual void frameBegin();

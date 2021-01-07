@@ -59,7 +59,15 @@ class Globule {
         void clearBuffers();
         void setBuffer(const VertexGenerator::Buffer &buf);
 
-        void draw(std::shared_ptr<gfx::RenderProgram> &program);
+        /// Draws all normal blocks.
+        void draw(std::shared_ptr<gfx::RenderProgram> &program) {
+            this->drawInternal(program, 0, this->numIndices);
+        }
+        /// Draws the blocks in the special index range.
+        void drawSpecial(std::shared_ptr<gfx::RenderProgram> &program) {
+            if(!this->numSpecialIndices) return;
+            this->drawInternal(program, this->numIndices, this->numSpecialIndices);
+        }
 
         void eraseBlockAt(const glm::ivec3 &pos);
         void insertBlockAt(const glm::ivec3 &pos, const uuids::uuid &newId);
@@ -69,7 +77,8 @@ class Globule {
         static void fillNormalTex(gfx::Texture2D *tex);
 
     private:
-        int vertexIndexForBlock(const glm::ivec3 &blockOff);
+        void drawInternal(std::shared_ptr<gfx::RenderProgram> &program, const size_t firstIdx, 
+                const size_t numIndices);
 
     private:
         // position of the globule, in block coordinates, relative to the chunk origin
@@ -84,8 +93,8 @@ class Globule {
         size_t numVertices = 0;
         // buffer containing vertex index data
         std::shared_ptr<gfx::Buffer> indexBuf = nullptr;
-        // number of indices to render
-        size_t numIndices = 0;
+        // number of indices (normal and special) to render
+        size_t numIndices = 0, numSpecialIndices = 0;
         // index format
         gl::GLenum indexFormat;
 

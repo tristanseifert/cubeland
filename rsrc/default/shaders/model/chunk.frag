@@ -33,11 +33,15 @@ void main() {
     gNormal = vec4(normalize(fs_in.Normal), 1);
 
     // sample textures
-    vec3 diffuse = texture(blockTexAtlas, fs_in.DiffuseUv).rgb;
+    vec4 diffuse = texture(blockTexAtlas, fs_in.DiffuseUv);
+    if(diffuse.a == 0) {
+        discard;
+    }
+
     vec2 matProps = texture(materialTexAtlas, fs_in.MaterialUv).rg;
 
     // Store material properties
-    gDiffuse = vec4(diffuse, 1);
+    gDiffuse = diffuse;
     gMatSpec = vec4(matProps, 0, 1);
 }
 

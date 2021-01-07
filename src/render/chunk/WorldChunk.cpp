@@ -185,7 +185,7 @@ void WorldChunk::frameBegin() {
  * At this point, our draw list should have been culled to the point that only blocks exposed to
  * air (e.g. ones that could be visible) are in it.
  */
-void WorldChunk::draw(std::shared_ptr<gfx::RenderProgram> &program) {
+void WorldChunk::draw(std::shared_ptr<gfx::RenderProgram> &program, const bool special) {
     PROFILE_SCOPE(ChunkDraw);
 
     using namespace gl;
@@ -200,7 +200,11 @@ void WorldChunk::draw(std::shared_ptr<gfx::RenderProgram> &program) {
         }
 
         for(const auto &[key, globule] : this->globules) {
-            globule->draw(program);
+            if(special) {
+                globule->drawSpecial(program);
+            } else {
+                globule->draw(program);
+            }
         }
 
         if(this->drawWireframe) {

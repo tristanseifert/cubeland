@@ -140,7 +140,7 @@ class ChunkLoader {
 
         void drawChunk(std::shared_ptr<gfx::RenderProgram> &program, const glm::ivec2 &pos,
                 const RenderChunk &info, const bool withNormals, const util::Frustum &frustum,
-                const bool cull = true);
+                const bool special = false, const bool cull = true);
         void prepareChunk(std::shared_ptr<gfx::RenderProgram> program, 
                 std::shared_ptr<WorldChunk> chunk, bool hasNormal, glm::mat4 &model);
 

@@ -418,7 +418,7 @@ void Lighting::updateSunAngle(WorldRenderer *renderer) {
         this->sun->setDirection(sunDir);
         this->sun->setEnabled(true);
 
-        this->ambientIntensity = std::min(0.74, std::max(1.33 * sunDir.y, 0.1));
+        this->ambientIntensity = std::min(0.25, std::max(1.33 * sunDir.y, 0.1));
     } else {
         this->sun->setEnabled(false);
         aboveHorizon = false;
@@ -435,6 +435,13 @@ void Lighting::updateSunAngle(WorldRenderer *renderer) {
         this->sun->setColor(sunColor);
         this->sun->setEnabled(true);
     }
+
+    /**
+     * At night, we don't want shadows; in the last .15 (starting at .1) of the sun's Y position
+     * range, fade out the shadows.
+     */
+    const float factor = std::min((this->sunDirection.y + .1) * (1. / 0.2), 1.);
+    this->shadowFactor = std::max(factor, 0.f);
 
     /*
      * Find the angle between the camera and the sun. If we're facing the sun, we'll be getting a
@@ -501,7 +508,7 @@ void Lighting::updateMoonAngle(WorldRenderer *renderer) {
         this->moon->setDirection(moonDir);
         this->moon->setEnabled(true);
 
-        this->ambientIntensity = std::min(0.2, std::max(0.3 * moonDir.y, 0.1));
+        this->ambientIntensity = std::min(0.133, std::max(0.3 * moonDir.y, 0.1));
     } else {
         this->moon->setEnabled(false);
         aboveHorizon = false;
@@ -629,6 +636,11 @@ void Lighting::renderShadowMap(WorldRenderer *wr) {
     using namespace gl;
     using namespace gfx;
     PROFILE_SCOPE(LightingShadow);
+
+    // bail out if shadow factor is 0
+    if(this->shadowFactor <= 0) {
+        return;
+    }
 
     // back up last viewport
     GLint last_viewport[4];

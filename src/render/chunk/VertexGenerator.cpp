@@ -276,7 +276,7 @@ void VertexGenerator::workerGenerate(const std::shared_ptr<world::Chunk> &chunk,
     }
 
     // temporary index data buffer. we'll either take this as-is or convert to 16-bit later
-    std::vector<gl::GLuint> indices;
+    std::vector<gl::GLuint> indices, indicesSpecial;
     std::vector<BlockVertex> vertices;
 
     // initial air map filling
@@ -369,11 +369,15 @@ void VertexGenerator::workerGenerate(const std::shared_ptr<world::Chunk> &chunk,
                     // append the vertices for this block
                     const uint16_t model = block->getModelId(worldPos, flags);
 
+                    const bool special = block->needsAlphaBlending(worldPos);
+
                     if(model == 0) {
-                        this->insertCubeVertices(am, vertices, indices, x, y, z, type);
+                        this->insertCubeVertices(am, vertices, special ? indicesSpecial : indices,
+                                x, y, z, type);
                     } else if(BlockRegistry::hasModel(model)) {
                         const auto &modelData = BlockRegistry::getModel(model);
-                        this->insertModelVertices(am, vertices, indices, x, y, z, type, modelData);
+                        this->insertModelVertices(am, vertices, special ? indicesSpecial : indices,
+                                x, y, z, type, modelData);
 
                         block->blockWillDisplay(worldPos);
                     } else {
@@ -396,10 +400,19 @@ void VertexGenerator::workerGenerate(const std::shared_ptr<world::Chunk> &chunk,
         }
     }
 
+    // insert the special indices if needed
+    size_t specialStart = 0;
+
+    if(indicesSpecial.size()) {
+        specialStart = indices.size();
+        indices.insert(indices.end(), indicesSpecial.begin(), indicesSpecial.end());
+    }
+
     // convert indices to 16-bit quantity, if required
     BufferRequest req;
     req.chunkPos = chunk->worldPos;
     req.globuleOff = origin;
+    req.specialIdxOffset = specialStart;
 
     if(!indices.empty() && indices.size() < 65536) {
         std::vector<gl::GLushort> shortIndices;
@@ -666,6 +679,7 @@ void VertexGenerator::copyBuffers() {
 void VertexGenerator::workerGenBuffers(const BufferRequest &req) {
     Buffer outBuf;
     outBuf.numVertices = req.vertices.size();
+    outBuf.specialIdxOffset = req.specialIdxOffset;
 
     // create vertex buffer
     const auto vtxSize = sizeof(BlockVertex) * req.vertices.size();

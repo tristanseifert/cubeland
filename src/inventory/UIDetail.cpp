@@ -46,7 +46,7 @@ void UIDetail::draw(gui::GameUI *ui) {
     }
 
     // main inventory area
-    const glm::vec2 mainSize((ItemDrawing::kItemSize * 11.5), (ItemDrawing::kItemSize * 8.42));
+    const glm::vec2 mainSize((ItemDrawing::kItemSize * 11.5), (ItemDrawing::kItemSize * 8.37));
     if(ImGui::BeginChild("Inventory Contents", mainSize, false, ImGuiWindowFlags_NoScrollbar)) {
         // trash and actions
         this->drawDeleteItem(ImGui::GetCursorScreenPos(), ui);
@@ -160,7 +160,7 @@ void UIDetail::dragTooltipForItem(const SlotDragPayload &payload) {
         count = block.count;
 
         if(bo) {
-            name = bo->getInternalName();
+            name = bo->getDisplayName();
         } else {
             name = f("unknown<{}>", uuids::to_string(block.blockId));
         }
@@ -198,7 +198,7 @@ void UIDetail::dragTooltipForItem(const RegisteredBlockDragPayload &payload) {
     // block name
     auto bo = world::BlockRegistry::getBlock(payload.blockId);
 
-    ImGui::Text("%zux %s", Manager::kMaxItemsPerSlot, bo->getInternalName().c_str());
+    ImGui::Text("%zux %s", Manager::kMaxItemsPerSlot, bo->getDisplayName().c_str());
 }
 
 
@@ -336,6 +336,10 @@ void UIDetail::drawDeleteItem(const glm::vec2 &origin, gui::GameUI *gui) {
 
         // end drop target
         ImGui::EndDragDropTarget();
+    } else if(ImGui::IsItemHovered()) {
+        ImGui::BeginTooltip();
+        ImGui::TextUnformatted("Drop items here to remove them from your inventory.\nThere is no undo - be careful!");
+        ImGui::EndTooltip();
     }
 }
 
@@ -374,6 +378,8 @@ void UIDetail::drawRegisteredBlocksTable(gui::GameUI *ui) {
 
     // registered blocks
     world::BlockRegistry::iterateBlocks([&](const auto &uuid, const auto block) {
+        if(!block->showsInListing()) return;
+
         const auto uuidStr = uuids::to_string(uuid);
 
         ImGui::TableNextRow();
@@ -396,7 +402,17 @@ void UIDetail::drawRegisteredBlocksTable(gui::GameUI *ui) {
 
         // name
         ImGui::TableNextColumn();
-        ImGui::Text("%s\n%s", block->getInternalName().c_str(), uuidStr.c_str());
+        ImGui::Dummy(glm::vec2(0, 4));
+        ImGui::Text("%s", block->getDisplayName().c_str());
+
+        if(ImGui::IsItemHovered()) {
+            ImGui::BeginTooltip();
+
+            ImGui::Text("%s\nId: %s", block->getInternalName().c_str(),
+                    uuids::to_string(uuid).c_str());
+
+            ImGui::EndTooltip();
+        }
 
         ImGui::PopID();
     });

@@ -66,6 +66,15 @@ class Block {
             return this->id;
         }
 
+        /// Display name for the block (primarily used in inventory)
+        virtual const std::string getDisplayName() const {
+            return "(unknown block)";
+        }
+
+        /// Controls whether the block is visible in inventory listings
+        virtual const bool showsInListing() const {
+            return true;
+        }
         /// Returns the texture ID used in the inventory UI
         virtual const BlockRegistry::TextureId getInventoryIcon() const {
             return this->inventoryIcon;
@@ -92,6 +101,17 @@ class Block {
         /// Whether the block drops an item
         virtual const bool isCollectable(const glm::ivec3 &pos) const {
             return true;
+        }
+
+        /**
+         * Whether the block is drawn in the alpha blended special pass (where face culling is
+         * disabled) or the regular pass with the majority of other blocks.
+         *
+         * This is best used for mostly transparent blocks like glass where most fragments can be
+         * discarded.
+         */
+        virtual const bool needsAlphaBlending(const glm::ivec3 &pos) const {
+            return false;
         }
 
         /**

@@ -82,7 +82,15 @@ void Globule::setBuffer(const VertexGenerator::Buffer &buf) {
     }
 
     this->indexBuf = buf.indexBuffer;
-    this->numIndices = buf.numIndices;
+
+    if(buf.specialIdxOffset) {
+        this->numSpecialIndices = buf.numIndices - buf.specialIdxOffset;
+        this->numIndices = buf.numIndices - this->numSpecialIndices;
+    } else {
+        this->numIndices = buf.numIndices;
+        this->numSpecialIndices = 0;
+    }
+
 
     // clear inhibition flags
     this->inhibitDrawing = false;
@@ -92,15 +100,25 @@ void Globule::setBuffer(const VertexGenerator::Buffer &buf) {
 /**
  * Draws the globule.
  */
-void Globule::draw(std::shared_ptr<gfx::RenderProgram> &program) {
+void Globule::drawInternal(std::shared_ptr<gfx::RenderProgram> &program,
+        const size_t firstIdx, const size_t numIndices) {
     using namespace gl;
 
+    if(firstIdx) {
+        // Logging::trace("kush {} {}", firstIdx, numIndices);
+    }
+
     // draw if we have indices to do so with
-    if(this->isVisible && !this->inhibitDrawing && this->numIndices) {
+    if(this->isVisible && !this->inhibitDrawing && numIndices) {
         this->facesVao->bind();
         this->indexBuf->bind();
 
-        glDrawElements(GL_TRIANGLES, this->numIndices, this->indexFormat, nullptr);
+        const size_t bytesPerIndex = (this->indexFormat == GL_UNSIGNED_INT) ? 4 : 2;
+
+        // fuck
+        // glDrawElements(GL_TRIANGLES, this->numIndices, this->indexFormat, nullptr);
+        glDrawElements(GL_TRIANGLES, numIndices, this->indexFormat, (void *) (firstIdx * bytesPerIndex));
+        // glDrawElementsBaseVertex(GL_TRIANGLES, numIndices, this->indexFormat, nullptr, firstIdx);
 
         gfx::VertexArray::unbind();
     }
