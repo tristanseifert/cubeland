@@ -16,22 +16,28 @@ in VS_OUT {
     vec2 DiffuseUv;
     /// material info texture coordinate
     vec2 MaterialUv;
+    /// normal texture atlas coordinate
+    vec2 NormalUv;
+    /// tangent-bitangent-normal matrix for per block normal mapping
+    mat3 TBN;
     /// surface normal
     vec3 Normal;
 } fs_in;
 
 // info needed to sample the block data texture
 flat in ivec2 BlockInfoPos;
+
+/// normal mode: 0 for vertex interpolated, 1 for sampled
+flat in ivec2 NormalFlags;
+
 uniform sampler2D blockTypeDataTex;
 
-// Samplers (for diffuse and specular)
+// texture atlases
 uniform sampler2D blockTexAtlas;
 uniform sampler2D materialTexAtlas;
+uniform sampler2D normalTexAtlas;
 
 void main() {
-    // Store the per-fragment normals
-    gNormal = vec4(normalize(fs_in.Normal), 1);
-
     // sample textures
     vec4 diffuse = texture(blockTexAtlas, fs_in.DiffuseUv);
     if(diffuse.a == 0) {
@@ -39,6 +45,18 @@ void main() {
     }
 
     vec2 matProps = texture(materialTexAtlas, fs_in.MaterialUv).rg;
+
+    // handle normals
+    gNormal = vec4(normalize(fs_in.Normal), 1);
+
+    // calculate normal mapping, if needed
+    if(NormalFlags.x == 1) {
+        vec3 normal = texture(normalTexAtlas, fs_in.NormalUv).rgb;
+        normal = normalize(normal * 2.0 - 1.0);
+
+        normal = normalize(fs_in.TBN * normal);
+        gNormal = vec4(normal, 1);
+    }
 
     // Store material properties
     gDiffuse = diffuse;

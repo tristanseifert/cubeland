@@ -521,3 +521,39 @@ void WorldChunk::drawHighlights(std::shared_ptr<gfx::RenderProgram> &program) {
     glEnable(GL_DEPTH_TEST);
 }
 
+
+void CalculateTangents() {
+    const size_t vertices = 36;
+    const size_t stride = 8;
+
+    for(size_t i = 0; i < vertices; i += 3) {
+        const size_t off = (i * stride);
+
+        // get positions
+        const glm::vec3 v0(kCubeVertices[off+0], kCubeVertices[off+1], kCubeVertices[off+2]);
+        const glm::vec3 v1(kCubeVertices[off+stride+0], kCubeVertices[off+stride+1],
+                kCubeVertices[off+stride+2]);
+        const glm::vec3 v2(kCubeVertices[off+stride*2+0], kCubeVertices[off+stride*2+1],
+                kCubeVertices[off+stride*2+2]);
+
+        // get UVs
+        const glm::vec2 uv0(kCubeVertices[off+6], kCubeVertices[off+7]);
+        const glm::vec2 uv1(kCubeVertices[off+stride+6], kCubeVertices[off+stride+7]);
+        const glm::vec2 uv2(kCubeVertices[off+stride*2+6], kCubeVertices[off+stride*2+7]);
+
+        // Edges of the triangle : position delta
+        glm::vec3 deltaPos1 = v1-v0;
+        glm::vec3 deltaPos2 = v2-v0;
+
+        // UV delta
+        glm::vec2 deltaUV1 = uv1-uv0;
+        glm::vec2 deltaUV2 = uv2-uv0;
+
+        // i want to fucking die
+        float r = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x);
+        glm::vec3 tangent = (deltaPos1 * deltaUV2.y   - deltaPos2 * deltaUV1.y)*r;
+        glm::vec3 bitangent = (deltaPos2 * deltaUV1.x   - deltaPos1 * deltaUV2.x)*r;
+
+        Logging::trace("{} -> tangent {} bitangent {}", i, tangent, bitangent);
+    }
+}

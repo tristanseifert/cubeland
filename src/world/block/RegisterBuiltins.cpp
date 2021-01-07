@@ -4,6 +4,7 @@
 #include "world/blockImpl/Stone.h"
 #include "world/blockImpl/Torch.h"
 #include "world/blockImpl/Glass.h"
+#include "world/blockImpl/Brick.h"
 
 using namespace world::blocks;
 
@@ -17,6 +18,7 @@ void world::RegisterBuiltinBlocks() {
     
     // decoration
     Glass::Register();
+    Brick::Register();
     
     // item-y blocks
     Torch::Register();

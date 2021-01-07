@@ -38,6 +38,8 @@ class BlockRegistry {
             kTypeBlockFace,
             /// block material properties
             kTypeBlockMaterial,
+            /// block face normals
+            kTypeBlockNormal,
             /// Textures used to render the inventory screen
             kTypeInventory,
         };
@@ -128,6 +130,16 @@ class BlockRegistry {
         static void appearanceSetMaterial(const uint16_t id, const TextureId tex) {
             appearanceSetMaterial(id, tex, tex, tex);
         }
+        /// Sets the texture IDs used by a block appearance for its per surface normals
+        static void appearanceSetNormal(const uint16_t id, const TextureId top, const TextureId bottom, const TextureId side);
+        /// Sets the texture IDs for all three faces' normals from an array.
+        static void appearanceSetNormal(const uint16_t id, const TextureId ids[3]) {
+            appearanceSetNormal(id, ids[0], ids[1], ids[2]);
+        }
+        /// Sets the texture IDs for all three faces' normals to the same texture
+        static void appearanceSetNormal(const uint16_t id, const TextureId tex) {
+            appearanceSetNormal(id, tex, tex, tex);
+        }
 
         /// Registers a new model.
         static uint16_t registerModel(const Model &mod);
@@ -147,6 +159,8 @@ class BlockRegistry {
         static void generateBlockTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
         /// generates the block material texture atlas
         static void generateBlockMaterialTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
+        /// generates the block normal texture atlas
+        static void generateBlockNormalTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
         /// generates the inventory texture atlas
         static void generateInventoryTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
         /// generates the block info data
@@ -186,6 +200,11 @@ class BlockRegistry {
             TextureId texTop, texBottom, texSide;
             /// Texture IDs for material properties
             TextureId matTop = 0, matBottom = 0, matSide = 0;
+
+            /// when set, per surface normal mapping is used
+            bool normalMap = false;
+            /// Texture IDs for per face normals
+            TextureId normTop = 0, normBottom = 0, normSide = 0;
         };
 
     private:

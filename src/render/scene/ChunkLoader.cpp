@@ -73,6 +73,21 @@ ChunkLoader::ChunkLoader() {
         this->materialAtlasTex->bufferSubData(atlasSize.x, atlasSize.y, 0, 0,  gfx::Texture2D::RGBA16F, data.data());
     }
 
+    // allocate a normal info texture
+    this->normalAtlasTex = new gfx::Texture2D(4);
+    this->normalAtlasTex->setUsesLinearFiltering(true);
+    this->normalAtlasTex->setDebugName("ChunkNormalAtlas");
+
+    {
+        glm::ivec2 atlasSize;
+        std::vector<std::byte> data;
+
+        BlockRegistry::generateBlockNormalTextureAtlas(atlasSize, data);
+
+        this->normalAtlasTex->allocateBlank(atlasSize.x, atlasSize.y, gfx::Texture2D::RGBA16F);
+        this->normalAtlasTex->bufferSubData(atlasSize.x, atlasSize.y, 0, 0,  gfx::Texture2D::RGBA16F, data.data());
+    }
+
     // allocate a texture holding block ID info data
     this->blockInfoTex = new gfx::Texture2D(2);
     this->blockInfoTex->setUsesLinearFiltering(false);
@@ -175,6 +190,7 @@ ChunkLoader::~ChunkLoader() {
     delete this->blockInfoTex;
     delete this->blockAtlasTex;
     delete this->materialAtlasTex;
+    delete this->normalAtlasTex;
 
     gui::MenuBarHandler::unregisterItem(this->overlayMenuItem);
 }
@@ -877,6 +893,8 @@ void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> &program, const glm::
         program->setUniform1i("blockTexAtlas", this->blockAtlasTex->unit);
         this->materialAtlasTex->bind();
         program->setUniform1i("materialTexAtlas", this->materialAtlasTex->unit);
+        this->normalAtlasTex->bind();
+        program->setUniform1i("normalTexAtlas", this->normalAtlasTex->unit);
 
         this->numChunksCulled = 0;
         this->lastProjView = projView;

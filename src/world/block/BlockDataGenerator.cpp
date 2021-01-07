@@ -96,6 +96,34 @@ void BlockDataGenerator::buildBlockMaterialTextureAtlas(glm::ivec2 &size, std::v
     this->copyAtlas(this->blockMaterialAtlas, size, out);
 }
 
+
+/**
+ * Lays out the textures of all blocks into the normal texture atlas.
+ */
+void BlockDataGenerator::buildBlockNormalTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out) {
+    // get texture lock
+    std::lock_guard<std::mutex> lg(this->registry->texturesLock);
+
+    // build atlas layout if needed
+    if(this->forceBlockNormalAtlasUpdate) {
+        Logging::debug("Rebuilding block normal texture atlas...");
+
+        std::unordered_map<BlockRegistry::TextureId, glm::ivec2> sizes;
+        sizes.reserve(this->registry->textures.size());
+
+        for(const auto &[textureId, info] : this->registry->textures) {
+            if(info.type != BlockRegistry::TextureType::kTypeBlockNormal) continue;
+            sizes[textureId] = info.size;
+        }
+        XASSERT(!sizes.empty(), "No textures for block normal atlas!");
+
+        this->blockNormalAtlas.updateLayout(sizes);
+        this->forceBlockNormalAtlasUpdate = false;
+    }
+
+    this->copyAtlas(this->blockNormalAtlas, size, out);
+}
+
 /**
  * Builds the inventory item texture atlas.
  */
@@ -186,6 +214,8 @@ void BlockDataGenerator::copyAtlas(const util::TexturePacker<BlockRegistry::Text
  * -  8...9: Side face diffuse texture coordinates (front)
  * - 10..11: Side face diffuse texture coordinates (back)
  * - 12..23: UV coordinates for material info. Same order as diffuse values
+ * -     24: Normal mapping flags (R > .5 for normal mapping, <= .5 for regular interpolation)
+ * - 25..36: UV coordinates for normals. Same order as diffuse values
  *
  * Note that we leave the first row devoid of all data. Appearance IDs start at 1, with air having
  * the "unofficial" ID of 0 even though it's not actually a block.
@@ -211,6 +241,7 @@ void BlockDataGenerator::writeBlockInfo(std::vector<glm::vec4> &out, const size_
 
     this->writeDiffuseUv(out, off, appearance);
     this->writeMaterialUv(out, off, appearance);
+    this->writeNormalUv(out, off, appearance);
 }
 
 /**
@@ -282,4 +313,51 @@ void BlockDataGenerator::writeMaterialUv(std::vector<glm::vec4> &out, const size
     } else {
         std::fill(&out[off+4], &out[off+11], glm::vec4(0));
     }
+}
+
+/**
+ * Writes out the normal texture UV coordinates
+ *
+ * Offset 24 has some flags, a red component of 1 indicates normal mapping (and the following
+ * UV coordinates) are used.
+ */
+void BlockDataGenerator::writeNormalUv(std::vector<glm::vec4> &out, const size_t _off, const BlockRegistry::BlockAppearanceType &appearance) {
+    // flags
+    glm::vec4 flags(0);
+
+    if(appearance.normalMap) {
+        flags.x = 1;
+    }
+
+    out[_off + 24] = flags;
+    if(!appearance.normalMap) {
+        // we don't actually have any normals to store so bail out
+        return;
+    }
+
+    // fill in the texture coordinates
+    const auto off = _off + 25;
+
+    // UV for the bottom face
+    auto texUv = this->blockNormalAtlas.uvBoundsForTexture(appearance.normBottom);
+    out[off + 0] = glm::vec4(texUv.x, texUv.w, texUv.z, texUv.w);
+    out[off + 1] = glm::vec4(texUv.z, texUv.y, texUv.x, texUv.y);
+
+    // UV coords for top face
+    texUv = this->blockNormalAtlas.uvBoundsForTexture(appearance.normTop);
+    out[off + 2] = glm::vec4(texUv.x, texUv.w, texUv.z, texUv.w);
+    out[off + 3] = glm::vec4(texUv.z, texUv.y, texUv.x, texUv.y);
+
+    // UV coords for sides
+    texUv = this->blockNormalAtlas.uvBoundsForTexture(appearance.normSide);
+    // left/right faces
+    out[off + 4] = glm::vec4(texUv.x, texUv.w, texUv.x, texUv.y);
+    out[off + 5] = glm::vec4(texUv.z, texUv.y, texUv.z, texUv.w);
+    out[off + 6] = glm::vec4(texUv.z, texUv.w, texUv.z, texUv.y);
+    out[off + 7] = glm::vec4(texUv.x, texUv.y, texUv.x, texUv.w);
+    // front/back faces
+    out[off + 8] = glm::vec4(texUv.x, texUv.y, texUv.z, texUv.y);
+    out[off + 9] = glm::vec4(texUv.z, texUv.w, texUv.x, texUv.w);
+    out[off + 10] = glm::vec4(texUv.x, texUv.w, texUv.z, texUv.w);
+    out[off + 11] = glm::vec4(texUv.z, texUv.y, texUv.x, texUv.y);
 }

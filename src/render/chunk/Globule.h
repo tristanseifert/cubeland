@@ -99,7 +99,7 @@ class Globule {
         gl::GLenum indexFormat;
 
         /// inhibits the chunk visibility til the next time the index/vertex buffers are uploaded
-        bool inhibitDrawing = false;
+        bool inhibitDrawing = true;
         /// visibility override flag
         bool isVisible = true;
 };

@@ -13,9 +13,16 @@ out VS_OUT {
     vec2 DiffuseUv;
     /// material info texture coordinate
     vec2 MaterialUv;
-    /// surface normal
+    /// normal texture atlas coordinate
+    vec2 NormalUv;
+    /// tangent-bitangent-normal matrix for per block normal mapping
+    mat3 TBN;
+    /// surface normal (interpolated)
     vec3 Normal;
 } vs_out;
+
+/// normal mode: 0 for vertex interpolated, 1 for sampled
+flat out ivec2 NormalFlags;
 
 flat out ivec2 BlockInfoPos;
 
@@ -41,12 +48,35 @@ void main() {
     if(vertexId == 0 || vertexId == 2) { // odd indices are the first two components
         vs_out.DiffuseUv = texelFetch(blockTypeDataTex, uvInfoCoords, 0).st;
         vs_out.MaterialUv = texelFetch(blockTypeDataTex, uvInfoCoords + ivec2(12, 0), 0).st;
+        vs_out.NormalUv = texelFetch(blockTypeDataTex, uvInfoCoords + ivec2(25, 0), 0).st;
     } else {
         vs_out.DiffuseUv = texelFetch(blockTypeDataTex, uvInfoCoords, 0).pq;
-        vs_out.MaterialUv = texelFetch(blockTypeDataTex, uvInfoCoords + ivec2(12, 0), 0).st;
+        vs_out.MaterialUv = texelFetch(blockTypeDataTex, uvInfoCoords + ivec2(12, 0), 0).pq;
+        vs_out.NormalUv = texelFetch(blockTypeDataTex, uvInfoCoords + ivec2(25, 0), 0).pq;
     }
     vs_out.MaterialUv = vec2(0, 0);
     vs_out.MaterialUv = vs_out.DiffuseUv;
+
+    // read the "normal map enabled" flag
+    vec3 normFlags = texelFetch(blockTypeDataTex, ivec2(24, BlockInfoPos.y), 0).xyz;
+
+    if(normFlags.x >= .5) {
+        // read the tangent vector
+        vec3 sTangent = texelFetch(vtxNormalTex, ivec2(vertexId + 4, faceId), 0).rgb;
+
+        vec3 T = normalize(vec3(model * vec4(sTangent, 0)));
+        vec3 N = normalize(vec3(model * vec4(normal, 0)));
+
+        // calculate bitangent and TBN matrix
+        vec3 B = cross(N, T);
+        mat3 TBN = mat3(T, B, N);
+
+        vs_out.TBN = TBN;
+
+        NormalFlags = ivec2(1, 0);
+    } else {
+        NormalFlags = ivec2(0);
+    }
 
     // Forward the world position and texture coordinates
     vec3 posConverted = vec3(position) / vec3(0x7F);

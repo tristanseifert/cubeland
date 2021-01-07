@@ -18,7 +18,7 @@ class Block;
 class BlockDataGenerator {
     public:
         /// number of columns (width) of the data texture
-        constexpr static const size_t kDataColumns = 32;
+        constexpr static const size_t kDataColumns = 48;
 
     public:
         BlockDataGenerator(BlockRegistry *_reg) : registry(_reg) {};
@@ -27,6 +27,7 @@ class BlockDataGenerator {
         void buildBlockTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
         void repackBlockAtlas();
         void buildBlockMaterialTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
+        void buildBlockNormalTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
 
         void buildInventoryTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
 
@@ -37,6 +38,9 @@ class BlockDataGenerator {
         }
         glm::vec4 uvBoundsForMaterialTexture(BlockRegistry::TextureId id) {
             return this->blockMaterialAtlas.uvBoundsForTexture(id);
+        }
+        glm::vec4 uvBoundsForNormalTexture(BlockRegistry::TextureId id) {
+            return this->blockNormalAtlas.uvBoundsForTexture(id);
         }
         glm::vec4 uvBoundsForInventoryTexture(BlockRegistry::TextureId id) {
             return this->inventoryAtlas.uvBoundsForTexture(id);
@@ -50,6 +54,7 @@ class BlockDataGenerator {
 
         void writeDiffuseUv(std::vector<glm::vec4> &out, const size_t off, const BlockRegistry::BlockAppearanceType &block);
         void writeMaterialUv(std::vector<glm::vec4> &out, const size_t off, const BlockRegistry::BlockAppearanceType &block);
+        void writeNormalUv(std::vector<glm::vec4> &out, const size_t off, const BlockRegistry::BlockAppearanceType &block);
 
         void copyAtlas(const util::TexturePacker<BlockRegistry::TextureId> &, glm::ivec2 &, std::vector<std::byte> &, const size_t ncomps = 4);
 
@@ -66,6 +71,11 @@ class BlockDataGenerator {
         util::TexturePacker<BlockRegistry::TextureId> blockMaterialAtlas;
         /// whether the block material atlas needs to be updated
         bool forceBlockMaterialAtlasUpdate = true;
+
+        /// texture packer for block normal textures
+        util::TexturePacker<BlockRegistry::TextureId> blockNormalAtlas;
+        /// whether the block normal atlas needs to be updated
+        bool forceBlockNormalAtlasUpdate = true;
 
         /// texture packer for inventory textures
         util::TexturePacker<BlockRegistry::TextureId> inventoryAtlas;

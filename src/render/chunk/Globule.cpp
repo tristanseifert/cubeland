@@ -109,7 +109,7 @@ void Globule::drawInternal(std::shared_ptr<gfx::RenderProgram> &program,
     }
 
     // draw if we have indices to do so with
-    if(this->isVisible && !this->inhibitDrawing && numIndices) {
+    if(!this->inhibitDrawing && numIndices) {
         this->facesVao->bind();
         this->indexBuf->bind();
 
@@ -131,16 +131,20 @@ void Globule::drawInternal(std::shared_ptr<gfx::RenderProgram> &program,
  *
  * For each face of the cube, we generate 4 vertices; this texture is laid out such that the face
  * index indexes into the Y coordinate, while the vertex index (0-3) indexes into the X coordinate;
- * that is to say, the texture is 4x6 in size.
+ * that is to say, the texture is 12x6 in size.
  *
  * In the texture, the RGB component encodes the XYZ of the normal. The alpha component is set to
  * 1, but is not currently used.
+ *
+ * Following the four normal components are four tangents and bitangents for those normals.
  */
 void Globule::fillNormalTex(gfx::Texture2D *tex) {
     using namespace gfx;
 
+    constexpr static const size_t kInfoTexWidth = 4 * 3;
+
     std::vector<glm::vec4> data;
-    data.resize(4 * 6, glm::vec4(0));
+    data.resize(kInfoTexWidth * 6, glm::vec4(0));
 
     // static normal data indexed by face
     static const glm::vec3 normals[6] = {
@@ -157,16 +161,47 @@ void Globule::fillNormalTex(gfx::Texture2D *tex) {
         // Z+1
         glm::vec3(0, 0, 1),
     };
-
+    // static tangent data indexed by face
+    static const glm::vec3 tangent[6] = {
+        // bottom
+        glm::vec3(1, 0, 0),
+        // top
+        glm::vec3(1, 0, 0),
+        // left
+        glm::vec3(0, 1, 0),
+        // right
+        glm::vec3(0, 1, 0),
+        // back
+        glm::vec3(1, 0, 0),
+        // front
+        glm::vec3(1, 0, 0),
+    };
+    // static bitangent data indexed by face
+    static const glm::vec3 bitangent[6] = {
+        // bottom
+        glm::vec3(0, 0, -1),
+        // top
+        glm::vec3(0, 0, -1),
+        // left
+        glm::vec3(0, 0, -1),
+        // right
+        glm::vec3(0, 0, -1),
+        // back
+        glm::vec3(0, 1, 0),
+        // front
+        glm::vec3(0, 1, 0),
+    };
     for(size_t y = 0; y < 6; y++) {
-        const size_t yOff = (y * 4);
+        const size_t yOff = (y * kInfoTexWidth);
         for(size_t x = 0; x < 4; x++) {
-            data[yOff + x] = glm::vec4(normals[y], 1);
+            data[yOff + x + 0] = glm::vec4(normals[y], 1);
+            data[yOff + x + 4] = glm::vec4(tangent[y], 1);
+            data[yOff + x + 8] = glm::vec4(bitangent[y], 1);
         }
     }
 
     // allocate texture data and send it
-    tex->allocateBlank(4, 6, Texture2D::RGBA16F);
-    tex->bufferSubData(4, 6, 0, 0,  Texture2D::RGBA16F, data.data());
+    tex->allocateBlank(kInfoTexWidth, 6, Texture2D::RGBA16F);
+    tex->bufferSubData(kInfoTexWidth, 6, 0, 0,  Texture2D::RGBA16F, data.data());
 }
 

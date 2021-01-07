@@ -185,6 +185,19 @@ void BlockRegistry::appearanceSetMaterial(const uint16_t id, const TextureId top
     gShared->appearances[id].matSide = side;
 }
 
+/**
+ * Updates the texture indices used by an appearance for its material properties texture.
+ */
+void BlockRegistry::appearanceSetNormal(const uint16_t id, const TextureId top,
+        const TextureId bottom, const TextureId side) {
+    std::lock_guard<std::mutex> lg(gShared->appearancesLock);
+
+    gShared->appearances[id].normalMap = true;
+    gShared->appearances[id].normTop = top;
+    gShared->appearances[id].normBottom = bottom;
+    gShared->appearances[id].normSide = side;
+}
+
 
 /**
  * Adds a texture registration.
@@ -228,10 +241,16 @@ void BlockRegistry::generateBlockTextureAtlas(glm::ivec2 &size, std::vector<std:
 }
 
 /**
- * Generates the block material atlas. This is a two component texture.
+ * Generates the block material atlas.
  */
 void BlockRegistry::generateBlockMaterialTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out) {
     gShared->dataGen->buildBlockMaterialTextureAtlas(size, out);
+}
+/**
+ * Generates the block normal atlas. 
+ */
+void BlockRegistry::generateBlockNormalTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out) {
+    gShared->dataGen->buildBlockNormalTextureAtlas(size, out);
 }
 
 /**

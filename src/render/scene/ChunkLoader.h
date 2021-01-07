@@ -181,6 +181,12 @@ class ChunkLoader {
         gfx::Texture2D *materialAtlasTex = nullptr;
 
         /**
+         * Blocks can make use of normal mapping. If this is desired, they will sample out of this
+         * texture atlas of normal data.
+         */
+        gfx::Texture2D *normalAtlasTex = nullptr;
+
+        /**
          * Visibility map for chunks, based on current (primary) view direction
          *
          * This map is periodically updated (and garbage collected) like the loadedChunks and

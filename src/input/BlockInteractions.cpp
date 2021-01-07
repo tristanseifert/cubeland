@@ -283,6 +283,9 @@ void BlockInteractions::destroyBlockTimerExpired() {
     const auto oldId = chunk->getBlock(relBlock);
     if(!oldId) return;
 
+    // prevent a crash if we've moved during the tick
+    if(world::BlockRegistry::isAirBlock(*oldId)) return;
+
     const auto block = world::BlockRegistry::getBlock(*oldId);
     XASSERT(block, "Failed to get block for id {}", uuids::to_string(*oldId));
 
