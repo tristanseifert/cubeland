@@ -77,6 +77,7 @@ Lighting::Lighting() : RenderStep("Render Debug", "Lighting") {
 
     this->moon = std::make_shared<gfx::DirectionalLight>();
     this->moon->setEnabled(false);
+    this->moon->setColor(this->moonColorNormal);
     this->addLight(this->moon);
 
     // set up some remaining components

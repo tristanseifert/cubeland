@@ -29,9 +29,13 @@ Stone::Stone() {
     this->id = uuids::uuid::from_string("27D25383-4466-405D-9DEE-1FCF4A6272CC");
 
     // register textures
-    this->texture = BlockRegistry::registerTexture(Type::kTypeBlockFace,
+    this->diffuse = BlockRegistry::registerTexture(Type::kTypeBlockFace,
             glm::ivec2(32, 32), [](auto &out) {
         TextureLoader::load("block/stone/all.png", out);
+    });
+    this->material = BlockRegistry::registerTexture(Type::kTypeBlockMaterial,
+            glm::ivec2(32, 32), [](auto &out) {
+        TextureLoader::load("block/stone/material_all.png", out);
     });
 
     this->inventoryIcon = BlockRegistry::registerTexture(Type::kTypeInventory,
@@ -41,7 +45,8 @@ Stone::Stone() {
 
     // register appearance
     this->appearanceId = BlockRegistry::registerBlockAppearance();
-    BlockRegistry::appearanceSetTextures(this->appearanceId, this->texture, this->texture, this->texture);
+    BlockRegistry::appearanceSetTextures(this->appearanceId, this->diffuse);
+    BlockRegistry::appearanceSetMaterial(this->appearanceId, this->material);
 }
 
 

@@ -173,6 +173,17 @@ void BlockRegistry::appearanceSetTextures(const uint16_t id, const TextureId top
     gShared->appearances[id].texSide = side;
 }
 
+/**
+ * Updates the texture indices used by an appearance for its material properties texture.
+ */
+void BlockRegistry::appearanceSetMaterial(const uint16_t id, const TextureId top,
+        const TextureId bottom, const TextureId side) {
+    std::lock_guard<std::mutex> lg(gShared->appearancesLock);
+
+    gShared->appearances[id].matTop = top;
+    gShared->appearances[id].matBottom = bottom;
+    gShared->appearances[id].matSide = side;
+}
 
 
 /**
@@ -214,6 +225,13 @@ void BlockRegistry::removeTexture(const TextureId id) {
  */
 void BlockRegistry::generateBlockTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out) {
     gShared->dataGen->buildBlockTextureAtlas(size, out);
+}
+
+/**
+ * Generates the block material atlas. This is a two component texture.
+ */
+void BlockRegistry::generateBlockMaterialTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out) {
+    gShared->dataGen->buildBlockMaterialTextureAtlas(size, out);
 }
 
 /**

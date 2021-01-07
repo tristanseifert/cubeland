@@ -99,7 +99,9 @@ void BlockInteractions::destroyBlock() {
     auto [pos, relBlock] = *sel;
 
     // get the chunk for this block
-    glm::ivec2 chunkPos(floor(pos.x / 256.), floor(pos.z / 256.));
+    glm::ivec2 chunkPos;
+    Chunk::absoluteToRelative(pos, chunkPos);
+    // glm::ivec2 chunkPos(floor(pos.x / 256.), floor(pos.z / 256.));
     // Logging::trace("Destroy block: {} (in chunk {}) relative {}", pos, chunkPos, relBlock);
 
     auto chunk = this->scene->getChunk(chunkPos);
@@ -117,7 +119,11 @@ void BlockInteractions::destroyBlock() {
 
     if(!ticksToDestroy) {
         // it's immediate, so don't bother with the timer
-        bool collected = this->inventory->addItem(*oldId);
+        if(block->isCollectable(pos)) {
+            bool collected = this->inventory->addItem(*oldId);
+            (void) collected;
+        }
+
         chunk->setBlock(relBlock, BlockRegistry::kAirBlockId, true);
         this->scene->forceSelectionUpdate();
     }
@@ -266,7 +272,10 @@ void BlockInteractions::destroyTickCallback() {
 void BlockInteractions::destroyBlockTimerExpired() {
     auto [pos, relBlock] = this->destroyPos;
 
-    glm::ivec2 chunkPos(floor(pos.x / 256.), floor(pos.z / 256.));
+    glm::ivec2 chunkPos;
+    world::Chunk::absoluteToRelative(pos, chunkPos);
+    // glm::ivec2 chunkPos(floor(pos.x / 256.), floor(pos.z / 256.));
+
     auto chunk = this->scene->getChunk(chunkPos);
     if(!chunk) return;
 
@@ -274,10 +283,16 @@ void BlockInteractions::destroyBlockTimerExpired() {
     const auto oldId = chunk->getBlock(relBlock);
     if(!oldId) return;
 
+    const auto block = world::BlockRegistry::getBlock(*oldId);
+    XASSERT(block, "Failed to get block for id {}", uuids::to_string(*oldId));
+
     // Logging::trace("Collected block: {}", uuids::to_string(*oldId));
 
     // perform destruction of block
-    bool collected = this->inventory->addItem(*oldId);
+    if(block->isCollectable(pos)) {
+        bool collected = this->inventory->addItem(*oldId);
+        (void) collected;
+    }
     chunk->setBlock(relBlock, world::BlockRegistry::kAirBlockId, true);
 
     this->scene->forceSelectionUpdate();

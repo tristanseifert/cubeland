@@ -58,6 +58,26 @@ ChunkLoader::ChunkLoader() {
     gl::glTexParameterf(gl::GL_TEXTURE_2D, gl::GL_TEXTURE_MAX_ANISOTROPY_EXT, 4.f);
     gl::glTexParameteri(gl::GL_TEXTURE_2D, gl::GL_TEXTURE_MIN_FILTER, gl::GL_LINEAR_MIPMAP_LINEAR);
 
+    // allocate a material info
+    this->materialAtlasTex = new gfx::Texture2D(3);
+    this->materialAtlasTex->setUsesLinearFiltering(false);
+    this->materialAtlasTex->setDebugName("ChunkMatPropsAtlas");
+
+    {
+        glm::ivec2 atlasSize;
+        std::vector<std::byte> data;
+
+        BlockRegistry::generateBlockMaterialTextureAtlas(atlasSize, data);
+
+        this->materialAtlasTex->allocateBlank(atlasSize.x, atlasSize.y, gfx::Texture2D::RGBA16F);
+        this->materialAtlasTex->bufferSubData(atlasSize.x, atlasSize.y, 0, 0,  gfx::Texture2D::RGBA16F, data.data());
+    }
+
+    this->materialAtlasTex->bind();
+    gl::glGenerateMipmap(gl::GL_TEXTURE_2D);
+    gl::glTexParameterf(gl::GL_TEXTURE_2D, gl::GL_TEXTURE_MAX_ANISOTROPY_EXT, 4.f);
+    gl::glTexParameteri(gl::GL_TEXTURE_2D, gl::GL_TEXTURE_MIN_FILTER, gl::GL_LINEAR_MIPMAP_LINEAR);
+
     // allocate a texture holding block ID info data
     this->blockInfoTex = new gfx::Texture2D(2);
     this->blockInfoTex->setUsesLinearFiltering(false);
@@ -159,6 +179,7 @@ ChunkLoader::~ChunkLoader() {
     delete this->globuleNormalTex;
     delete this->blockInfoTex;
     delete this->blockAtlasTex;
+    delete this->materialAtlasTex;
 
     gui::MenuBarHandler::unregisterItem(this->overlayMenuItem);
 }
@@ -857,6 +878,8 @@ void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> &program, const glm::
 
         this->blockAtlasTex->bind();
         program->setUniform1i("blockTexAtlas", this->blockAtlasTex->unit);
+        this->materialAtlasTex->bind();
+        program->setUniform1i("materialTexAtlas", this->materialAtlasTex->unit);
 
         this->numChunksCulled = 0;
         this->lastProjView = projView;

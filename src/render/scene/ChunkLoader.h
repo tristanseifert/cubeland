@@ -174,6 +174,13 @@ class ChunkLoader {
         gfx::Texture2D *blockAtlasTex = nullptr;
 
         /**
+         * Contains material info for a particular block. This is an RGBA texture, though currently
+         * only the R/G components are used: red holds the specular component, whereas G holds the
+         * material shininess.
+         */
+        gfx::Texture2D *materialAtlasTex = nullptr;
+
+        /**
          * Visibility map for chunks, based on current (primary) view direction
          *
          * This map is periodically updated (and garbage collected) like the loadedChunks and

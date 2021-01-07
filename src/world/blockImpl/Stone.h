@@ -24,7 +24,9 @@ class Stone: public Block {
         static Stone *gShared;
 
         /// texture (all faces have the same texture)
-        BlockRegistry::TextureId texture;
+        BlockRegistry::TextureId diffuse;
+        /// mateiral properties
+        BlockRegistry::TextureId material;
         /// type id for the primary dirt block appearance
         uint16_t appearanceId;
 };

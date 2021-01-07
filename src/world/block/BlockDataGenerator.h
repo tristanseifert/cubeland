@@ -18,7 +18,7 @@ class Block;
 class BlockDataGenerator {
     public:
         /// number of columns (width) of the data texture
-        constexpr static const size_t kDataColumns = 16;
+        constexpr static const size_t kDataColumns = 32;
 
     public:
         BlockDataGenerator(BlockRegistry *_reg) : registry(_reg) {};
@@ -26,6 +26,7 @@ class BlockDataGenerator {
     public:
         void buildBlockTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
         void repackBlockAtlas();
+        void buildBlockMaterialTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
 
         void buildInventoryTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
 
@@ -33,6 +34,9 @@ class BlockDataGenerator {
 
         glm::vec4 uvBoundsForBlockTexture(BlockRegistry::TextureId id) {
             return this->blockAtlas.uvBoundsForTexture(id);
+        }
+        glm::vec4 uvBoundsForMaterialTexture(BlockRegistry::TextureId id) {
+            return this->blockMaterialAtlas.uvBoundsForTexture(id);
         }
         glm::vec4 uvBoundsForInventoryTexture(BlockRegistry::TextureId id) {
             return this->inventoryAtlas.uvBoundsForTexture(id);
@@ -44,7 +48,10 @@ class BlockDataGenerator {
     private:
         void writeBlockInfo(std::vector<glm::vec4> &out, const size_t y, const BlockRegistry::BlockAppearanceType &block);
 
-        void copyAtlas(const util::TexturePacker<BlockRegistry::TextureId> &, glm::ivec2 &, std::vector<std::byte> &);
+        void writeDiffuseUv(std::vector<glm::vec4> &out, const size_t off, const BlockRegistry::BlockAppearanceType &block);
+        void writeMaterialUv(std::vector<glm::vec4> &out, const size_t off, const BlockRegistry::BlockAppearanceType &block);
+
+        void copyAtlas(const util::TexturePacker<BlockRegistry::TextureId> &, glm::ivec2 &, std::vector<std::byte> &, const size_t ncomps = 4);
 
     private:
         /// this is our data source for all block data
@@ -54,6 +61,11 @@ class BlockDataGenerator {
         util::TexturePacker<BlockRegistry::TextureId> blockAtlas;
         /// whether the block atlas needs to be updated
         bool forceBlockAtlasUpdate = true;
+
+        /// texture packer for block material textures
+        util::TexturePacker<BlockRegistry::TextureId> blockMaterialAtlas;
+        /// whether the block material atlas needs to be updated
+        bool forceBlockMaterialAtlasUpdate = true;
 
         /// texture packer for inventory textures
         util::TexturePacker<BlockRegistry::TextureId> inventoryAtlas;

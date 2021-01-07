@@ -5,9 +5,18 @@ layout (location = 1) in uint blockId;
 layout (location = 2) in uint faceId;
 layout (location = 3) in uint vertexId;
 
-out vec3 WorldPos;
-out vec2 TexCoords;
-out vec3 Normal;
+
+out VS_OUT {
+    /// world space position of vertex
+    vec3 WorldPos;
+    /// diffuse texture coordinate
+    vec2 DiffuseUv;
+    /// material info texture coordinate
+    vec2 MaterialUv;
+    /// surface normal
+    vec3 Normal;
+} vs_out;
+
 flat out ivec2 BlockInfoPos;
 
 uniform mat4 model;
@@ -30,19 +39,23 @@ void main() {
     ivec2 uvInfoCoords = ivec2((faceId * 2) + vertexId/2, BlockInfoPos.y);
 
     if(vertexId == 0 || vertexId == 2) { // odd indices are the first two components
-        TexCoords = texelFetch(blockTypeDataTex, uvInfoCoords, 0).st;
+        vs_out.DiffuseUv = texelFetch(blockTypeDataTex, uvInfoCoords, 0).st;
+        vs_out.MaterialUv = texelFetch(blockTypeDataTex, uvInfoCoords + ivec2(12, 0), 0).st;
     } else {
-        TexCoords = texelFetch(blockTypeDataTex, uvInfoCoords, 0).pq;
+        vs_out.DiffuseUv = texelFetch(blockTypeDataTex, uvInfoCoords, 0).pq;
+        vs_out.MaterialUv = texelFetch(blockTypeDataTex, uvInfoCoords + ivec2(12, 0), 0).st;
     }
+    vs_out.MaterialUv = vec2(0, 0);
+    vs_out.MaterialUv = vs_out.DiffuseUv;
 
     // Forward the world position and texture coordinates
     vec3 posConverted = vec3(position) / vec3(0x7F);
     vec4 worldPos = model * vec4(posConverted, 1);
-    WorldPos = worldPos.xyz;
+    vs_out.WorldPos = worldPos.xyz;
 
     // Set position of the vertex pls
     gl_Position = projectionView * worldPos;
 
     // Send normals (multiplied by normal matrix)
-    Normal = normalMatrix * normal;
+    vs_out.Normal = normalMatrix * normal;
 }

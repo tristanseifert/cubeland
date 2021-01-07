@@ -9,9 +9,16 @@ layout (location = 1) out vec4 gDiffuse;
 layout (location = 2) out vec4 gMatSpec;
 
 // Inputs from vertex shader
-in vec2 TexCoords;
-in vec3 WorldPos;
-in vec3 Normal;
+in VS_OUT {
+    /// world space position of vertex
+    vec3 WorldPos;
+    /// diffuse texture coordinate
+    vec2 DiffuseUv;
+    /// material info texture coordinate
+    vec2 MaterialUv;
+    /// surface normal
+    vec3 Normal;
+} fs_in;
 
 // info needed to sample the block data texture
 flat in ivec2 BlockInfoPos;
@@ -19,16 +26,18 @@ uniform sampler2D blockTypeDataTex;
 
 // Samplers (for diffuse and specular)
 uniform sampler2D blockTexAtlas;
+uniform sampler2D materialTexAtlas;
 
 void main() {
     // Store the per-fragment normals
-    gNormal = vec4(normalize(Normal), 1);
+    gNormal = vec4(normalize(fs_in.Normal), 1);
 
     // sample textures
-    vec3 diffuse = texture(blockTexAtlas, TexCoords).rgb;
+    vec3 diffuse = texture(blockTexAtlas, fs_in.DiffuseUv).rgb;
+    vec2 matProps = texture(materialTexAtlas, fs_in.MaterialUv).rg;
 
     // Store material properties
     gDiffuse = vec4(diffuse, 1);
-    gMatSpec = vec4(0.66, 0, 0, 1);
+    gMatSpec = vec4(matProps, 0, 1);
 }
 

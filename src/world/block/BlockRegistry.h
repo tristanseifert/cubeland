@@ -36,6 +36,8 @@ class BlockRegistry {
         enum class TextureType {
             /// textures used to render block edges
             kTypeBlockFace,
+            /// block material properties
+            kTypeBlockMaterial,
             /// Textures used to render the inventory screen
             kTypeInventory,
         };
@@ -111,6 +113,21 @@ class BlockRegistry {
         static void appearanceSetTextures(const uint16_t id, const TextureId ids[3]) {
             appearanceSetTextures(id, ids[0], ids[1], ids[2]);
         }
+        /// Sets the texture IDs for all three faces' to the same texture
+        static void appearanceSetTextures(const uint16_t id, const TextureId tex) {
+            appearanceSetTextures(id, tex, tex, tex);
+        }
+
+        /// Sets the texture IDs used by a block appearance for its material properties
+        static void appearanceSetMaterial(const uint16_t id, const TextureId top, const TextureId bottom, const TextureId side);
+        /// Sets the texture IDs for all three faces' material properties from an array.
+        static void appearanceSetMaterial(const uint16_t id, const TextureId ids[3]) {
+            appearanceSetMaterial(id, ids[0], ids[1], ids[2]);
+        }
+        /// Sets the texture IDs for all three faces' material properties to the same texture
+        static void appearanceSetMaterial(const uint16_t id, const TextureId tex) {
+            appearanceSetMaterial(id, tex, tex, tex);
+        }
 
         /// Registers a new model.
         static uint16_t registerModel(const Model &mod);
@@ -128,6 +145,8 @@ class BlockRegistry {
 
         /// generates the block texture atlas
         static void generateBlockTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
+        /// generates the block material texture atlas
+        static void generateBlockMaterialTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
         /// generates the inventory texture atlas
         static void generateInventoryTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out);
         /// generates the block info data
@@ -165,6 +184,8 @@ class BlockRegistry {
         struct BlockAppearanceType {
             /// Texture IDs for the top, bottom and sides
             TextureId texTop, texBottom, texSide;
+            /// Texture IDs for material properties
+            TextureId matTop = 0, matBottom = 0, matSide = 0;
         };
 
     private:

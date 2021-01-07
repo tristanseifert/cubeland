@@ -70,6 +70,33 @@ void BlockDataGenerator::buildBlockTextureAtlas(glm::ivec2 &size, std::vector<st
 
 
 /**
+ * Lays out the textures of all blocks into the material texture atlas.
+ */
+void BlockDataGenerator::buildBlockMaterialTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out) {
+    // get texture lock
+    std::lock_guard<std::mutex> lg(this->registry->texturesLock);
+
+    // build atlas layout if needed
+    if(this->forceBlockMaterialAtlasUpdate) {
+        Logging::debug("Rebuilding block material texture atlas...");
+
+        std::unordered_map<BlockRegistry::TextureId, glm::ivec2> sizes;
+        sizes.reserve(this->registry->textures.size());
+
+        for(const auto &[textureId, info] : this->registry->textures) {
+            if(info.type != BlockRegistry::TextureType::kTypeBlockMaterial) continue;
+            sizes[textureId] = info.size;
+        }
+        XASSERT(!sizes.empty(), "No textures for block material atlas!");
+
+        this->blockMaterialAtlas.updateLayout(sizes);
+        this->forceBlockMaterialAtlasUpdate = false;
+    }
+
+    this->copyAtlas(this->blockMaterialAtlas, size, out);
+}
+
+/**
  * Builds the inventory item texture atlas.
  */
 void BlockDataGenerator::buildInventoryTextureAtlas(glm::ivec2 &size, std::vector<std::byte> &out) {
@@ -102,12 +129,12 @@ void BlockDataGenerator::buildInventoryTextureAtlas(glm::ivec2 &size, std::vecto
  * Copies pixel data out of the atlas into the provided byte buffer.
  */
 void BlockDataGenerator::copyAtlas(const util::TexturePacker<BlockRegistry::TextureId> &packer, 
-        glm::ivec2 &size, std::vector<std::byte> &out) {
+        glm::ivec2 &size, std::vector<std::byte> &out, const size_t components) {
     const auto atlasSize = packer.getAtlasSize();
     XASSERT(atlasSize.x && atlasSize.y, "Invalid atlas size {}", atlasSize);
 
     // resize output buffer
-    const size_t bytesPerPixel = 4 /* components */ * sizeof(float) /*bytes per*/;
+    const size_t bytesPerPixel = components * sizeof(float) /*bytes per*/;
     const size_t bytesPerRow = bytesPerPixel * atlasSize.x;
 
     const size_t numBytes = (atlasSize.x * atlasSize.y) * bytesPerPixel;
@@ -126,17 +153,17 @@ void BlockDataGenerator::copyAtlas(const util::TexturePacker<BlockRegistry::Text
         const auto &texture = this->registry->textures[textureId];
 
         textureBuffer.clear();
-        textureBuffer.resize(texture.size.x * texture.size.y * 4, 0);
+        textureBuffer.resize(texture.size.x * texture.size.y * components, 0);
 
         texture.fillFunc(textureBuffer);
 
         // write pointer to the top left of the output
-        const auto bytesPerTextureRow = texture.size.x * sizeof(float) * 4;
+        const auto bytesPerTextureRow = texture.size.x * sizeof(float) * components;
         std::byte *writePtr = out.data() + (bytesPerRow * bounds.y) + (bytesPerPixel * bounds.x);
 
         for(size_t y = 0; y < texture.size.y; y++) {
             // calculate offset into texture buffer and yeet it up
-            const size_t textureYOff = y * texture.size.x * 4;
+            const size_t textureYOff = y * texture.size.x * components;
             memcpy(writePtr, textureBuffer.data() + textureYOff, bytesPerTextureRow);
 
             // advance write pointer
@@ -150,15 +177,15 @@ void BlockDataGenerator::copyAtlas(const util::TexturePacker<BlockRegistry::Text
 /**
  * Builds the block appearance data texture in the provided buffer.
  *
- * This texture has a row for each appearance type; each row, in turn, currently has 16 columns
+ * This texture has a row for each appearance type; each row, in turn, currently has 32 columns
  * assigned to it. These are laid out as follows:
- * -  0...1: Bottom face texture coordinates
- * -  2...3: Top face exture coordinates
- * -  4...5: Side face texture coordinates (left)
- * -  6...7: Side face texture coordinates (right)
- * -  8...9: Side face texture coordinates (front)
- * - 10..11: Side face texture coordinates (back)
- * -     12: Material properties (x = specular, y = shininess)
+ * -  0...1: Bottom face diffuse texture coordinates
+ * -  2...3: Top face diffuse texture coordinates
+ * -  4...5: Side face diffuse texture coordinates (left)
+ * -  6...7: Side face diffuse texture coordinates (right)
+ * -  8...9: Side face diffuse texture coordinates (front)
+ * - 10..11: Side face diffuse texture coordinates (back)
+ * - 12..23: UV coordinates for material info. Same order as diffuse values
  *
  * Note that we leave the first row devoid of all data. Appearance IDs start at 1, with air having
  * the "unofficial" ID of 0 even though it's not actually a block.
@@ -181,10 +208,17 @@ void BlockDataGenerator::generate(glm::ivec2 &size, std::vector<glm::vec4> &out)
  */
 void BlockDataGenerator::writeBlockInfo(std::vector<glm::vec4> &out, const size_t y, const BlockRegistry::BlockAppearanceType &appearance) {
     size_t off = (y * kDataColumns);
-    glm::vec4 texUv;
 
+    this->writeDiffuseUv(out, off, appearance);
+    this->writeMaterialUv(out, off, appearance);
+}
+
+/**
+ * Writes out the diffuse texture UV coordinates
+ */
+void BlockDataGenerator::writeDiffuseUv(std::vector<glm::vec4> &out, const size_t off, const BlockRegistry::BlockAppearanceType &appearance) {
     // UV for the bottom face
-    texUv = this->blockAtlas.uvBoundsForTexture(appearance.texBottom);
+    auto texUv = this->blockAtlas.uvBoundsForTexture(appearance.texBottom);
     out[off + 0] = glm::vec4(texUv.x, texUv.w, texUv.z, texUv.w);
     out[off + 1] = glm::vec4(texUv.z, texUv.y, texUv.x, texUv.y);
 
@@ -195,20 +229,57 @@ void BlockDataGenerator::writeBlockInfo(std::vector<glm::vec4> &out, const size_
 
     // UV coords for sides
     texUv = this->blockAtlas.uvBoundsForTexture(appearance.texSide);
-
     // left/right faces
     out[off + 4] = glm::vec4(texUv.x, texUv.w, texUv.x, texUv.y);
     out[off + 5] = glm::vec4(texUv.z, texUv.y, texUv.z, texUv.w);
     out[off + 6] = glm::vec4(texUv.z, texUv.w, texUv.z, texUv.y);
     out[off + 7] = glm::vec4(texUv.x, texUv.y, texUv.x, texUv.w);
-
     // front/back faces
     out[off + 8] = glm::vec4(texUv.x, texUv.y, texUv.z, texUv.y);
     out[off + 9] = glm::vec4(texUv.z, texUv.w, texUv.x, texUv.w);
     out[off + 10] = glm::vec4(texUv.x, texUv.w, texUv.z, texUv.w);
     out[off + 11] = glm::vec4(texUv.z, texUv.y, texUv.x, texUv.y);
-
-    // material props
-    out[off + 12] = glm::vec4(0.33, 0, 0, 0);
 }
 
+/**
+ * Writes out the material texture UV coordinates
+ */
+void BlockDataGenerator::writeMaterialUv(std::vector<glm::vec4> &out, const size_t _off, const BlockRegistry::BlockAppearanceType &appearance) {
+    glm::vec4 texUv;
+    const auto off = _off + 12;
+
+    // UV for the bottom face
+    if(appearance.matBottom) {
+        texUv = this->blockMaterialAtlas.uvBoundsForTexture(appearance.matBottom);
+        out[off + 0] = glm::vec4(texUv.x, texUv.w, texUv.z, texUv.w);
+        out[off + 1] = glm::vec4(texUv.z, texUv.y, texUv.x, texUv.y);
+    } else {
+        std::fill(&out[off], &out[off+1], glm::vec4(0));
+    }
+
+    // UV coords for top face
+    if(appearance.matTop) {
+        texUv = this->blockMaterialAtlas.uvBoundsForTexture(appearance.matTop);
+        out[off + 2] = glm::vec4(texUv.x, texUv.w, texUv.z, texUv.w);
+        out[off + 3] = glm::vec4(texUv.z, texUv.y, texUv.x, texUv.y);
+    } else {
+        std::fill(&out[off+2], &out[off+3], glm::vec4(0));
+    }
+
+    // UV coords for sides
+    if(appearance.matSide) {
+        texUv = this->blockMaterialAtlas.uvBoundsForTexture(appearance.matSide);
+        // left/right faces
+        out[off + 4] = glm::vec4(texUv.x, texUv.w, texUv.x, texUv.y);
+        out[off + 5] = glm::vec4(texUv.z, texUv.y, texUv.z, texUv.w);
+        out[off + 6] = glm::vec4(texUv.z, texUv.w, texUv.z, texUv.y);
+        out[off + 7] = glm::vec4(texUv.x, texUv.y, texUv.x, texUv.w);
+        // front/back faces
+        out[off + 8] = glm::vec4(texUv.x, texUv.y, texUv.z, texUv.y);
+        out[off + 9] = glm::vec4(texUv.z, texUv.w, texUv.x, texUv.w);
+        out[off + 10] = glm::vec4(texUv.x, texUv.w, texUv.z, texUv.w);
+        out[off + 11] = glm::vec4(texUv.z, texUv.y, texUv.x, texUv.y);
+    } else {
+        std::fill(&out[off+4], &out[off+11], glm::vec4(0));
+    }
+}

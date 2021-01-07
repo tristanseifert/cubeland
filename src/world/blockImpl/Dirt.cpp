@@ -29,20 +29,35 @@ Dirt::Dirt() {
     this->internalName = "me.tseifert.cubeland.block.dirt";
     this->id = uuids::uuid::from_string("2be68612-133b-40c6-8436-189d4bd87a4e");
 
-    // register textures
-    this->normalTextures[0] = BlockRegistry::registerTexture(Type::kTypeBlockFace,
+    // register textures (diffuse)
+    this->diffuseTextures[0] = BlockRegistry::registerTexture(Type::kTypeBlockFace,
             glm::ivec2(32, 32), [](auto &out) {
         TextureLoader::load("block/dirt/top.png", out);
     });
-    this->normalTextures[1] = BlockRegistry::registerTexture(Type::kTypeBlockFace,
+    this->diffuseTextures[1] = BlockRegistry::registerTexture(Type::kTypeBlockFace,
             glm::ivec2(32, 32), [](auto &out) {
         TextureLoader::load("block/dirt/bottom.png", out);
     });
-    this->normalTextures[2] = BlockRegistry::registerTexture(Type::kTypeBlockFace,
+    this->diffuseTextures[2] = BlockRegistry::registerTexture(Type::kTypeBlockFace,
             glm::ivec2(32, 32), [](auto &out) {
         TextureLoader::load("block/dirt/side.png", out);
     });
 
+    // register textures (mateiral properties)
+    this->materialTextures[0] = BlockRegistry::registerTexture(Type::kTypeBlockMaterial,
+            glm::ivec2(32, 32), [](auto &out) {
+        TextureLoader::load("block/dirt/material_top.png", out, 4);
+    });
+    this->materialTextures[1] = BlockRegistry::registerTexture(Type::kTypeBlockMaterial,
+            glm::ivec2(32, 32), [](auto &out) {
+        TextureLoader::load("block/dirt/material_bottom.png", out, 4);
+    });
+    this->materialTextures[2] = BlockRegistry::registerTexture(Type::kTypeBlockMaterial,
+            glm::ivec2(32, 32), [](auto &out) {
+        TextureLoader::load("block/dirt/material_side.png", out, 4);
+    });
+
+    // register textures (inventory)
     this->inventoryIcon = BlockRegistry::registerTexture(Type::kTypeInventory,
             glm::ivec2(96, 96), [](auto &out) {
         TextureLoader::load("block/dirt/inventory.png", out);
@@ -50,11 +65,13 @@ Dirt::Dirt() {
 
     // register appearance
     this->appearanceId = BlockRegistry::registerBlockAppearance();
-    BlockRegistry::appearanceSetTextures(this->appearanceId, this->normalTextures);
+    BlockRegistry::appearanceSetTextures(this->appearanceId, this->diffuseTextures);
+    BlockRegistry::appearanceSetMaterial(this->appearanceId, this->materialTextures);
 
     this->noGrassAppearance = BlockRegistry::registerBlockAppearance();
-    BlockRegistry::appearanceSetTextures(this->noGrassAppearance, this->normalTextures[1],
-            this->normalTextures[1], this->normalTextures[1]);
+    BlockRegistry::appearanceSetTextures(this->noGrassAppearance, this->diffuseTextures[1],
+            this->diffuseTextures[1], this->diffuseTextures[1]);
+    BlockRegistry::appearanceSetMaterial(this->noGrassAppearance, this->materialTextures[1]);
 }
 
 

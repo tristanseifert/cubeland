@@ -20,7 +20,9 @@ using namespace world;
  *
  * This assumes that the input data is sRGB, and is converted to linear when loaded, if requested.
  */
-void TextureLoader::load(const std::string &path, std::vector<float> &out, const bool sRgbConvert) {
+void TextureLoader::load(const std::string &path, std::vector<float> &out, const size_t components, const bool sRgbConvert) {
+    XASSERT(!sRgbConvert || (sRgbConvert && components >= 3), "sRGB conversion allowed only for 3 > component texture");
+
     // read image data
     std::vector<unsigned char> data;
     io::ResourceManager::get("textures/" + path, data);
@@ -37,15 +39,15 @@ void TextureLoader::load(const std::string &path, std::vector<float> &out, const
     }
 
     // ensure we got an image that fits
-    XASSERT((width * height * 4) <= out.size(), "Loaded texture too big ({} x {})", width, height);
+    XASSERT((width * height * components) <= out.size(), "Loaded texture too big ({} x {})", width, height);
 
     for(size_t y = 0; y < height; y++) {
-        const size_t yOff = (y * width * 4);
+        const size_t yOff = (y * width * components);
 
         for(size_t x = 0; x < width; x++) {
-            const size_t xOff = (x * 4);
+            const size_t xOff = (x * components);
 
-            for(size_t c = 0; c < 4; c++) {
+            for(size_t c = 0; c < components; c++) {
                 const auto temp = image[yOff + xOff + c];
                 out[yOff + xOff + c] = ((float) temp) / 255.;
             }

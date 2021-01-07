@@ -90,6 +90,8 @@ class Torch: public Block {
     private:
         /// textures for side and top
         BlockRegistry::TextureId sideTexture, topTexture;
+        /// material textures
+        BlockRegistry::TextureId sideMat, topMat;
         /// type id for the primary block appearance
         uint16_t appearanceId;
 

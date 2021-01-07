@@ -28,7 +28,9 @@ class Dirt: public Block {
         static Dirt *gShared;
 
         /// textures
-        BlockRegistry::TextureId normalTextures[3];
+        BlockRegistry::TextureId diffuseTextures[3];
+        /// material property textures
+        BlockRegistry::TextureId materialTextures[3];
         /// type id for the primary dirt block appearance
         uint16_t appearanceId;
         /// dirt with no grass (only the bottom texture)

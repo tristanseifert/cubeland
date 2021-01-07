@@ -89,6 +89,10 @@ class Block {
         virtual const bool isSelectable(const glm::ivec3 &pos) const {
             return true;
         }
+        /// Whether the block drops an item
+        virtual const bool isCollectable(const glm::ivec3 &pos) const {
+            return true;
+        }
 
         /**
          * Called for every game tick. Any block specific things (such as aging blocks) should be

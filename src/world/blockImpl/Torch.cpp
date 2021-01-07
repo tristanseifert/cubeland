@@ -152,6 +152,15 @@ Torch::Torch() {
         TextureLoader::load("block/torch/top.png", out);
     });
 
+    this->sideMat = BlockRegistry::registerTexture(Type::kTypeBlockMaterial,
+            glm::ivec2(8, 32), [](auto &out) {
+        TextureLoader::load("block/torch/material_side.png", out);
+    });
+    this->topMat = BlockRegistry::registerTexture(Type::kTypeBlockMaterial,
+            glm::ivec2(8, 8), [](auto &out) {
+        TextureLoader::load("block/torch/material_top.png", out);
+    });
+
     this->inventoryIcon = BlockRegistry::registerTexture(Type::kTypeInventory,
             glm::ivec2(96, 96), [](auto &out) {
         TextureLoader::load("block/torch/inventory.png", out);
@@ -164,6 +173,8 @@ Torch::Torch() {
     this->appearanceId = BlockRegistry::registerBlockAppearance();
     BlockRegistry::appearanceSetTextures(this->appearanceId, this->topTexture, this->topTexture,
             this->sideTexture);
+    BlockRegistry::appearanceSetMaterial(this->appearanceId, this->topMat, this->topMat,
+            this->sideMat);
 }
 
 
