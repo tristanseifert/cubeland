@@ -257,6 +257,7 @@ void WorldRenderer::reshape(unsigned int width, unsigned int height) {
 
     this->viewportWidth = width;
     this->viewportHeight = height;
+    this->aspect = ((double) width) / ((double) height);
 
     // reshape all render steps as well
     for(auto &step : this->steps) {

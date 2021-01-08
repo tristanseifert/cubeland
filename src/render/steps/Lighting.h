@@ -176,8 +176,6 @@ class Lighting : public RenderStep {
         std::shared_ptr<gfx::FrameBuffer> shadowFbo = nullptr;
         // Shadow depth texture
         std::shared_ptr<gfx::Texture2D> shadowTex = nullptr;
-        // Shadow color texture (debugging)
-        std::shared_ptr<gfx::Texture2D> shadowColorTex = nullptr;
 
         // constant to multiply directional light by
         float shadowDirectionCoefficient = 2.f;
@@ -190,6 +188,13 @@ class Lighting : public RenderStep {
     private:
         void drawDebugWindow();
         void drawLightsTable();
+
+        void drawTexturePreview();
+
+        bool showTexturePreview = false;
+        glm::vec4 previewTint = glm::vec4(1);
+        int previewTextureIdx = 0;
+        int previewScale = 2;
 };
 }
 

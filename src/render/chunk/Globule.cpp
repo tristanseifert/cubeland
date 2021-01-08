@@ -38,6 +38,9 @@ void Globule::clearBuffers() {
     this->numIndices = 0;
     this->numVertices = 0;
 
+    this->vertexBuf = nullptr;
+    this->indexBuf = nullptr;
+
     this->inhibitDrawing = true;
 }
 
@@ -51,8 +54,10 @@ void Globule::setBuffer(const VertexGenerator::Buffer &buf) {
 
     // re-prepare the VAO
     if(buf.numVertices) {
+        this->vertexBuf = buf.buffer;
+
         this->facesVao->bind();
-        buf.buffer->bind();
+        this->vertexBuf->bind();
 
         const size_t kVertexSize = sizeof(BlockVertex);
         this->facesVao->registerVertexAttribPointerInt(0, 3, VertexArray::Short, kVertexSize,
@@ -66,10 +71,17 @@ void Globule::setBuffer(const VertexGenerator::Buffer &buf) {
 
         gfx::VertexArray::unbind();
 
-        buf.buffer->unbind();
+        this->vertexBuf->unbind();
 
-        this->vertexBuf = buf.buffer;
         this->numVertices = buf.numVertices;
+    } 
+    // no vertices in this globule, so no need to waste time drawing
+    else {
+        this->vertexBuf = nullptr;
+        this->indexBuf = nullptr;
+
+        this->inhibitDrawing = true;
+        return;
     }
 
     // update index data

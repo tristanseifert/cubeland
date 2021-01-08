@@ -235,6 +235,9 @@ void Lighting::startOfFrame() {
     if(this->showDebugWindow) {
         this->drawDebugWindow();
     }
+    if(this->showTexturePreview) {
+        this->drawTexturePreview();
+    }
 
     // perform sky updates
     if(this->skyEnabled && this->skyNoiseNeedsUpdate) {
@@ -625,6 +628,211 @@ void Lighting::removeLight(std::shared_ptr<gfx::lights::AbstractLight> light) {
 
 
 
+// 'optionalPMatrixInverse16' is required only if you need to retrieve (one or more of) the arguments that follow it (otherwise their value is untouched).
+static void GetLightViewProjectionMatrixExtra(glm::mat4 &lvpMatrixOut16,
+                                                const glm::mat4 &cameraVMatrixInverse16,
+                                                float cameraNearClippingPlane,
+                                                float cameraFarClippingPlane,
+                                                float cameraFovyDeg,
+                                                float cameraAspectRatio,
+                                                float cameraTargetDistanceForUnstableOrtho3DModeOnly_or_zero,
+                                                const glm::vec3 &normalizedLightDirection3, 
+                                                float texelIncrement,
+                                                float *optionalSphereCenterOut,
+                                                float *optionalSphereRadiiSquaredOut,
+                                                const glm::mat4 *optionalCameraPMatrixInverse16,
+                                                glm::vec4 *optionalLightViewportClippingOut4,
+                                                float optionalCameraFrustumPointsInNDCLightSpaceOut[8][4],
+                                                float* optionalLVPMatrixForFrustumCullingUsageOut16   // Highly experimental and untested
+                                                          )  {
+    // const glm::vec3 cameraPosition3(cameraVMatrixInverse16[12], cameraVMatrixInverse16[13], cameraVMatrixInverse16[14]);
+    const glm::vec3 cameraPosition3(cameraVMatrixInverse16[3][0], cameraVMatrixInverse16[3][1], cameraVMatrixInverse16[3][2]);
+    // const glm::vec3 cameraForwardDirection3(-cameraVMatrixInverse16[8],-cameraVMatrixInverse16[9],-cameraVMatrixInverse16[10]);
+    const glm::vec3 cameraForwardDirection3(-cameraVMatrixInverse16[2][0],-cameraVMatrixInverse16[2][1], -cameraVMatrixInverse16[2][2]);
+
+    glm::vec3 frustumCenter(0);
+    float radius = 0;
+    glm::mat4 lpMatrix(1), lvMatrix(1);
+
+    float frustumCenterDistance,tanFovDiagonalSquared;
+    const float halfNearFarClippingPlane = 0.5*(cameraFarClippingPlane+cameraNearClippingPlane);
+
+    if (cameraTargetDistanceForUnstableOrtho3DModeOnly_or_zero>cameraFarClippingPlane) cameraTargetDistanceForUnstableOrtho3DModeOnly_or_zero = 0;  // Not needed
+
+    // Get frustumCenter and radius
+    tanFovDiagonalSquared = tan(cameraFovyDeg*M_PI/360.0); // At this point this is just TANFOVY
+    if (cameraTargetDistanceForUnstableOrtho3DModeOnly_or_zero<=0)  {
+        // camera perspective mode here
+        tanFovDiagonalSquared*=tanFovDiagonalSquared;
+        tanFovDiagonalSquared*=(1.0+cameraAspectRatio*cameraAspectRatio);
+        frustumCenterDistance = halfNearFarClippingPlane*(1.0+tanFovDiagonalSquared);
+        if (frustumCenterDistance > cameraFarClippingPlane) frustumCenterDistance = cameraFarClippingPlane;
+        radius = (tanFovDiagonalSquared*cameraFarClippingPlane*cameraFarClippingPlane) + (cameraFarClippingPlane-frustumCenterDistance)*(cameraFarClippingPlane-frustumCenterDistance); // This is actually radiusSquared
+    }
+    else {
+        // camera ortho3d mode here
+        const float y=cameraTargetDistanceForUnstableOrtho3DModeOnly_or_zero*tanFovDiagonalSquared;
+        const float x=y*cameraAspectRatio;
+        const float halfClippingPlaneDistance = 0.5*(cameraFarClippingPlane-cameraNearClippingPlane);
+        frustumCenterDistance = halfNearFarClippingPlane;
+        radius = x*x+y*y; // This is actually radiusXYSquared
+        radius = radius + halfClippingPlaneDistance*halfClippingPlaneDistance;// This is actually radiusSquared
+    }
+    for (size_t i = 0; i < 3; i++) {
+        frustumCenter[i] = cameraPosition3[i]+cameraForwardDirection3[i]*frustumCenterDistance;
+    }
+
+    if (optionalSphereCenterOut)        *optionalSphereCenterOut = frustumCenterDistance;
+    if (optionalSphereRadiiSquaredOut)  *optionalSphereRadiiSquaredOut = radius;
+    radius = sqrt(radius);
+    //fprintf(stderr,"radius=%1.4f frustumCenterDistance=%1.4f nearPlane=%1.4f farPlane = %1.4f\n",radius,frustumCenterDistance,cameraNearClippingPlane,cameraFarClippingPlane);
+
+    // For people trying to save texture space it's:  halfNearFarClippingPlane <= frustumCenterDistance <= cameraFarClippingPlane
+    // When frustumCenterDistance == cameraFarClippingPlane, then frustumCenter is on the far clip plane (and half the texture space gets wasted).
+    // when frustumCenterDistance == halfNearFarClippingPlane, then we're using an ortho projection matrix, and frustumCenter is in the middle of the near and far plane (no texture space gets wasted).
+    // in all the other cases the space wasted can go from zero to half texture
+
+    // Shadow swimming happens when: 1) camera translates; 2) camera rotates; 3) objects move or rotate
+    // AFAIK Shadow swimming (3) can't be fixed in any way
+    if (texelIncrement>0)   radius = ceil(radius/texelIncrement)*texelIncrement;      // This 'should' fix Shadow swimming (1)  [Not sure code is correct!]
+
+    // Get light matrices
+    lpMatrix = glm::ortho(-radius, radius, -radius, radius, 0.f, -2.f * radius);
+
+    const glm::vec3 eye(frustumCenter[0]-normalizedLightDirection3[0]*radius,
+            frustumCenter[1]-normalizedLightDirection3[1]*radius,
+            frustumCenter[2]-normalizedLightDirection3[2]*radius);
+    lvMatrix = glm::lookAt(eye, frustumCenter, glm::vec3(0, 1, 0));
+
+    Logging::trace("radius {}, eye {} center {}", radius, eye, frustumCenter);
+
+    // Get output
+    // lvpMatrixOut16 = lpMatrix * lvMatrix;
+    lvpMatrixOut16 = lvMatrix * lpMatrix;
+
+    // This 'should' fix Shadow swimming (2) [Not sure code is correct!]
+    /*if (texelIncrement>0)   {
+        float shadowOrigin[4]   = {0,0,0,1};
+        float roundedOrigin[4]  = {0,0,0,0};
+        float roundOffset[4]    = {0,0,0,0};
+        float texelCoefficient = texelIncrement*2.0;
+        // Helper_MatrixMulPos(lvpMatrixOut16,shadowOrigin,shadowOrigin[0],shadowOrigin[1],shadowOrigin[2]);
+
+        for (size_t i = 0; i < 2; i++) {// Or i<3 ?
+            shadowOrigin[i]/= texelCoefficient;
+            roundedOrigin[i] = round(shadowOrigin[i]);
+            roundOffset[i] = roundedOrigin[i] - shadowOrigin[i];
+            roundOffset[i]*=  texelCoefficient;
+        }
+
+        lvpMatrixOut16[3][0] += roundOffset[0];
+        lvpMatrixOut16[3][1]+= roundOffset[1];
+    }*/
+
+    // Debug stuff
+    //fprintf(stderr,"radius=%1.5f frustumCenter={%1.5f,%1.5f,%1.5f}\n",radius,frustumCenter[0],frustumCenter[1],frustumCenter[2]);
+
+    // Extra stuff [Not sure code is correct: the returned viewport seems too big!]
+    /*if (optionalCameraPMatrixInverse16) {
+        int j;
+        hloat cameraVPMatrixInv[16],cameraVPMatrixInverseAdjusted[16];hloat frustumPoints[8][4];
+        hloat minVal[3],maxVal[3],tmp;
+        Helper_MultMatrix(cameraVPMatrixInv,cameraVMatrixInverse16,optionalCameraPMatrixInverse16); // vMatrixInverse16 needs an expensive Helper_InvertMatrix(...) to be calculated. Here we can exploit the property of the product of 2 invertse matrices.
+        // If we call Helper_GetFrustumPoints(frustumPoints,cameraVPMatrixInv) we find the frustum corners in world space
+
+        Helper_MultMatrix(cameraVPMatrixInverseAdjusted,lvpMatrixOut16,cameraVPMatrixInv);  // This way we 'should' get all points in the [-1,1] light NDC space (or not?)
+
+        Helper_GetFrustumPoints(frustumPoints,cameraVPMatrixInverseAdjusted);
+
+        if (optionalCameraFrustumPointsInNDCLightSpaceOut) {
+            for (i=0;i<8;i++)   {
+                for (j=0;j<4;j++)   {
+                    optionalCameraFrustumPointsInNDCLightSpaceOut[i][j] = frustumPoints[i][j];
+                }
+            }
+        }
+
+        // Calculate 'minVal' and 'maxVal' based on 'frustumPoints'
+        for (i=0;i<3;i++)   minVal[i]=maxVal[i]=frustumPoints[0][i];
+        for (i=1;i<8;i++)   {
+            for (j=0;j<3;j++)   {   // We will actually skip the z component later...
+                tmp = frustumPoints[i][j];
+                if      (minVal[j]>tmp) minVal[j]=tmp;
+                else if (maxVal[j]<tmp) maxVal[j]=tmp;
+            }
+            //fprintf(stderr,"frustumPoints[%d]={%1.4f,%1.4f,%1.4f}\n",i,frustumPoints[i][0], frustumPoints[i][1], frustumPoints[i][2]);
+        }
+
+        if (optionalLightViewportClippingOut4)   {
+            optionalLightViewportClippingOut4[0] = minVal[0]*0.5+0.5;   // In [0,1] from [-1,1]
+            optionalLightViewportClippingOut4[1] = minVal[1]*0.5+0.5;   // In [0,1] from [-1,1]
+            optionalLightViewportClippingOut4[2] = (maxVal[0]-minVal[0])*0.5;    // extent x in [0,1]
+            optionalLightViewportClippingOut4[3] = (maxVal[1]-minVal[1])*0.5;    // extent y in [0,1]
+
+            for (i=0;i<4;i++)   {
+               optionalLightViewportClippingOut4[i]/=texelIncrement;    // viewport is in [0,texture_size]
+            }
+
+            // optionalLightViewportClippingOut4[0] = floor(optionalLightViewportClippingOut4[0]);
+            // optionalLightViewportClippingOut4[1] = floor(optionalLightViewportClippingOut4[1]);
+            // optionalLightViewportClippingOut4[2] = ceil(optionalLightViewportClippingOut4[2]);
+            // optionalLightViewportClippingOut4[3] = ceil(optionalLightViewportClippingOut4[3]);
+
+            //fprintf(stderr,"viewport={%1.4f,%1.4f,%1.4f,%1.4f}\n",optionalLightViewportClippingOut4[0],optionalLightViewportClippingOut4[1],optionalLightViewportClippingOut4[2],optionalLightViewportClippingOut4[3]);
+        }
+
+        if (optionalLVPMatrixForFrustumCullingUsageOut16)   {
+            const int attemptToFixSwimming = (lvpMatrixOut16==lvpMatrixFallback) ? 1 : 0;   // Only if we don't want lvpMatrixOut16
+            float minmaxXY[4]={minVal[0]*radius,maxVal[0]*radius,minVal[1]*radius,maxVal[1]*radius};
+            if (attemptToFixSwimming && texelIncrement>0)   {
+                for (i=0;i<4;i++) {
+                    // This 'should' fix Shadow swimming (1) in the 'Stable Shadow Mapping Technique'
+                    // Not sure it works here too...
+                    if (minmaxXY[i]>=0) minmaxXY[i] = ceil(minmaxXY[i]/texelIncrement)*texelIncrement;
+                    else                minmaxXY[i] = -ceil(-minmaxXY[i]/texelIncrement)*texelIncrement;
+                }
+            }
+            Helper_Ortho(optionalLVPMatrixForFrustumCullingUsageOut16,
+                         minmaxXY[0],minmaxXY[1],
+                         minmaxXY[2],minmaxXY[3],
+                         0,-2.0*radius                      // For z, we just copy Helper_Ortho(lpMatrix,...)
+                         );
+            Helper_MultMatrix(optionalLVPMatrixForFrustumCullingUsageOut16,optionalLVPMatrixForFrustumCullingUsageOut16,lvMatrix);
+            // This 'should' fix Shadow swimming (2) in the 'Stable Shadow Mapping Technique'
+            // Not here, because the shadow viewport stretches when the camera rotates
+            // We try anyway...
+            if (attemptToFixSwimming && texelIncrement>0)   {
+                hloat shadowOrigin[4]   = {0,0,0,1};
+                hloat roundedOrigin[4]  = {0,0,0,0};
+                hloat roundOffset[4]    = {0,0,0,0};
+                hloat texelCoefficient = texelIncrement*2.0;
+                Helper_MatrixMulPos(optionalLVPMatrixForFrustumCullingUsageOut16,shadowOrigin,shadowOrigin[0],shadowOrigin[1],shadowOrigin[2]);
+                for (i = 0; i < 2; i++) {// Or i<3 ?
+                    shadowOrigin[i]/= texelCoefficient;
+                    roundedOrigin[i] = Helper_Round(shadowOrigin[i]);
+                    roundOffset[i] = roundedOrigin[i] - shadowOrigin[i];
+                    roundOffset[i]*=  texelCoefficient;
+                }
+                optionalLVPMatrixForFrustumCullingUsageOut16[12]+= roundOffset[0];
+                optionalLVPMatrixForFrustumCullingUsageOut16[13]+= roundOffset[1];
+            }
+        }
+    }*/
+}
+
+
+
+
+static void GetLightViewProjectionMatrix(glm::mat4 &lvpMatrixOut16,
+        const glm::mat4 &cameraVMatrixInverse16, const float cameraNearClippingPlane,
+        const float cameraFarClippingPlane, const float cameraFovyDeg,
+        const float cameraAspectRatio, const glm::vec3 &normalizedLightDirection3, 
+        const float texelIncrement)  {
+    GetLightViewProjectionMatrixExtra(lvpMatrixOut16,cameraVMatrixInverse16,cameraNearClippingPlane,cameraFarClippingPlane,cameraFovyDeg,cameraAspectRatio,0,normalizedLightDirection3,texelIncrement,
+            nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+}
+
+
 /**
  * Renders the shadow map.
  *
@@ -633,6 +841,9 @@ void Lighting::removeLight(std::shared_ptr<gfx::lights::AbstractLight> light) {
  * of the directional light (i.e. sun) multiplied by a certain factor.
  */
 void Lighting::renderShadowMap(WorldRenderer *wr) {
+    // TODO: fix this
+    return;
+
     using namespace gl;
     using namespace gfx;
     PROFILE_SCOPE(LightingShadow);
@@ -648,17 +859,27 @@ void Lighting::renderShadowMap(WorldRenderer *wr) {
 
     // get Z plane
     // TODO: Tweak this slightly
-    glm::vec2 zPlane = wr->getZPlane();
-    float zNear = zPlane.x;
-    float zFar = zPlane.y;
+    // const glm::vec2 zPlane = wr->getZPlane();
+    //const float zNear = zPlane.x;
+    //const float zFar = zPlane.y;
+    const float zNear = .5;
+    const float zFar = 100.;
+    const glm::vec3 lightDir = normalize(this->sunDirection);
 
     // Calculate shadow view matrix
+    /*const float aspect = wr->getAspect();
+    const auto &viewInv = inverse(this->viewMatrix);
+    glm::mat4 lvpMatrix;
+    GetLightViewProjectionMatrix(lvpMatrix, viewInv, zNear, zFar, wr->getFoV(), aspect,
+            normalize(lightDir), 1.f / ((float) this->shadowW));
+    this->shadowViewMatrix = lvpMatrix;*/
+
     glm::vec3 position = wr->getCamera().getCameraPosition();
-    glm::vec3 lightDir = this->sunDirection;
     glm::mat4 depthProjectionMatrix = glm::ortho<float>(-100, 100, -100, 100, zNear, zFar);
 
-    glm::vec3 shadowPos = position;// + (lightDir * 20.f / 2.f);
-    glm::mat4 depthViewMatrix = glm::lookAt(shadowPos, -lightDir, glm::vec3(0,1,0));
+    position.y = 64;
+    glm::vec3 shadowPos = position - (lightDir * 100.f / 2.f);
+    glm::mat4 depthViewMatrix = glm::lookAt(shadowPos, position, glm::vec3(0,1,0));
 
     glm::mat4 lightSpaceMatrix = depthProjectionMatrix * depthViewMatrix;
     this->shadowViewMatrix = lightSpaceMatrix;
@@ -705,6 +926,13 @@ void Lighting::drawDebugWindow() {
     if(!ImGui::Begin("Lighting Renderer", &this->showDebugWindow)) {
         goto done;
     }
+
+    // tools
+    if(ImGui::Button("Buffers")) {
+        this->showTexturePreview = true;
+    }
+
+    ImGui::Separator();
 
     // sky
     ImGui::Text("Sky");
@@ -933,4 +1161,85 @@ void Lighting::drawLightsTable() {
 
         ImGui::EndTable();
     }
+}
+
+/**
+ * Draws the texture preview window.
+ */
+void Lighting::drawTexturePreview() {
+    static const char *kPreviewName[5] = {
+        "G Diffuse", "G Normal", "G Material", "G Depth", "Shadow Depth",
+    };
+
+    auto &io = ImGui::GetIO();
+  // short circuit drawing if not visible
+    if(!ImGui::Begin("Lighting Buffers", &this->showTexturePreview, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::End();
+        return;
+    }
+
+    // toolbar
+    ImGui::PushItemWidth(200);
+    ImGui::ColorEdit4("Tint", &this->previewTint.x);
+    ImGui::PopItemWidth();
+
+    ImGui::SameLine();
+    ImGui::Dummy(ImVec2(10,0));
+    ImGui::SameLine();
+    ImGui::PushItemWidth(32);
+    ImGui::DragInt("Scale", &this->previewScale, 1, 1, 16);
+    ImGui::PopItemWidth();
+
+    ImGui::SameLine();
+    ImGui::Dummy(ImVec2(10,0));
+    ImGui::PushItemWidth(133);
+    ImGui::SameLine();
+    if(ImGui::BeginCombo("Buffer", kPreviewName[this->previewTextureIdx])) {
+        for(size_t j = 0; j < 5; j++) {
+            const bool isSelected = (this->previewTextureIdx == j);
+
+            if (ImGui::Selectable(kPreviewName[j], isSelected)) {
+                this->previewTextureIdx = j;
+            }
+            if(isSelected) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+    }
+
+    // draw pls
+    ImGui::PopItemWidth();
+    ImGui::Separator();
+
+    ImVec2 uv0(0,1), uv1(1,0);
+    ImVec2 imageSize(this->viewportSize.x, this->viewportSize.y);
+    ImVec4 tint(this->previewTint.x, this->previewTint.y, this->previewTint.z, this->previewTint.w);
+
+    gl::GLuint textureId = this->gDiffuse->getGlObjectId();
+    if(this->previewTextureIdx == 1) {
+        textureId = this->gNormal->getGlObjectId();
+    } else if(this->previewTextureIdx == 2) {
+        textureId = this->gMatProps->getGlObjectId();
+    } else if(this->previewTextureIdx == 3) {
+        textureId = this->gDepth->getGlObjectId();
+    } else if(this->previewTextureIdx == 4) {
+        textureId = this->shadowTex->getGlObjectId();
+        imageSize = glm::vec2(this->shadowW, this->shadowH);
+    }
+
+    const auto textureSize = imageSize;
+
+    imageSize.x = imageSize.x / this->previewScale / io.DisplayFramebufferScale.x;
+    imageSize.y = imageSize.y / this->previewScale / io.DisplayFramebufferScale.y;
+
+    ImGui::Image((void *) (size_t) textureId, imageSize, uv0, uv1, tint, ImVec4(1,1,1,1));
+
+    // image info
+    ImGui::Text("Texture Size: %g x %g", textureSize.x, textureSize.y);
+    ImGui::SameLine();
+    ImGui::Text("Display Size: %g x %g", imageSize.x, imageSize.y);
+
+    // done
+    ImGui::End();
 }

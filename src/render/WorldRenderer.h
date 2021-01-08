@@ -67,6 +67,10 @@ class WorldRenderer: public gui::RunLoopStep {
         const float getFoV() const {
             return this->projFoV;
         }
+        /// returns the viewport aspect ratio
+        const float getAspect() const {
+            return this->aspect;
+        }
         /// returns the current world time
         const double getTime() const {
             return this->time;
@@ -111,6 +115,8 @@ class WorldRenderer: public gui::RunLoopStep {
         float projFoV = 70.f;
         // size of the viewport (render canvas)
         unsigned int viewportWidth = 0, viewportHeight = 0;
+        /// viewport aspect ratio
+        float aspect = 0.f;
 
         // projection matrix
         glm::mat4 projection;
