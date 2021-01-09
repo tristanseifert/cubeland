@@ -10,15 +10,14 @@
 #include <string>
 #include <mutex>
 
-namespace libconfig {
-class Config;
-}
+struct sqlite3;
+struct sqlite3_stmt;
 
 namespace io {
-class PrefsManager {
+class PrefsManager final {
     public:
         static void init() {
-            shared = std::make_shared<PrefsManager>();
+            shared = std::make_unique<PrefsManager>();
         }
         static void synchronize() {
             shared->write();
@@ -28,27 +27,33 @@ class PrefsManager {
         static unsigned int getUnsigned(const std::string &key, const unsigned int fallback = 0);
         static void setUnsigned(const std::string &key, const unsigned int value);
 
-        static bool getBool(const std::string &key, const bool fallback = false);
-        static void setBool(const std::string &key, const bool value);
+        static bool getBool(const std::string &key, const bool fallback = false) {
+            return (getUnsigned(key, fallback ? 1 : 0) == 1) ? true : false;
+        }
+        static void setBool(const std::string &key, const bool value) {
+            setUnsigned(key, value ? 1 : 0);
+        }
 
     // don't call these
     public:
         PrefsManager();
+        ~PrefsManager();
 
     private:
         void write();
+
+        void initSchema();
         void loadDefaults();
 
     private:
-        static std::shared_ptr<PrefsManager> shared;
+        static std::unique_ptr<PrefsManager> shared;
 
     private:
         // path to the preferences file on disk
         std::string path;
-
-        // config file
-        std::shared_ptr<libconfig::Config> config = nullptr;
-        // lock protecting access to the preferences
+        // SQLite db for prefs
+        sqlite3 *db = nullptr;
+        // lock protecting access to the preferences db
         std::mutex lock;
 };
 }

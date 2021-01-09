@@ -1,42 +1,89 @@
 #include "PrefsManager.h"
 #include "PathHelper.h"
-#include "Format.h"
 
+#include "util/SQLite.h"
+
+#include "Format.h"
 #include <Logging.h>
 
-#include <libconfig.h++>
+#include <sqlite3.h>
+#include <cmrc/cmrc.hpp>
 
+#include <stdexcept>
 #include <iostream>
 #include <filesystem>
 
 using namespace io;
+using namespace util;
 
-std::shared_ptr<PrefsManager> PrefsManager::shared = nullptr;
+CMRC_DECLARE(sql);
+
+std::unique_ptr<PrefsManager> PrefsManager::shared = nullptr;
 
 /**
  * Sets the default preferences path.
  */
 PrefsManager::PrefsManager() {
-    this->path = PathHelper::appDataDir() + "/preferences.conf";
+    int err;
 
-    // create the config object backing our storage
-    this->config = std::make_shared<libconfig::Config>();
-    this->config->setAutoConvert(true);
+    // open the prefs database
+    this->path = PathHelper::appDataDir() + "/preferences.sqlite3";
 
-    // load from disk if file exists
-    if(std::filesystem::exists(std::filesystem::path(this->path))) {
-        try {
-            this->config->readFile(this->path.c_str());
-        } catch (const libconfig::ParseException &parse) {
-            auto what = f("(line {}) {}; {}", parse.getLine(), parse.what(), parse.getError());
-            std::cerr << "Failed to parse preferences file: " << what << std::endl;
-        } catch (const libconfig::FileIOException &e) {
-            std::cerr << "Failed to load preferences: " << e.what() << std::endl;
-        }
-    } 
+    err = sqlite3_open_v2(this->path.c_str(), &this->db, 
+            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
+    if(err != SQLITE_OK) {
+        throw std::runtime_error(f("Failed to open preferences (from {}): {}", this->path,
+                sqlite3_errstr(err)));
+    }
+
+    // set up schema
+    this->initSchema();
 
     // apply the defaults for any missing prefs
-    this->loadDefaults();
+    // this->loadDefaults();
+}
+
+/**
+ * Closes the prefs database.
+ */
+PrefsManager::~PrefsManager() {
+    int err;
+
+    // close down the datablaze
+    std::lock_guard<std::mutex> lg(this->lock);
+
+    err = sqlite3_close(this->db);
+    if(err != SQLITE_OK) {
+        Logging::error("Failed to close preferences file: {}", err);
+    }
+
+    this->db = nullptr;
+}
+
+/**
+ * Sets up the initial database schema.
+ */
+void PrefsManager::initSchema() {
+    int err;
+
+    // bail if the schema (the v1 info table) exists
+    if(SQLite::tableExists(this->db, "prefs_string_v1")) {
+        return;
+    }
+
+    // otherwise, just execute the big stored sql string
+    auto fs = cmrc::sql::get_filesystem();
+    auto file = fs.open("/prefs_v1.sql");
+    std::string schema(file.begin(), file.end());
+
+    SQLite::beginTransaction(this->db);
+
+    err = sqlite3_exec(this->db, schema.c_str(), nullptr, nullptr, nullptr);
+    if(err != SQLITE_OK) {
+        throw std::runtime_error(f("Failed to write preferences schema ({}): {}", err, sqlite3_errmsg(this->db)));
+    }
+
+    SQLite::commitTransaction(this->db);
 }
 
 /**
@@ -44,7 +91,7 @@ PrefsManager::PrefsManager() {
  */
 void PrefsManager::loadDefaults() {
     // create the "window" section
-    if(!this->config->exists("window")) {
+    /*if(!this->config->exists("window")) {
         this->config->getRoot().add("window", libconfig::Setting::TypeGroup);
     }
 
@@ -83,59 +130,70 @@ void PrefsManager::loadDefaults() {
             // number of worker threads used by the WorldChunk work queue (rendering/physics)
             s.add("drawWorkThreads", libconfig::Setting::TypeInt64) = 3L;
         }
-    }
+    }*/
 }
 
 /**
  * Writes the current set of preferences out to disk.
  */
 void PrefsManager::write() {
-    try {
-        this->config->writeFile(this->path.c_str());
-    } catch (const libconfig::FileIOException &e) {
-        Logging::error("Failed to write prefs to '{}': {}", this->path, e.what());
-    }
+    // there's really nothing to do here. shoutout sqlite
 }
 
 /**
  * Gets an unsigned integer value.
  */
 unsigned int PrefsManager::getUnsigned(const std::string &key, const unsigned int fallback) {
-    unsigned int value;
+    int err;
+    sqlite3_stmt *stmt = nullptr;
 
+    // prepare the query
     std::lock_guard<std::mutex> guard(shared->lock);
-    if(shared->config->lookupValue(key, value)) {
-        return value;
+
+    SQLite::prepare(shared->db, "SELECT value FROM prefs_number_v1 WHERE key = ?;", &stmt);
+    SQLite::bindColumn(stmt, 1, key);
+
+    err = sqlite3_step(stmt);
+
+    // no such row, return default
+    if(err == SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        return fallback;
+    } 
+    // got a row with this key, get its value
+    else if(err == SQLITE_ROW) {
+        int64_t temp = 0;
+
+        SQLite::getColumn(stmt, 0, temp);
+
+        sqlite3_finalize(stmt);
+        return temp;
+    } 
+    // DB error
+    else {
+        throw std::runtime_error(f("Failed to read preferences key ({}): {}", err, sqlite3_errmsg(shared->db)));
     }
-    return fallback;
 }
 /**
  * Sets the given unsigned value.
  */
 void PrefsManager::setUnsigned(const std::string &key, const unsigned int value) {
-    if(shared->config->exists(key)) {
-        shared->config->lookup(key) = (long) value;
-    }
-}
+    int err;
+    sqlite3_stmt *stmt = nullptr;
 
-/**
- * Gets a boolean value.
- */
-bool PrefsManager::getBool(const std::string &key, const bool fallback) {
-    bool value;
+    std::lock_guard<std::mutex> lg(shared->lock);
 
-    std::lock_guard<std::mutex> guard(shared->lock);
-    if(shared->config->lookupValue(key, value)) {
-        return value;
+    SQLite::prepare(shared->db, "INSERT INTO prefs_number_v1 (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, modified=CURRENT_TIMESTAMP;", &stmt);
+    SQLite::bindColumn(stmt, 1, key);
+    SQLite::bindColumn(stmt, 2, (int64_t) value);
+
+    err = sqlite3_step(stmt);
+    if(err != SQLITE_ROW && err != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        throw std::runtime_error(f("Failed to write preferences key ({}): {}", err, sqlite3_errmsg(shared->db)));
     }
-    return fallback;
-}
-/**
- * Sets the given boolean value.
- */
-void PrefsManager::setBool(const std::string &key, const bool value) {
-    if(shared->config->exists(key)) {
-        shared->config->lookup(key) = value;
-    }
+
+    // clean up
+    sqlite3_finalize(stmt);
 }
 

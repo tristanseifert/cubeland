@@ -171,6 +171,7 @@ target_link_libraries(cubeland PRIVATE cubeland::rsrc_ui)
 # SQL statements
 cmrc_add_resource_library(cubeland-rsrc-sql
     rsrc/sql/world_v1.sql
+    rsrc/sql/prefs_v1.sql
 ALIAS cubeland::rsrc_sql WHENCE rsrc/sql NAMESPACE sql)
 target_link_libraries(cubeland PRIVATE cubeland::rsrc_sql)
 
