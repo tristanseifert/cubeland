@@ -242,6 +242,7 @@ void WorldSource::writerMain() {
  */
 void WorldSource::markChunkDirty(std::shared_ptr<Chunk> &chunk) {
     XASSERT(chunk, "null chunk passed to WorldSource::markChunkDirty()!");
+
     LOCK_GUARD(this->dirtyChunksLock, DirtyChunks);
     PROFILE_SCOPE(MarkChunksDirty);
 
@@ -257,6 +258,24 @@ void WorldSource::markChunkDirty(std::shared_ptr<Chunk> &chunk) {
             .chunk = chunk
         };
     }
+}
+
+/**
+ * Checks whether the chunk is dirty before writing it synchronously.
+ */
+void WorldSource::forceChunkWriteIfDirtySync(std::shared_ptr<Chunk> &chunk) {
+    XASSERT(chunk, "null chunk passed to WorldSource::forceChunkWriteIfDirtySync()!");
+    PROFILE_SCOPE(WriteChunkIfDirtySync);
+
+    // check if in dirty list
+    {
+        LOCK_GUARD(this->dirtyChunksLock, DirtyChunks);
+        if(!this->dirtyChunks.contains(chunk->worldPos)) {
+            return;
+        }
+    }
+
+    this->forceChunkWriteSync(chunk);
 }
 
 /**

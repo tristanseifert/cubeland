@@ -2,6 +2,7 @@
 #define WORLD_FILEWORLDREADER_H
 
 #include "WorldReader.h"
+#include "util/SQLite.h"
 
 #include <string>
 #include <thread>
@@ -140,33 +141,28 @@ class FileWorldReader: public WorldReader {
 
         size_t getDbBytesUsed();
 
-        void prepare(const std::string &, sqlite3_stmt **);
-
-        void bindColumn(sqlite3_stmt *, const size_t, const std::string &);
-        void bindColumn(sqlite3_stmt *, const size_t, const std::vector<char> &);
-        void bindColumn(sqlite3_stmt *, const size_t, const uuids::uuid &);
-        void bindColumn(sqlite3_stmt *, const size_t, const double);
-        void bindColumn(sqlite3_stmt *, const size_t, const int32_t);
-        void bindColumn(sqlite3_stmt *, const size_t, const int64_t);
-        void bindColumn(sqlite3_stmt *, const size_t, std::nullptr_t);
-        void bindColumn(sqlite3_stmt *stmt, const size_t i, const bool value) {
-            this->bindColumn(stmt, i, (int32_t) (value ? 1 : 0));
-        }
-        void bindColumn(sqlite3_stmt *stmt, const size_t i, const float value) {
-            this->bindColumn(stmt, i, (double) value);
+        void prepare(const std::string &query, sqlite3_stmt **out) {
+            util::SQLite::prepare(this->db, query, out);
         }
 
-        bool getColumn(sqlite3_stmt *, const size_t, std::string &);
-        bool getColumn(sqlite3_stmt *, const size_t, std::vector<char> &);
-        bool getColumn(sqlite3_stmt *, const size_t, uuids::uuid &);
-        bool getColumn(sqlite3_stmt *, const size_t, double &);
-        bool getColumn(sqlite3_stmt *, const size_t, int32_t &);
-        bool getColumn(sqlite3_stmt *, const size_t, int64_t &);
-        bool getColumn(sqlite3_stmt *, const size_t, bool &);
+        /// Sets a query parameter
+        template <class T> void bindColumn(sqlite3_stmt *stmt, const size_t idx, T const &value) {
+            util::SQLite::bindColumn(stmt, idx, value);
+        }
+        /// Gets a column value
+        template <class T> bool getColumn(sqlite3_stmt *stmt, const size_t idx, T &out) {
+            return util::SQLite::getColumn(stmt, idx, out);
+        }
 
-        void beginTransaction();
-        void rollbackTransaction();
-        void commitTransaction();
+        void beginTransaction() {
+            util::SQLite::beginTransaction(this->db);
+        }
+        void rollbackTransaction() {
+            util::SQLite::rollbackTransaction(this->db);
+        }
+        void commitTransaction() {
+            util::SQLite::commitTransaction(this->db);
+        }
 
         /// Gets a double (REAL) column as a float.
         bool getColumn(sqlite3_stmt *stmt, const size_t col, float &value) {

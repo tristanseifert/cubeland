@@ -135,8 +135,6 @@ void VertexGenerator::removeCallback(const uint32_t token) {
  * bitmask.
  */
 void VertexGenerator::generate(std::shared_ptr<world::Chunk> &chunk, const uint64_t bits, const bool highPriority) {
-    // TODO: check that we're not already generating this
-
     // queue a generating request
     GenerateRequest req;
     req.chunk = chunk;
@@ -217,6 +215,18 @@ void VertexGenerator::workerGenerate(const GenerateRequest &req, const bool useC
                 const glm::ivec3 origin(x, y, z);
                 const uint64_t bits = blockPosToBits(origin);
                 if((bits & req.globules) == 0) continue;
+
+                // bail if already processing it
+                if(!useChunkWorker) {
+                    LOCK_GUARD(this->inFlightLock, InFlight);
+                    std::pair<glm::ivec2, glm::ivec3> test(req.chunk->worldPos, origin);
+
+                    if(this->inFlight.contains(test)) {
+                        return;
+                    }
+
+                    this->inFlight.insert(std::move(test));
+                }
 
                 // handle generation
                 auto chunk = req.chunk;
@@ -732,6 +742,13 @@ void VertexGenerator::workerGenBuffers(const BufferRequest &req) {
 
             outBuf.indexBuffer = buf;
         }
+    }
+
+    // remove the in-flight tag if any
+    {
+        LOCK_GUARD(this->inFlightLock, InFlight);
+        std::pair<glm::ivec2, glm::ivec3> test(req.chunkPos, req.globuleOff);
+        this->inFlight.erase(test);
     }
 
     // invoke the appropriate callbacks

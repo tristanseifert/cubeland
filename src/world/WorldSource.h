@@ -61,8 +61,10 @@ class WorldSource {
 
         /// Marks the given chunk as dirty.
         void markChunkDirty(std::shared_ptr<Chunk> &chunk);
-        /// Forces a chunk to be written out, if it's dirty. Will wait for this to complete
+        /// Forces a chunk to be written out. Will wait for this to complete
         void forceChunkWriteSync(std::shared_ptr<Chunk> &chunk);
+        /// Forces a chunk to be written out, if it's dirty. Will wait for this to complete
+        void forceChunkWriteIfDirtySync(std::shared_ptr<Chunk> &chunk);
 
         /// Gets the number of pending chunks to write (e.g. those that are dirty)
         const size_t numPendingWrites() const {

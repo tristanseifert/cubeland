@@ -18,6 +18,7 @@
 #include <variant>
 #include <functional>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <bitset>
 #include <vector>
@@ -41,6 +42,21 @@ class Buffer;
 
 namespace render::chunk {
 class VertexGeneratorData;
+
+template<typename T> void hashCombine(std::size_t &seed, T const &key) {
+  std::hash<T> hasher;
+  seed ^= hasher(key) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
+
+/// Helper to provide a hash of pair types
+struct PairHash {
+    template <class T1, class T2> std::size_t operator() (const std::pair<T1, T2> &pair) const {
+        std::size_t ret = 0;
+        hashCombine<T1>(ret, pair.first);
+        hashCombine<T2>(ret, pair.second);
+        return ret;
+    }
+};
 
 class VertexGenerator {
     public:
@@ -255,11 +271,17 @@ class VertexGenerator {
         /// buffers to be created
         moodycamel::ConcurrentQueue<BufferRequest> bufferReqs;
 
+        /// set containing the chunk world positions for which we're generating data
+        std::unordered_set<std::pair<glm::ivec2, glm::ivec3>, PairHash> inFlight;
+        /// lock protecting this set
+        std::mutex inFlightLock;
+
         using WorkFunc = std::function<void(void)>;
 
         /// thread pool for high priority globule updates
         util::ThreadPool<WorkFunc> highPriorityWorkQueue = util::ThreadPool<WorkFunc>("VtxGen User Update", 3);
 };
 }
+
 
 #endif

@@ -96,7 +96,6 @@ add_executable(cubeland
     src/render/steps/SSAO.cpp
 # world handling (IO/basic behaviors)
     src/world/FileWorldReader.cpp
-    src/world/FileWorldReader+SQLite.cpp
     src/world/FileWorldReader+Writing.cpp
     src/world/FileWorldReader+Reading.cpp
     src/world/WorldSource.cpp

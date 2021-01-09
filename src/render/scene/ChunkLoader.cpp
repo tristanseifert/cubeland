@@ -280,6 +280,8 @@ void ChunkLoader::updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirect
         needsDrawOrderUpdate = true;
 
         // recalculate all the surrounding chunks
+        std::vector<glm::ivec2> pos;
+
         for(int xOff = -this->chunkRange; xOff <= (int)this->chunkRange; xOff++) {
             for(int zOff = -this->chunkRange; zOff <= (int)this->chunkRange; zOff++) {
                 const auto chunkPos = this->centerChunkPos + glm::ivec2(xOff, zOff);
@@ -288,8 +290,23 @@ void ChunkLoader::updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirect
                 if(!xOff && !zOff) continue;
 
                 // request the chunk
-                this->loadChunk(chunkPos);
+                pos.push_back(chunkPos);
             }
+        }
+
+        // sort the positions from nearest to furthest
+        const glm::vec2 center(this->centerChunkPos);
+
+        std::sort(std::begin(pos), std::end(pos), [center](const auto &l, const auto &r) {
+            // all this conversion is kind of shitty :(
+            const auto distL = distance2(center, glm::vec2(l));
+            const auto distR = distance2(center, glm::vec2(r));
+            return (distL < distR);
+        });
+
+        // then, load them in that order
+        for(const auto &chunkPos : pos) {
+            this->loadChunk(chunkPos);
         }
     }
 
@@ -747,7 +764,7 @@ void ChunkLoader::pruneLoadedChunksList() {
             // invoke unload handler and ensure chunk is written out if dirty
             for(auto &chunk : this->chunksToDealloc) {
                 BlockRegistry::notifyChunkWillUnload(chunk);
-                this->source->forceChunkWriteSync(chunk);
+                this->source->forceChunkWriteIfDirtySync(chunk);
             }
 
             this->chunksToDealloc.clear();
