@@ -95,7 +95,7 @@ class Renderer: public render::RenderStep {
         static const gl::GLfloat kQuadData[];
 
     private:
-        void rebuildAtlas();
+        void rebuildAtlas(const bool uploadTexture = true);
 
         void drawDebugWindow();
 

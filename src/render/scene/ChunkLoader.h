@@ -199,7 +199,7 @@ class ChunkLoader {
          */
         std::unordered_map<glm::ivec2, bool> visibilityMap;
         /// Max distance an entry in the visibility map can be from the current position
-        size_t visibilityReleaseDistance = 4;
+        size_t visibilityReleaseDistance = 6;
 
         /**
          * Chunks that were loaded, but aren't visible are pushed here. We'll handle them when we

@@ -124,6 +124,13 @@ void Renderer::addSystem(std::shared_ptr<System> &system) {
     system->setPhysicsEngine(this->phys);
     system->registerTextures(this);
 
+    /*
+     * Update the texture atlas, but the layout only. This is required so subsequent particle
+     * systems of the same kind that are added before the frame begins will get the correct UV
+     * coordinates.
+     */
+    this->rebuildAtlas(false);
+
     this->particleSystems.push_back(system);
 }
 
@@ -311,7 +318,7 @@ bool Renderer::addTexture(const glm::ivec2 &size, const std::string &path) {
 /**
  * Rebuilds the particle system texture atlas.
  */
-void Renderer::rebuildAtlas() {
+void Renderer::rebuildAtlas(const bool upload) {
     // get lock to the textures map
     LOCK_GUARD(this->texturesLock, ParticleTextures);
     PROFILE_SCOPE(RebuildParticleAtlas);
@@ -324,6 +331,9 @@ void Renderer::rebuildAtlas() {
     }
 
     this->texturesPacker.updateLayout(sizes);
+
+    // bail if we don't wanna upload the texture
+    if(!upload) return;
 
     // set up the texture data buffer
     const auto atlasSize = this->texturesPacker.getAtlasSize();

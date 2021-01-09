@@ -221,7 +221,12 @@ void VertexGenerator::workerGenerate(const GenerateRequest &req, const bool useC
                 // handle generation
                 auto chunk = req.chunk;
                 auto fxn = [&, chunk, origin](const bool uiUpdate = false) -> void {
-                    this->workerGenerate(chunk, origin, uiUpdate);
+                    try {
+                        this->workerGenerate(chunk, origin, uiUpdate);
+                    } catch(const std::exception &e) {
+                        Logging::error("Error generating globule: {}", e.what());
+                        throw;
+                    }
                 };
 
                 if(useChunkWorker) {

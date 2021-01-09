@@ -24,15 +24,18 @@ class PrefsManager final {
         }
 
     public:
-        static unsigned int getUnsigned(const std::string &key, const unsigned int fallback = 0);
+        static const unsigned int getUnsigned(const std::string &key, const unsigned int fallback = 0);
         static void setUnsigned(const std::string &key, const unsigned int value);
 
-        static bool getBool(const std::string &key, const bool fallback = false) {
+        static const bool getBool(const std::string &key, const bool fallback = false) {
             return (getUnsigned(key, fallback ? 1 : 0) == 1) ? true : false;
         }
         static void setBool(const std::string &key, const bool value) {
             setUnsigned(key, value ? 1 : 0);
         }
+
+        static const std::string getString(const std::string &key, const std::string &fallback = "");
+        static void setString(const std::string &key, const std::string &value);
 
     // don't call these
     public:

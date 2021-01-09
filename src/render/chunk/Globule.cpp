@@ -103,7 +103,6 @@ void Globule::setBuffer(const VertexGenerator::Buffer &buf) {
         this->numSpecialIndices = 0;
     }
 
-
     // clear inhibition flags
     this->inhibitDrawing = false;
 }
@@ -115,10 +114,6 @@ void Globule::setBuffer(const VertexGenerator::Buffer &buf) {
 void Globule::drawInternal(std::shared_ptr<gfx::RenderProgram> &program,
         const size_t firstIdx, const size_t numIndices) {
     using namespace gl;
-
-    if(firstIdx) {
-        // Logging::trace("kush {} {}", firstIdx, numIndices);
-    }
 
     // draw if we have indices to do so with
     if(!this->inhibitDrawing && numIndices) {

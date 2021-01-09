@@ -112,7 +112,7 @@ class WorldRenderer: public gui::RunLoopStep {
         float zNear = 0.1f;
         float zFar = 1250.f;
         // field of view, in degrees
-        float projFoV = 70.f;
+        float projFoV = 74.f;
         // size of the viewport (render canvas)
         unsigned int viewportWidth = 0, viewportHeight = 0;
         /// viewport aspect ratio
