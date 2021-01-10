@@ -115,6 +115,7 @@ add_executable(cubeland
     src/world/blockImpl/Torch.cpp
     src/world/blockImpl/Glass.cpp
     src/world/blockImpl/Brick.cpp
+    src/world/blockImpl/Cobblestone.cpp
 # inventory support
     src/inventory/Manager.cpp
     src/inventory/ItemDrawing.cpp

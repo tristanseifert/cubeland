@@ -80,7 +80,7 @@ class HDR: public RenderStep {
         // whether blooming is enabled or not
         bool bloomEnabled = false;
         // number of passes to perform for blurring (must be a multiple of 2)
-        int numBlurPasses = 3;
+        int numBlurPasses = 5;
         // size of the blur kernel to use (5, 9, or 13)
         const int blurSize = 13;
         // Number to divide viewport size with when blurring

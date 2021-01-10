@@ -102,6 +102,14 @@ class Block {
         virtual const bool isCollectable(const glm::ivec3 &pos) const {
             return true;
         }
+        /// The ID of the block added to the player's inventory; by default, the block ID
+        virtual const uuids::uuid collectableIdFor(const glm::ivec3 &pos) const {
+            return this->id;
+        }
+        /// Number of collectable items dropped.
+        virtual const size_t collectableCountFor(const glm::ivec3 &pos) const {
+            return 1;
+        }
 
         /**
          * Whether the block is drawn in the alpha blended special pass (where face culling is

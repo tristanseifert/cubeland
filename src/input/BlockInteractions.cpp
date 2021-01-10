@@ -120,7 +120,15 @@ void BlockInteractions::destroyBlock() {
     if(!ticksToDestroy) {
         // it's immediate, so don't bother with the timer
         if(block->isCollectable(pos)) {
-            bool collected = this->inventory->addItem(*oldId);
+            const auto newId = block->collectableIdFor(pos);
+            const auto count = block->collectableCountFor(pos);
+            if(!count) {
+                // TODO: draw some sort of feedback that the collection was cancelled by the block
+                Logging::warn("Collection for {} cancelled!", pos);
+                return;
+            }
+
+            bool collected = this->inventory->addItem(newId, count);
             (void) collected;
         }
 
@@ -293,7 +301,15 @@ void BlockInteractions::destroyBlockTimerExpired() {
 
     // perform destruction of block
     if(block->isCollectable(pos)) {
-        bool collected = this->inventory->addItem(*oldId);
+        const auto newId = block->collectableIdFor(pos);
+        const auto count = block->collectableCountFor(pos);
+        if(!count) {
+            // TODO: draw some sort of feedback that the collection was cancelled by the block
+            Logging::warn("Collection for {} cancelled!", pos);
+            return;
+        }
+
+        bool collected = this->inventory->addItem(newId, count);
         (void) collected;
     }
     chunk->setBlock(relBlock, world::BlockRegistry::kAirBlockId, true);

@@ -84,9 +84,10 @@ bool Manager::handleEvent(const SDL_Event &event) {
 /**
  * Adds `count` occurrences of the block `blockId` to the inventory.
  */
-bool Manager::addItem(const uuids::uuid &blockId, const size_t count) {
-    if(blockId.is_nil()) return false;
+bool Manager::addItem(const uuids::uuid &blockId, const size_t _count) {
+    auto count = _count;
 
+    if(blockId.is_nil()) return false;
     XASSERT(count && count < kMaxItemsPerSlot, "Invalid count: {}", count);
     LOCK_GUARD(this->slotLock, AddItem);
 
@@ -101,9 +102,24 @@ bool Manager::addItem(const uuids::uuid &blockId, const size_t count) {
         if(block.blockId != blockId) continue;
 
         // compare maximum count
-        if(block.count < kMaxItemsPerSlot) {
+        if((block.count + count) < kMaxItemsPerSlot) {
             block.count += count;
             this->inventoryDirty = true;
+            return true;
+        }
+        // there's only partial space
+        else if(block.count < kMaxItemsPerSlot) {
+            const auto capacity = kMaxItemsPerSlot - block.count;
+            const auto toAdd = std::min(count, capacity);
+
+            block.count += toAdd;
+            count -= toAdd;
+
+            this->inventoryDirty = true;
+        }
+
+        // if we've fulfilled the required adding, return
+        if(!count) {
             return true;
         }
     }
