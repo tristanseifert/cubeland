@@ -8,7 +8,10 @@
 
 #include <memory>
 #include <string>
+#include <optional>
 #include <mutex>
+
+#include <uuid.h>
 
 struct sqlite3;
 struct sqlite3_stmt;
@@ -36,6 +39,9 @@ class PrefsManager final {
 
         static const std::string getString(const std::string &key, const std::string &fallback = "");
         static void setString(const std::string &key, const std::string &value);
+
+        static const std::optional<uuids::uuid> getUuid(const std::string &key);
+        static void setUuid(const std::string &key, const uuids::uuid &value);
 
     // don't call these
     public:
