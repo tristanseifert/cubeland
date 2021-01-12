@@ -219,6 +219,11 @@ void BlockInteractions::placeBlock() {
 bool BlockInteractions::allowPlacementAt(const glm::ivec3 &pos) {
     using namespace world;
 
+    // early sanity checks
+    if(pos.y < 0 || pos.y >= Chunk::kMaxY) {
+        return false;
+    }
+
     // decompose the block position
     glm::ivec2 chunkPos;
     glm::ivec3 blockPos;

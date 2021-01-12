@@ -24,9 +24,12 @@ class PointLight;
 namespace world::blocks {
 class Torch: public Block {
     public:
+        const static uuids::uuid kBlockId;
+
+    public:
         static void Register();
 
-    Torch();
+        Torch();
 
     public:
         uint16_t getBlockId(const glm::ivec3 &pos, const BlockFlags flags) override;

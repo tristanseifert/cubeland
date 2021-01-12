@@ -179,7 +179,7 @@ void PrefsManager::setUuid(const std::string &key, const uuids::uuid &value) {
 
     std::lock_guard<std::mutex> lg(shared->lock);
 
-    SQLite::prepare(shared->db, "INSERT INTO prefs_uuid_v1 (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, modified=CURRENT_TIMESTAMP;", &stmt);
+    SQLite::prepare(shared->db, "INSERT INTO prefs_blob_v1 (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, modified=CURRENT_TIMESTAMP;", &stmt);
     SQLite::bindColumn(stmt, 1, key);
     SQLite::bindColumn(stmt, 2, value);
 

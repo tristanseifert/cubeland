@@ -9,9 +9,12 @@
 namespace world::blocks {
 class Cobblestone: public Block {
     public:
+        const static uuids::uuid kBlockId;
+
+    public:
         static void Register();
 
-    Cobblestone();
+        Cobblestone();
 
     public:
         uint16_t getBlockId(const glm::ivec3 &pos, const BlockFlags flags) override;

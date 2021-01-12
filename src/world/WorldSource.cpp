@@ -13,6 +13,8 @@
 
 #include <utility>
 #include <chrono>
+#include <algorithm>
+#include <random>
 
 using namespace world;
 
@@ -28,7 +30,37 @@ using namespace world;
  */
 WorldSource::WorldSource(std::shared_ptr<WorldReader> _r, std::shared_ptr<WorldGenerator> _g,
         const size_t _numThreads) : generator(_g), reader(_r) {
-    // set up threads
+    // load player id from preferences, or generate one
+    auto id = io::PrefsManager::getUuid("player.id");
+    if(!id) {
+        // generate seeds for a UUID random generator
+        std::random_device rand;
+        auto seedData = std::array<int, std::mt19937::state_size> {};
+        std::generate(std::begin(seedData), std::end(seedData), std::ref(rand));
+
+        std::seed_seq seq(std::begin(seedData), std::end(seedData));
+
+        // create a random player id
+        std::mt19937 generator(seq);
+        uuids::uuid_random_generator gen{generator};
+        const uuids::uuid newId = gen();
+
+        // save it to prefs and set our value
+        io::PrefsManager::setUuid("player.id", newId);
+        this->playerId = newId;
+
+        Logging::info("Generated new player id: {}", newId);
+    } else {
+        this->playerId = *id;
+    }
+
+    Logging::trace("World source using player id: {}", this->playerId);
+
+    // set up some additional initial state
+    this->generateOnly = false;
+    this->acceptRequests = true;
+
+    // set up other worker threads
     size_t numThreads = _numThreads;
     if(!numThreads) {
         numThreads = io::PrefsManager::getUnsigned("world.sourceWorkThreads", 2);
@@ -41,13 +73,6 @@ WorldSource::WorldSource(std::shared_ptr<WorldReader> _r, std::shared_ptr<WorldG
         auto worker = std::make_unique<std::thread>(&WorldSource::workerMain, this, i);
         this->workers.push_back(std::move(worker));
     }
-
-    // set up default player id
-    this->playerId = uuids::uuid::from_string("B8B0B551-8BF5-4F06-9C56-3A540120E8E5");
-
-    // set up some additional initial state
-    this->generateOnly = false;
-    this->acceptRequests = true;
 
     // set up the writer thread
     this->writerThread = std::make_unique<std::thread>(&WorldSource::writerMain, this);

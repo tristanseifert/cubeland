@@ -9,6 +9,9 @@
 namespace world::blocks {
 class Glass: public Block {
     public:
+        const static uuids::uuid kBlockId;
+
+    public:
         static void Register();
 
         Glass();

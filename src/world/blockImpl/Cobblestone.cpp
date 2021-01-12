@@ -8,6 +8,9 @@
 
 using namespace world::blocks;
 
+const uuids::uuid Cobblestone::kBlockId =
+    uuids::uuid::from_string("D9DB3021-4BAE-4E0A-BDF7-544BB5784F38");
+
 Cobblestone *Cobblestone::gShared = nullptr;
 
 /**
@@ -26,7 +29,7 @@ Cobblestone::Cobblestone() {
 
     // set id and name
     this->internalName = "me.tseifert.cubeland.block.cobblestone";
-    this->id = uuids::uuid::from_string("D9DB3021-4BAE-4E0A-BDF7-544BB5784F38");
+    this->id = kBlockId;
 
     // register textures
     this->diffuse = BlockRegistry::registerTexture(Type::kTypeBlockFace,

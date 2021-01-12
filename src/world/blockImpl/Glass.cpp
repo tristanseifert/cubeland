@@ -8,6 +8,9 @@
 
 using namespace world::blocks;
 
+const uuids::uuid Glass::kBlockId =
+    uuids::uuid::from_string("40E2F03B-F6E9-46D0-B2D3-A50250706149");
+
 Glass *Glass::gShared = nullptr;
 
 /**
@@ -26,7 +29,7 @@ Glass::Glass() {
 
     // set id and name
     this->internalName = "me.tseifert.cubeland.block.glass";
-    this->id = uuids::uuid::from_string("40E2F03B-F6E9-46D0-B2D3-A50250706149");
+    this->id = kBlockId;
 
     // register textures
     this->diffuse = BlockRegistry::registerTexture(Type::kTypeBlockFace,

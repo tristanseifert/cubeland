@@ -9,6 +9,8 @@
 
 using namespace world::blocks;
 
+const uuids::uuid Dirt::kBlockId = uuids::uuid::from_string("2be68612-133b-40c6-8436-189d4bd87a4e");
+
 Dirt *Dirt::gShared = nullptr;
 
 /**
@@ -27,7 +29,7 @@ Dirt::Dirt() {
 
     // set id and name
     this->internalName = "me.tseifert.cubeland.block.dirt";
-    this->id = uuids::uuid::from_string("2be68612-133b-40c6-8436-189d4bd87a4e");
+    this->id = kBlockId;
 
     // register textures (diffuse)
     this->diffuseTextures[0] = BlockRegistry::registerTexture(Type::kTypeBlockFace,

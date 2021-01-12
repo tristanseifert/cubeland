@@ -310,7 +310,7 @@ void FileWorldReader::serializeSliceBlocks(const std::shared_ptr<Chunk> &chunk, 
                 fileIdMap[uuid] = newId;
                 ids[i] = newId;
 
-                Logging::trace("Allocated new file id map entry: {} -> {}", newId, uuids::to_string(uuid));
+                Logging::trace("Allocated new file id map entry: {} -> {}", newId, uuid);
             }
         }
 
@@ -337,7 +337,7 @@ void FileWorldReader::serializeSliceBlocks(const std::shared_ptr<Chunk> &chunk, 
             uint8_t temp = row->at(x);
             uint16_t value = mapping[temp];
 
-            XASSERT(value, "Invalid value: 0x{:04x}", value);
+            XASSERT(value, "Invalid value: ${:04x} (raw ${:02x})", value, temp);
 
             this->sliceTempGrid[gridOff + x] = value;
         }
@@ -425,6 +425,33 @@ void FileWorldReader::extractBlockMeta(const std::shared_ptr<Chunk> &chunk, std:
 }
 
 
+/**
+ * Inserts the given player id into the world file.
+ */
+void FileWorldReader::insertPlayerId(const uuids::uuid &player) {
+    int err;
+    sqlite3_stmt *stmt = nullptr;
+
+    XASSERT(!this->playerIds.contains(player), "Cannot insert duplicate player id {}", player);
+
+    Logging::debug("Creating player in world file: {}", player);
+
+    // insert it
+    this->prepare("INSERT INTO player_v1 (uuid) VALUES (?);", &stmt);
+    this->bindColumn(stmt, 1, player);
+
+    err = sqlite3_step(stmt);
+    if(err != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        throw std::runtime_error(f("Failed to write player: {}", err));
+    }
+
+    // get its id
+    auto id = sqlite3_last_insert_rowid(this->db);
+    this->playerIds[player] = id;
+
+    sqlite3_finalize(stmt);
+}
 
 /**
  * Writes the given value into a player info key, overwriting the key if it already exists.
@@ -433,9 +460,9 @@ void FileWorldReader::updatePlayerInfo(const uuids::uuid &player, const std::str
     int err;
     sqlite3_stmt *stmt = nullptr;
 
-    // get player id
+    // get player id, inserting it if needed
     if(!this->playerIds.contains(player)) {
-        throw std::runtime_error("Unknown player id");
+        this->insertPlayerId(player);
     }
     const auto playerId = this->playerIds[player];
 

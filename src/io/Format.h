@@ -25,4 +25,22 @@ inline auto f(Args&&... args) -> decltype(fmt::format(std::forward<Args>(args)..
 #include "TimeTypes+fmt.h"
 #include "GlmTypes+fmt.h"
 
+// uuids support
+#include <uuid.h>
+
+template <> 
+struct fmt::formatter<struct uuids::uuid> {
+    constexpr auto parse(format_parse_context& ctx) {
+        auto it = ctx.begin(), end = ctx.end();
+        if(it != end && *it != '}') {
+            throw format_error("invalid format");
+        }
+        return it;
+    }
+
+    template <typename FormatContext>
+    auto format(const struct uuids::uuid &id, FormatContext& ctx) {
+        return format_to(ctx.out(), "{}", uuids::to_string(id));
+    }
+};
 #endif

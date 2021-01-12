@@ -107,6 +107,7 @@ class FileWorldReader: public WorldReader {
         void writeBlockTypeMap();
 
         void loadPlayerIds();
+        void insertPlayerId(const uuids::uuid &player);
         void updatePlayerInfo(const uuids::uuid &player, const std::string &key, const std::vector<char> &data);
         bool readPlayerInfo(const uuids::uuid &player, const std::string &key, std::vector<char> &data);
 
@@ -121,7 +122,7 @@ class FileWorldReader: public WorldReader {
         struct WorkItem {
             std::function<void(void)> f;
         };
-    
+
     private:
         // ensure we can accept requests at the moment
         void canAcceptRequests() {
@@ -197,7 +198,7 @@ class FileWorldReader: public WorldReader {
         /// when set, we need to write out the block id map
         bool blockIdMapDirty = false;
         /// next free block id value
-        uint16_t blockIdMapNext = 0;
+        uint16_t blockIdMapNext = 1;
 
         /// world filename
         std::string filename;

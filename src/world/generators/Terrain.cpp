@@ -2,6 +2,9 @@
 
 #include "world/chunk/Chunk.h"
 #include "world/chunk/ChunkSlice.h"
+#include "world/block/BlockRegistry.h"
+#include "world/blockImpl/Dirt.h"
+#include "world/blockImpl/Stone.h"
 
 #include <Logging.h>
 #include <mutils/time/profiler.h>
@@ -42,7 +45,7 @@ const char *GetSIMDLevelName(FastSIMD::eLevel lvl) {
  */
 Terrain::Terrain(int32_t _seed) : seed(_seed) {
     this->generator = FastNoise::NewFromEncodedNodeTree(kNodeTree);
-    Logging::info("Terrain generator SIMD level: {}", GetSIMDLevelName(this->generator->GetSIMDLevel()));
+    Logging::info("Terrain generator SIMD level: {} (seed ${:x})", GetSIMDLevelName(this->generator->GetSIMDLevel()), this->seed);
 }
 
 /**
@@ -89,29 +92,26 @@ void Terrain::prepareChunkMeta(std::shared_ptr<Chunk> chunk) {
     chunk->meta["me.tseifert.cubeland.generator.seed"] = this->seed;
 
     // type map
-    static const std::array<uuids::uuid::value_type, 16> kBlockIdsRaw[4] = {
-        // air
-        {0x71, 0x4a, 0x92, 0xe3, 0x29, 0x84, 0x4f, 0x0e, 0x86, 0x9e, 0x14, 0x16, 0x2d, 0x46, 0x27, 0x60},
-        // grass
-        {0x2b, 0xe6, 0x86, 0x12, 0x13, 0x3b, 0x40, 0xc6, 0x84, 0x36, 0x18, 0x9d, 0x4b, 0xd8, 0x7a, 0x4e},
-        {0xf2, 0xca, 0x67, 0x5d, 0x92, 0x5f, 0x4b, 0x1e, 0x8d, 0x6a, 0xa6, 0x66, 0x45, 0x89, 0xff, 0xe5},
-        {0xfe, 0x35, 0x39, 0xd4, 0xd6, 0x96, 0x4b, 0x04, 0x8e, 0x34, 0xa6, 0x5f, 0xd0, 0xb4, 0x4e, 0x7d}
+    static const size_t kNumBlockIds = 3;
+    static const uuids::uuid kBlockIds[kNumBlockIds] = {
+        // 0: air
+        world::BlockRegistry::kAirBlockId,
+        // 1: stone
+        world::blocks::Stone::kBlockId,
+        // 2: dirt
+        world::blocks::Dirt::kBlockId,
     };
-    uuids::uuid kBlockIds[4];
-    for(size_t i = 0; i < 4; i++) {
-        kBlockIds[i] = uuids::uuid(kBlockIdsRaw[i].begin(), kBlockIdsRaw[i].end());
-    }
 
     // build the slice ID -> UUID map
     ChunkRowBlockTypeMap idMap;
-    for(size_t i = 0; i < 4; i++) {
+    for(size_t i = 0; i < kNumBlockIds; i++) {
         idMap.idMap[i] = kBlockIds[i];
     }
     chunk->sliceIdMaps.push_back(idMap);
 }
 
 /**
- * Writes a solid ground floor at y=0.
+ * Writes a solid ground floor at y=0. It is made of stone.
  */
 void Terrain::fillFloor(std::shared_ptr<Chunk> chunk) {
     auto slice = new ChunkSlice;
@@ -177,7 +177,8 @@ void Terrain::fillSlice(const std::vector<float> &noise, const size_t y, std::sh
             const float value = noise[noiseIdx];
 
             if(value <= this->surfaceLevel) {
-                row->set(x, 1);
+                // fill with dirt
+                row->set(x, 2);
                 rowWritten = true;
             } else {
                 if(!isSparse) {

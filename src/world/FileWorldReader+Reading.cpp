@@ -463,7 +463,7 @@ void FileWorldReader::loadPlayerIds() {
         }
 
         ids[uuid] = id;
-        // Logging::trace("Player {} -> id {}", uuids::to_string(uuid), id);
+        // Logging::trace("Player {} -> id {}", uuid, id);
 
         // get next row
         err = sqlite3_step(stmt);
@@ -487,7 +487,9 @@ bool FileWorldReader::readPlayerInfo(const uuids::uuid &player, const std::strin
 
     // get player id
     if(!this->playerIds.contains(player)) {
-        throw std::runtime_error("Unknown player id");
+        Logging::warn("Failed to read player info key {} because player {} doesn't exist", key,
+                player);
+        return false;
     }
     const auto playerId = this->playerIds[player];
 

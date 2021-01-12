@@ -122,6 +122,9 @@ const world::BlockRegistry::Model Torch::kVerticalModel = {
     }
 };
 
+const uuids::uuid Torch::kBlockId =
+    uuids::uuid::from_string("0ACDFBDF-9B26-459D-AA4A-5D09FEB25C94");
+
 Torch *Torch::gShared = nullptr;
 
 /**
@@ -140,7 +143,7 @@ Torch::Torch() {
 
     // set id and name
     this->internalName = "me.tseifert.cubeland.block.torch";
-    this->id = uuids::uuid::from_string("0ACDFBDF-9B26-459D-AA4A-5D09FEB25C94");
+    this->id = kBlockId;
 
     // register textures
     this->sideTexture = BlockRegistry::registerTexture(Type::kTypeBlockFace,

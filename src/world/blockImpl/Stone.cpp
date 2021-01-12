@@ -8,6 +8,8 @@
 
 using namespace world::blocks;
 
+const uuids::uuid Stone::kBlockId = uuids::uuid::from_string("27D25383-4466-405D-9DEE-1FCF4A6272CC");
+
 Stone *Stone::gShared = nullptr;
 
 /**
@@ -26,7 +28,7 @@ Stone::Stone() {
 
     // set id and name
     this->internalName = "me.tseifert.cubeland.block.stone";
-    this->id = uuids::uuid::from_string("27D25383-4466-405D-9DEE-1FCF4A6272CC");
+    this->id = kBlockId;
 
     // register textures
     this->diffuse = BlockRegistry::registerTexture(Type::kTypeBlockFace,
