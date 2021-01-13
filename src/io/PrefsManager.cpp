@@ -149,7 +149,7 @@ const std::optional<uuids::uuid> PrefsManager::getUuid(const std::string &key) {
     // prepare the query
     std::lock_guard<std::mutex> guard(shared->lock);
 
-    SQLite::prepare(shared->db, "SELECT value FROM prefs_blob_v1 WHERE key = ?;", &stmt);
+    SQLite::prepare(shared->db, "SELECT value FROM prefs_uuid_v1 WHERE key = ?;", &stmt);
     SQLite::bindColumn(stmt, 1, key);
 
     int err = sqlite3_step(stmt);
@@ -172,9 +172,63 @@ const std::optional<uuids::uuid> PrefsManager::getUuid(const std::string &key) {
     }
 }
 /**
- * Sets the given string value.
+ * Sets the given blob value.
  */
 void PrefsManager::setUuid(const std::string &key, const uuids::uuid &value) {
+    sqlite3_stmt *stmt = nullptr;
+
+    std::lock_guard<std::mutex> lg(shared->lock);
+
+    SQLite::prepare(shared->db, "INSERT INTO prefs_uuid_v1 (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, modified=CURRENT_TIMESTAMP;", &stmt);
+    SQLite::bindColumn(stmt, 1, key);
+    SQLite::bindColumn(stmt, 2, value);
+
+    int err = sqlite3_step(stmt);
+    if(err != SQLITE_ROW && err != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        throw std::runtime_error(f("Failed to write preferences key ({}): {}", err, sqlite3_errmsg(shared->db)));
+    }
+
+    sqlite3_finalize(stmt);
+}
+
+
+
+/**
+ * Gets a blob value.
+ */
+const std::optional<std::vector<char>> PrefsManager::getBlob(const std::string &key) {
+    sqlite3_stmt *stmt = nullptr;
+
+    // prepare the query
+    std::lock_guard<std::mutex> guard(shared->lock);
+
+    SQLite::prepare(shared->db, "SELECT value FROM prefs_blob_v1 WHERE key = ?;", &stmt);
+    SQLite::bindColumn(stmt, 1, key);
+
+    int err = sqlite3_step(stmt);
+
+    // no such row, return default
+    if(err == SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        return std::nullopt;
+    } 
+    // got a row with this key, get its value
+    else if(err == SQLITE_ROW) {
+        std::vector<char> temp;
+        SQLite::getColumn(stmt, 0, temp);
+        sqlite3_finalize(stmt);
+        return temp;
+    } 
+    // DB error
+    else {
+        throw std::runtime_error(f("Failed to read preferences key ({}): {}", err, sqlite3_errmsg(shared->db)));
+    }
+}
+/**
+ * Sets the given blob value.
+ */
+void PrefsManager::setBlob(const std::string &key, const std::vector<char> &value) {
     sqlite3_stmt *stmt = nullptr;
 
     std::lock_guard<std::mutex> lg(shared->lock);
@@ -191,7 +245,6 @@ void PrefsManager::setUuid(const std::string &key, const uuids::uuid &value) {
 
     sqlite3_finalize(stmt);
 }
-
 
 
 

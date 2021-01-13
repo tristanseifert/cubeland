@@ -21,6 +21,16 @@ CREATE TABLE prefs_number_v1 (
 );
 CREATE UNIQUE INDEX prefs_number_name ON prefs_number_v1(key);
 
+--- UUID prefs table
+-- This is basically the same as the blob table but differentiated for type safety
+CREATE TABLE prefs_uuid_v1 (
+    id INTEGER UNIQUE PRIMARY KEY AUTOINCREMENT,
+    key TEXT UNIQUE NOT NULL,
+    value BLOB NOT NULL,
+    modified DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX prefs_uuid_name ON prefs_uuid_v1(key);
+
 --- Blob prefs table
 CREATE TABLE prefs_blob_v1 (
     id INTEGER UNIQUE PRIMARY KEY AUTOINCREMENT,

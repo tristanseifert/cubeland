@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 #include "GameUI.h"
 #include "MenuBarHandler.h"
+#include "title/TitleScreen.h"
 #include "render/WorldRenderer.h"
 
 #include "util/CPUID.h"
@@ -58,12 +59,13 @@ MainWindow::MainWindow() {
 
     // create the renderers
     auto bar = std::make_shared<MenuBarHandler>();
-    auto ui = std::make_shared<GameUI>(this->win, this->winCtx);
+    this->gameUi = std::make_shared<GameUI>(this->win, this->winCtx);
 
-    auto world = std::make_shared<render::WorldRenderer>(this, ui);
-    this->stages.push_back(world);
+    auto title = std::make_shared<TitleScreen>(this, this->gameUi);
+    this->stages.push_back(title);
+
     this->stages.push_back(bar);
-    this->stages.push_back(ui);
+    this->stages.push_back(this->gameUi);
 
     // initialize renderers with current viewport size
     SDL_GL_GetDrawableSize(this->win, &w, &h);
@@ -154,9 +156,11 @@ void MainWindow::configGLContext() {
 void MainWindow::makeWindow() {
     int err;
 
-    // create window; allowing for HiDPI contexts
-    const auto flags = SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_HIDDEN | 
-                       SDL_WINDOW_RESIZABLE;
+    // create window; allowing for HiDPI contexts (if requested)
+    const bool hiDpi = io::PrefsManager::getBool("window.hiDpi", true);
+
+    const auto flags = SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE |
+                        (hiDpi ? SDL_WINDOW_ALLOW_HIGHDPI : 0);
     this->win = SDL_CreateWindow("Cubeland", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
             kDefaultWidth, kDefaultHeight, flags);
 
@@ -216,8 +220,6 @@ MainWindow::~MainWindow() {
  * Makes the window visible.
  */
 void MainWindow::show() {
-    int w, h;
-
     XASSERT(this->win, "Window must exist");
 
     // capture mouse
@@ -475,4 +477,12 @@ void MainWindow::endFrameFpsUpdate() {
 
     // increment frame counter
     this->framesExecuted++;
+}
+
+/**
+ * At the next main loop iteration, ensures the main window is closed.
+ */
+void MainWindow::quit() {
+    Logging::debug("MainWindow::quit() called");
+    this->running = false;
 }

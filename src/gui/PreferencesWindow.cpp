@@ -3,8 +3,6 @@
 #include "io/PrefsManager.h"
 #include "io/Format.h"
 
-#include <Logging.h>
-
 #include <glbinding/gl/gl.h>
 #include <glbinding/Binding.h>
 
@@ -17,7 +15,7 @@ using namespace gui;
  * Sets up the UI with the state of the preferences.
  */
 PreferencesWindow::PreferencesWindow() {
-    this->loadUiPaneState();
+    this->load();
 }
 
 /**
@@ -26,14 +24,19 @@ PreferencesWindow::PreferencesWindow() {
  * It has several tabbed sections.
  */
 void PreferencesWindow::draw(GameUI *ui) {
-    double spacing;
-
     // constrain prefs window size
-    ImGui::SetNextWindowSizeConstraints(ImVec2(640, 480), ImVec2(640, 480));
+    ImGuiIO& io = ImGui::GetIO();
+
+    ImGuiWindowFlags winFlags = ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse;
+    ImVec2 windowPos = ImVec2(io.DisplaySize.x / 2., io.DisplaySize.y / 2.);
+
+    ImGui::SetNextWindowFocus();
+    ImGui::SetNextWindowSize(ImVec2(800, 600));
+    ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always, ImVec2(.5, .5));
 
     // short circuit drawing if not visible
-    if(!ImGui::Begin("Preferences", &this->visible, ImGuiWindowFlags_NoResize)) {
-        goto done;
+    if(!ImGui::Begin("Preferences", &this->visible, winFlags)) {
+        return ImGui::End();
     }
 
     // tab bar (for each section)
@@ -43,21 +46,14 @@ void PreferencesWindow::draw(GameUI *ui) {
             ImGui::EndTabItem();
         }
 
+        if(ImGui::BeginTabItem("Graphics")) {
+            this->drawGfxPane(ui);
+            ImGui::EndTabItem();
+        }
+
         ImGui::EndTabBar();
     }
 
-    // horizontal line and the close button
-    ImGui::NewLine();
-    spacing = ImGui::GetContentRegionAvail().y - (ImGui::GetFontSize() * 2);
-    ImGui::Dummy(ImVec2(1, spacing));
-    ImGui::Separator();
-
-    if(ImGui::Button("Close")) {
-        io::PrefsManager::synchronize();
-        this->visible = false;
-    }
-
-done:;
     ImGui::End();
 }
 
@@ -66,35 +62,111 @@ done:;
  */
 void PreferencesWindow::loadUiPaneState() {
     this->stateUi.restoreWindowSize = io::PrefsManager::getBool("window.restoreSize");
+    this->stateUi.dpiAware = io::PrefsManager::getBool("window.hiDpi", true);
 }
 /**
  * Writes the settings displayed on the UI preferences pane back to the preferences.
  */
 void PreferencesWindow::saveUiPaneState() {
     io::PrefsManager::setBool("window.restoreSize", this->stateUi.restoreWindowSize);
+    io::PrefsManager::setBool("window.hiDpi", this->stateUi.dpiAware);
 }
 /**
  * Draws the "User Interface" preferences pane.
  */
 void PreferencesWindow::drawUiPane(GameUI *ui) {
+    bool dirty = false;
+
     // current UI driver
     this->drawKeyValue(ui, "Window driver", "SDL/OpenGL");
     this->drawKeyValue(ui, "GL driver", f("{} ({})", glGetString(GL_RENDERER), glGetString(GL_VERSION)));
 
     // restore window size checkbox
-    if(ImGui::Checkbox("Restore window size", &this->stateUi.restoreWindowSize)) {
-        this->saveUiPaneState();
-    }
+    if(ImGui::Checkbox("Restore window size", &this->stateUi.restoreWindowSize)) dirty = true;
     if(ImGui::IsItemHovered()) {
         ImGui::SetTooltip("When set, the main window's dimensions are persisted across app launches.");
     }
 
     // DPI awareness
-    if(ImGui::Checkbox("HiDPI Aware", &this->stateUi.dpiAware)) {
+    if(ImGui::Checkbox("HiDPI Aware", &this->stateUi.dpiAware)) dirty = true;
+    if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Request a HiDPI rendering context, resulting in much crisper output on scaled displays, at the cost of performance.\nNote: You must restart the app for this setting to take effect.");
+    }
+
+    // save if needed
+    if(dirty) {
         this->saveUiPaneState();
     }
+}
+
+
+
+/**
+ * Loads the graphics preferences.
+ */
+void PreferencesWindow::loadGfxPaneState() {
+    this->gfx.fancySky = io::PrefsManager::getBool("gfx.fancySky");
+    this->gfx.dirShadows = io::PrefsManager::getBool("gfx.sunShadow");
+}
+/**
+ * Saves the graphics preferences.
+ */
+void PreferencesWindow::saveGfxPaneState() {
+    io::PrefsManager::setBool("gfx.fancySky", this->gfx.fancySky);
+    io::PrefsManager::setBool("gfx.sunShadow", this->gfx.dirShadows);
+}
+/**
+ * Draws the "graphics" preferences pane.
+ */
+void PreferencesWindow::drawGfxPane(GameUI *ui) {
+    bool dirty = false;
+
+    // actions (for loading preset)
+    constexpr static const size_t kNumPresets = 4;
+    static const char *kPresetNames[kNumPresets] = {
+        "Low", "Medium", "High", "Make my GPU hurt"
+    };
+
+    if(ImGui::Button("Load Preset")) {
+        // TODO: yeet
+        dirty = true;
+    } if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Replaces graphics settings with the selected preset.");
+    }
+
+    ImGui::SameLine();
+    ImGui::PushItemWidth(200);
+    if(ImGui::BeginCombo("Preset", kPresetNames[this->gfx.preset])) {
+        for(size_t j = 0; j < kNumPresets; j++) {
+            const bool isSelected = (this->gfx.preset == j);
+
+            if(ImGui::Selectable(kPresetNames[j], isSelected)) {
+                this->gfx.preset = j;
+            }
+            if(isSelected) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::PopItemWidth();
+
+    ImGui::Separator();
+
+    // whether fancy sky is used
+    if(ImGui::Checkbox("Fancy Sky", &this->gfx.fancySky)) dirty = true;
     if(ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Allows the app to use HiDPI rendering contexts. This results in much crisper output on scaled displays, at the cost of performance.");
+        ImGui::SetTooltip("Draws physically accurate clouds and sun using shaders.");
+    }
+
+    // shadows
+    if(ImGui::Checkbox("Directional Light Shadows", &this->gfx.dirShadows)) dirty = true;
+    if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Global light sources (e.g. sun and moon) will cast shadows when enabled.");
+    }
+    // save if needed
+    if(dirty) {
+        this->saveGfxPaneState();
     }
 }
 
@@ -102,9 +174,7 @@ void PreferencesWindow::drawUiPane(GameUI *ui) {
  * Draws a key/value list item.
  */
 void PreferencesWindow::drawKeyValue(GameUI *ui, const std::string &key, const std::string &value) {
-    ImGuiIO& io = ImGui::GetIO();
-
-    ImGui::PushFont(ui->getFont(GameUI::kBoldFontName));
+    ImGui::PushFont(ui->getFont(GameUI::kGameFontBold));
     ImGui::Text("%s:", key.c_str());
     ImGui::SameLine();
 

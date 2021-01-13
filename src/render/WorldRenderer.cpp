@@ -47,8 +47,8 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
     gui(_gui) {
     // XXX: testing world source
     try {
-        auto file = std::make_shared<world::FileWorldReader>("/Users/tristan/cubeland/build/./test.world");
-        auto gen = std::make_shared<world::Terrain>(420);
+        auto file = std::make_shared<world::FileWorldReader>("/Users/tristan/cubeland/build/./test3.world", true);
+        auto gen = std::make_shared<world::Terrain>(42069);
 
         this->source = std::make_shared<world::WorldSource>(file, gen);
         // this->source->setGenerateOnly(true);

@@ -64,7 +64,7 @@ void WorldRendererDebugger::drawFovUi() {
  */
 void WorldRendererDebugger::drawStepsTable() {
     ImVec2 outerSize(0, ImGui::GetTextLineHeightWithSpacing() * 6);
-    if(!ImGui::BeginTable("steps", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
+    if(!ImGui::BeginTable("steps", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableColumnFlags_WidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
         return;
     }
 

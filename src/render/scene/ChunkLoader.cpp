@@ -1143,7 +1143,7 @@ void ChunkLoader::drawChunkList() {
 
     // table
     ImVec2 outerSize(0, ImGui::GetTextLineHeightWithSpacing() * 12);
-    if(!ImGui::BeginTable("chonks", 6, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
+    if(!ImGui::BeginTable("chonks", 6, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableColumnFlags_WidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
         ImGui::End();
         return;
     }

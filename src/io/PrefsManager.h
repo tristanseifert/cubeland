@@ -10,6 +10,7 @@
 #include <string>
 #include <optional>
 #include <mutex>
+#include <vector>
 
 #include <uuid.h>
 
@@ -39,6 +40,9 @@ class PrefsManager final {
 
         static const std::string getString(const std::string &key, const std::string &fallback = "");
         static void setString(const std::string &key, const std::string &value);
+
+        static const std::optional<std::vector<char>> getBlob(const std::string &key);
+        static void setBlob(const std::string &key, const std::vector<char> &value);
 
         static const std::optional<uuids::uuid> getUuid(const std::string &key);
         static void setUuid(const std::string &key, const uuids::uuid &value);

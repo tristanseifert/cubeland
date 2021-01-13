@@ -58,6 +58,8 @@ class Lighting : public RenderStep {
             this->occlusionTex = texture;
         }
 
+        void loadPrefs();
+
     private:
         void setUpRenderBuffer();
 
@@ -164,6 +166,9 @@ class Lighting : public RenderStep {
         float fogOffset = 674.f;
 
     private:
+        /// whether we render shadows or not
+        bool shadowEnabled = true;
+
         glm::mat4 shadowViewMatrix;
 
         // Scene renderer to use for rendering shadows

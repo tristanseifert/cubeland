@@ -52,3 +52,15 @@
 [submodule "libs/reactphysics3d"]
 	path = libs/reactphysics3d
 	url = git@github.com:tristanseifert/reactphysics3d.git
+[submodule "libs/SDL-mirror"]
+	path = libs/sdl2
+	url = git@github.com:spurious/SDL-mirror.git
+[submodule "libs/rapidjson"]
+	path = libs/rapidjson
+	url = git@github.com:Tencent/rapidjson.git
+[submodule "libs/libressl"]
+	path = libs/libressl
+	url = git@github.com:libressl-portable/portable.git
+[submodule "libs/imgui_markdown"]
+	path = libs/imgui_markdown
+	url = git@github.com:juliettef/imgui_markdown.git

@@ -51,6 +51,10 @@ add_executable(cubeland
     src/gui/Loaders.cpp
     src/gui/MetricsDisplay.cpp
     src/gui/MenuBarHandler.cpp
+    src/gui/title/TitleScreen.cpp
+    src/gui/title/PlasmaRenderer.cpp
+    src/gui/title/AboutWindow.cpp
+    src/gui/title/WorldSelector.cpp
 # input
     src/input/InputManager.cpp
     src/input/BlockInteractions.cpp
@@ -188,10 +192,22 @@ target_include_directories(cubeland PRIVATE libs/glbinding/build/source/glbindin
 target_include_directories(cubeland PRIVATE libs/glbinding/build/source/include)
 target_include_directories(cubeland PRIVATE libs/glbinding/3rdparty/KHR/include)
 
-# SDL2
-find_package(SDL2 REQUIRED)
-include_directories(${SDL2_INCLUDE_DIRS})
-target_link_libraries(cubeland PUBLIC ${SDL2_LIBRARIES})
+# SDL2 (we build a dynamic version on macOS, static elsewhere)
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+    set(SDL_SHARED ON CACHE BOOL "" FORCE)
+
+    # do not link yet. we'll do this further down when we build the bundle to get the correct rpath
+    target_link_libraries(cubeland PUBLIC SDL2main SDL2)
+else()
+    set(SDL_STATIC ON CACHE BOOL "" FORCE)
+    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+
+    target_link_libraries(cubeland PUBLIC SDL2main SDL2 SDL2-static)
+endif()
+
+add_subdirectory(libs/sdl2)
+include_directories(libs/sdl2/include)
 
 # SQLite 3 (data file format)
 find_package(SQLite3 REQUIRED)
@@ -253,6 +269,8 @@ add_library(dearimgui_ext OBJECT
     src/3rdparty/metricsgui/ProggyTiny.cpp
 )
 
+add_compile_definitions(CUSTOM_IMGUIFILEDIALOG_CONFIG="gui/imgui/ImGuiFileDialogConfig.h")
+
 target_include_directories(dearimgui_ext PRIVATE src/gui/imgui)
 target_include_directories(dearimgui_ext PRIVATE libs/imgui)
 target_include_directories(dearimgui_ext PRIVATE src/3rdparty/metricsgui)
@@ -260,6 +278,7 @@ target_include_directories(dearimgui_ext PRIVATE libs/glm)
 
 target_link_libraries(cubeland PRIVATE dearimgui_ext)
 
+target_include_directories(cubeland PRIVATE libs/imgui_markdown)
 target_include_directories(cubeland PRIVATE libs/ImGuiFileDialog)
 target_include_directories(cubeland PRIVATE src/3rdparty)
 
@@ -326,7 +345,7 @@ target_include_directories(cubeland PRIVATE libs/lz4/lib)
 # stduuid (uuid support library)
 # this has to be treated as a system library to prevent conflicts against system uuid libs
 target_include_directories(cubeland SYSTEM BEFORE PRIVATE libs/stduuid/include)
-# target_include_directories(cubeland PRIVATE libs/stduuid/gsl)
+target_include_directories(cubeland PRIVATE libs/stduuid/gsl)
 
 # concurrent queue
 target_include_directories(cubeland PRIVATE libs/concurrentqueue)
@@ -345,6 +364,20 @@ target_include_directories(cubeland PRIVATE libs/reactphysics3d/include)
 
 target_link_libraries(cubeland PRIVATE reactphysics3d)
 
+# libcurl + RapidJSON (header only) for REST API stuff
+find_package(CURL COMPONENTS HTTPS SSL IPv6)
+target_link_libraries(cubeland PRIVATE CURL::libcurl)
+
+target_include_directories(cubeland PRIVATE libs/rapidjson/include)
+
+# LibreSSL
+target_link_directories(cubeland PRIVATE libs/libressl/crypto/.libs)
+target_link_directories(cubeland PRIVATE libs/libressl/ssl/.libs)
+target_link_directories(cubeland PRIVATE libs/libressl/tls/.libs)
+
+target_include_directories(cubeland PRIVATE libs/libressl/include)
+target_link_libraries(cubeland PRIVATE crypto ssl tls)
+
 ###################################################################################################
 #### platform-specific libraries
 # macOS frameworks
@@ -358,20 +391,39 @@ endif()
 #### Secrete a macOS bundle
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     set_target_properties(cubeland PROPERTIES
-         MACOSX_BUNDLE ON
-         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/rsrc/macos/Info.plist.in)
+        MACOSX_BUNDLE ON
+        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/rsrc/macos/Info.plist.in)
 
-     set(MACOSX_BUNDLE_BUNDLE_NAME "Cubeland")
-     set(MACOSX_BUNDLE_COPYRIGHT "Copyright 2020 Tristan Seifert")
-     set(MACOSX_BUNDLE_GUI_IDENTIFIER "me.tseifert.cubeland")
-     set(MACOSX_BUNDLE_ICON_FILE "")
+    set(MACOSX_BUNDLE_BUNDLE_NAME "Cubeland")
+    set(MACOSX_BUNDLE_COPYRIGHT "Copyright 2020 Tristan Seifert")
+    set(MACOSX_BUNDLE_GUI_IDENTIFIER "me.tseifert.cubeland")
+    set(MACOSX_BUNDLE_ICON_FILE "")
 
-     set(MACOSX_BUNDLE_BUNDLE_VERSION "weed")
-     set(MACOSX_BUNDLE_SHORT_VERSION_STRING "420")
+    set(MACOSX_BUNDLE_BUNDLE_VERSION "weed")
+    set(MACOSX_BUNDLE_SHORT_VERSION_STRING "420")
 
-     set(BUNDLE_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/README.md)
-     list(APPEND BUNDLE_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/build/default.rsrc)
-    #list(APPEND BUNDLE_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/CONTRIBUTORS.MD)
-     set_target_properties(cubeland PROPERTIES RESOURCE "${BUNDLE_RESOURCES}")
-     target_sources(cubeland PUBLIC ${BUNDLE_RESOURCES})
+    set(BUNDLE_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/README.md)
+    list(APPEND BUNDLE_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/build/default.rsrc)
+    set_target_properties(cubeland PROPERTIES RESOURCE "${BUNDLE_RESOURCES}")
+    target_sources(cubeland PUBLIC ${BUNDLE_RESOURCES})
+
+    # get some paths of the bundle
+    set(BUNDLE_FRAMEWORK_PATH "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.app/Contents/Frameworks")
+    set(BUNDLE_BINARY "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.app/Contents/MacOS/${PROJECT_NAME}")
+
+    # set correctly the rpath
+    add_custom_command(TARGET cubeland POST_BUILD COMMAND ${CMAKE_INSTALL_NAME_TOOL} -delete_rpath ${CMAKE_CURRENT_SOURCE_DIR}/libs/glbinding/build -delete_rpath ${CMAKE_CURRENT_SOURCE_DIR}/libs/fastnoise2/build/src -delete_rpath ${CMAKE_CURRENT_SOURCE_DIR}/libs/reactphysics3d/build -delete_rpath ${CMAKE_BINARY_DIR}/libs/sdl2 -delete_rpath ${CMAKE_CURRENT_SOURCE_DIR}/libs/libressl/ssl/.libs -delete_rpath ${CMAKE_CURRENT_SOURCE_DIR}/libs/libressl/tls/.libs -delete_rpath
+        ${CMAKE_CURRENT_SOURCE_DIR}/libs/libressl/crypto/.libs -add_rpath @loader_path/../Frameworks ${BUNDLE_BINARY})
+
+    # copy the SDL dylib
+    file(GLOB SDL_LIBRARY "${CMAKE_BINARY_DIR}/libs/sdl2/libSDL2*.dylib")
+    message(STATUS "Copying SDL2 dylib: ${SDL_LIBRARY}")
+    file(COPY ${SDL_LIBRARY} DESTINATION ${BUNDLE_FRAMEWORK_PATH} FOLLOW_SYMLINK_CHAIN)
+
+    # llvm C++ library, in default Homebrew location
+    # TODO: is there a better way to do this? if the version of the c++ lib changes, shit will die
+    add_custom_command(TARGET cubeland POST_BUILD COMMAND ${CMAKE_INSTALL_NAME_TOOL} -change /usr/local/opt/llvm/lib/libc++.1.dylib @rpath/libc++.1.dylib ${BUNDLE_BINARY})
+
+    file(COPY /usr/local/opt/llvm/lib/libc++.1.dylib DESTINATION ${BUNDLE_FRAMEWORK_PATH} FOLLOW_SYMLINK_CHAIN)
+    file(COPY /usr/local/opt/llvm/lib/libc++abi.1.dylib DESTINATION ${BUNDLE_FRAMEWORK_PATH} FOLLOW_SYMLINK_CHAIN)
 endif()

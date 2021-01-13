@@ -28,6 +28,8 @@ class MainWindow {
 
         void setMouseCaptureState(bool);
 
+        void quit();
+
         /// Returns a reference to the raw SDL window.
         SDL_Window *getSDLWindow() {
             return this->win;
@@ -67,6 +69,8 @@ class MainWindow {
     private:
         // number of frames for which to average fps
         constexpr static const size_t kNumFrameValues = 20;
+
+        std::shared_ptr<GameUI> gameUi = nullptr;
 
         std::queue<double> frameTimes;
         std::queue<double> frameTimesTrue;

@@ -151,7 +151,7 @@ void WorldChunkDebugger::drawHighlightsList() {
 
     // list the instance buffer contents
     ImVec2 outerSize(0, ImGui::GetTextLineHeightWithSpacing() * 5);
-    if(!ImGui::BeginTable("highlights", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
+    if(!ImGui::BeginTable("highlights", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableColumnFlags_WidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
         return;
     }
 
@@ -184,7 +184,7 @@ void WorldChunkDebugger::drawHighlightsList() {
  */
 void WorldChunkDebugger::drawGlobules() {
    ImVec2 outerSize(0, ImGui::GetTextLineHeightWithSpacing() * 10);
-    if(!ImGui::BeginTable("globules", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
+    if(!ImGui::BeginTable("globules", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableColumnFlags_WidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
         return;
     }
 

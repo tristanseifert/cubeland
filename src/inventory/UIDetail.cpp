@@ -366,7 +366,7 @@ void UIDetail::displayRegisteredItemsWindow(gui::GameUI *ui) {
 void UIDetail::drawRegisteredBlocksTable(gui::GameUI *ui) {
     // begin table
     ImVec2 outerSize(0, -1);
-    if(!ImGui::BeginTable("Blocks", 2, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
+    if(!ImGui::BeginTable("Blocks", 2, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg | ImGuiTableColumnFlags_WidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
         return;
     }
 

@@ -111,7 +111,6 @@ bool LZ4::decompress(const std::vector<char> &in, std::vector<char> &out) {
     out.resize(info.contentSize);
 
     // decode until done
-    size_t loop = 0;
     do {
         // bytes remaining in input and output
         size_t srcSize = in.size() - consumedSrc;
@@ -170,7 +169,6 @@ size_t LZ4::decompress(const std::vector<char> &in, void *out, const size_t outL
     }
 
     // decode until done
-    size_t loop = 0;
     do {
         // bytes remaining in input and output
         size_t srcSize = in.size() - consumedSrc;

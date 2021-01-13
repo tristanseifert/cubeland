@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <queue>
 
 struct ImFont;
 
@@ -50,6 +51,13 @@ class GameUI: public RunLoopStep {
 
         static const std::string kGameFontRegular;
         static const std::string kGameFontBold;
+        static const std::string kGameFontBodyRegular; // large swaths of body copy
+        static const std::string kGameFontBodyItalic; // large swaths of body copy
+        static const std::string kGameFontBodyBold; // large swaths of body copy
+        static const std::string kGameFontHeading; // large heading
+        static const std::string kGameFontHeading2; // medium heading
+        static const std::string kGameFontHeading3; // small heading
+        static const std::string kGameFontMonospaced;
 
     private:
         void loadFonts(const double scale);
@@ -68,6 +76,19 @@ class GameUI: public RunLoopStep {
 
         static const std::vector<FontInfo> kDefaultFonts;
 
+        // indicates a window to add or remove
+        struct UpdateRequest {
+            enum {
+                ADD,
+                REMOVE
+            } type;
+
+            std::shared_ptr<GameWindow> window = nullptr;
+
+            UpdateRequest() = default;
+            UpdateRequest(std::shared_ptr<GameWindow> &_window) : window(_window) {}
+        };
+
     private:
         // SDL main window
         SDL_Window *window = nullptr;
@@ -76,6 +97,9 @@ class GameUI: public RunLoopStep {
         std::unordered_map<std::string, ImFont *> fonts;
         // windows to render during the frame
         std::vector<std::shared_ptr<GameWindow>> windows;
+
+        // add/remove requests
+        std::queue<UpdateRequest> requests;
 
         // scale factor for all in game UI
         float scale = 1.5f;

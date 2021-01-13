@@ -224,7 +224,7 @@ void WorldDebugger::drawFileWorldUi(gui::GameUI *ui, std::shared_ptr<FileWorldRe
  */
 void WorldDebugger::drawFileTypeMap(gui::GameUI *ui, std::shared_ptr<FileWorldReader> file) {
     ImVec2 outerSize(0, ImGui::GetTextLineHeightWithSpacing() * 8);
-    if(!ImGui::BeginTable("typeMap", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
+    if(!ImGui::BeginTable("typeMap", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableColumnFlags_WidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
         return;
     }
 
@@ -502,7 +502,7 @@ void WorldDebugger::drawChunkViewer(gui::GameUI *ui) {
 void WorldDebugger::drawChunkMeta(gui::GameUI *ui) {
     // max 5 rows before we scroll
     ImVec2 outerSize(0, ImGui::GetTextLineHeightWithSpacing() * 5);
-    if(!ImGui::BeginTable("meta", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
+    if(!ImGui::BeginTable("meta", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableColumnFlags_WidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
         return;
     }
 
@@ -534,7 +534,7 @@ void WorldDebugger::drawChunkMeta(gui::GameUI *ui) {
 void WorldDebugger::drawChunkIdMap(gui::GameUI *ui) {
     // max 5 rows before we scroll
     ImVec2 outerSize(0, ImGui::GetTextLineHeightWithSpacing() * 5);
-    if(!ImGui::BeginTable("idMap", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
+    if(!ImGui::BeginTable("idMap", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableColumnFlags_WidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
         return;
     }
 
@@ -643,7 +643,7 @@ void WorldDebugger::drawRowInfo(gui::GameUI *ui, ChunkSliceRowSparse *sparse) {
 
     // sparse value overrides
     ImVec2 outerSize(0, ImGui::GetTextLineHeightWithSpacing() * 5);
-    if(ImGui::BeginTable("sparseVals", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
+    if(ImGui::BeginTable("sparseVals", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableColumnFlags_WidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
 
         // headers
         ImGui::TableSetupColumn("X", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 18);
@@ -707,7 +707,7 @@ void WorldDebugger::drawBlockInfo(gui::GameUI *ui) {
 
     // start the table boi
     ImVec2 outerSize(0, ImGui::GetTextLineHeightWithSpacing() * 15);
-    if(!ImGui::BeginTable("blockMeta", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
+    if(!ImGui::BeginTable("blockMeta", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableColumnFlags_WidthStretch | ImGuiTableFlags_ScrollY, outerSize)) {
         return;
     }
 

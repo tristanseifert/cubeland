@@ -47,13 +47,6 @@ const std::vector<GameUI::FontInfo> GameUI::kDefaultFonts = {
         .name = "Source Sans Pro (Bold + Italic)",
     },*/
 
-    // the black version of Source Sans Pro is used for headings; accordingly, make it bigger
-    {
-        .path = "fonts/SourceSansPro-Black.ttf",
-        .name = "Source Sans Pro (Black)",
-        .size = 35,
-    },
-
     // monospaced font
     {
         .path = "fonts/SpaceMono-Regular.ttf",
@@ -74,7 +67,37 @@ const std::vector<GameUI::FontInfo> GameUI::kDefaultFonts = {
         .path = "fonts/Overpass-Bold.ttf",
         .name = "Overpass (Bold)",
         .scalesWithUi = true,
-    }
+    },
+    {
+        .path = "fonts/Overpass-Bold.ttf",
+        .name = "Overpass (Heading 1)",
+        .scalesWithUi = true,
+        .size = 35,
+    },
+    {
+        .path = "fonts/Overpass-Bold.ttf",
+        .name = "Overpass (Heading 2)",
+        .scalesWithUi = true,
+        .size = 24,
+    },
+    {
+        .path = "fonts/Overpass-Bold.ttf",
+        .name = "Overpass (Heading 3)",
+        .scalesWithUi = true,
+        .size = 18,
+    },
+
+    {
+        .path = "fonts/SourceSansPro-Regular.ttf",
+        .name = "Body (Regular)",
+        .scalesWithUi = true,
+    },
+
+    {
+        .path = "fonts/SpaceMono-Regular.ttf",
+        .name = "Monospaced (Regular)",
+        .scalesWithUi = true,
+    },
 };
 
 const std::string GameUI::kRegularFontName = "Source Sans Pro (Regular)";
@@ -86,6 +109,15 @@ const std::string GameUI::kMonospacedBoldFontName = "Space Mono (Bold)";
 
 const std::string GameUI::kGameFontRegular = "Overpass (Regular)";
 const std::string GameUI::kGameFontBold = "Overpass (Bold)";
+const std::string GameUI::kGameFontHeading = "Overpass (Heading 1)";
+const std::string GameUI::kGameFontHeading2 = "Overpass (Heading 2)";
+const std::string GameUI::kGameFontHeading3 = "Overpass (Heading 3)";
+
+const std::string GameUI::kGameFontBodyRegular = "Body (Regular)";
+const std::string GameUI::kGameFontBodyItalic = "Body (Regular)";
+const std::string GameUI::kGameFontBodyBold = "Body (Bold)";
+
+const std::string GameUI::kGameFontMonospaced = "Monospaced (Regular)";
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /**
@@ -140,21 +172,20 @@ GameUI::GameUI(SDL_Window *_window, void *context) : window(_window) {
  * Adds a new window to the UI.
  */
 void GameUI::addWindow(std::shared_ptr<GameWindow> window) {
-    // inscrete
-    this->windows.push_back(window);
+    UpdateRequest req(window);
+    req.type = UpdateRequest::ADD;
 
-    // sort by the "uses game styling" flag
-    std::sort(std::begin(this->windows), std::end(this->windows), [](const auto &l, const auto &r){
-        return (l->usesGameStyle() < r->usesGameStyle());
-    });
+    this->requests.push(req);
 }
 
 /**
  * Removes a window from the game UI.
  */
 void GameUI::removeWindow(std::shared_ptr<GameWindow> window) {
-    this->windows.erase(std::remove(std::begin(this->windows), std::end(this->windows), window),
-            std::end(this->windows));
+    UpdateRequest req(window);
+    req.type = UpdateRequest::REMOVE;
+
+    this->requests.push(req);
 }
 
 /**
@@ -249,6 +280,39 @@ void GameUI::willBeginFrame() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame(this->window);
     ImGui::NewFrame();
+
+    // process additions/removals
+    bool sort = false;
+
+    while(!this->requests.empty()) {
+        // get frontmost request
+        const auto req = this->requests.front();
+        this->requests.pop();
+
+        XASSERT(req.window, "Null window request");
+
+        // handle it by type
+        switch(req.type) {
+            // insert a new window
+            case UpdateRequest::ADD:
+                this->windows.push_back(req.window);
+                sort = true;
+                break;
+
+            // remove the window
+            case UpdateRequest::REMOVE:
+                this->windows.erase(std::remove(std::begin(this->windows), std::end(this->windows),
+                            req.window), std::end(this->windows));
+                break;
+        }
+    }
+
+    if(sort) {
+        // sort by the "uses game styling" flag
+        std::sort(std::begin(this->windows), std::end(this->windows), [](const auto &l, const auto &r){
+            return (l->usesGameStyle() < r->usesGameStyle());
+        });
+    }
 
     // draw windows
     bool appliedStyle = false;

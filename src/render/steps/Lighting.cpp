@@ -18,6 +18,7 @@
 
 #include <Logging.h>
 #include "io/Format.h"
+#include "io/PrefsManager.h"
 
 #include <mutils/time/profiler.h>
 #include <glbinding/gl/gl.h>
@@ -92,6 +93,16 @@ Lighting::Lighting() : RenderStep("Render Debug", "Lighting") {
     this->program->setUniform1i("gMatProps", this->gMatProps->unit);
     this->program->setUniform1i("gDepth", this->gDepth->unit);
     this->program->setUniform1i("gSunShadowMap", this->shadowTex->unit);
+
+    this->loadPrefs();
+}
+
+/**
+ * Loads the preferences for rendering.
+ */
+void Lighting::loadPrefs() {
+    this->skyEnabled = io::PrefsManager::getBool("gfx.fancySky", false);
+    this->shadowEnabled = io::PrefsManager::getBool("gfx.sunShadow", true);
 }
 
 /**
@@ -322,9 +333,11 @@ void Lighting::preRender(WorldRenderer *renderer) {
     using namespace gl;
 
     // render shadow map and restore the previously bound framebuffer after
-    GLint drawFboId = FrameBuffer::currentDrawBuffer();
-    this->renderShadowMap(renderer);
-    FrameBuffer::bindDrawBufferByName(drawFboId);
+    if(this->shadowEnabled) {
+        GLint drawFboId = FrameBuffer::currentDrawBuffer();
+        this->renderShadowMap(renderer);
+        FrameBuffer::bindDrawBufferByName(drawFboId);
+    }
 
     // clear the output buffer
     glClearColor(0.f, 0.f, 0.f, 1.f);
@@ -1053,7 +1066,7 @@ done:;
 void Lighting::drawLightsTable() {
     using namespace gfx::lights;
 
-    if(ImGui::BeginTable("lights", 6, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ColumnsWidthStretch)) {
+    if(ImGui::BeginTable("lights", 6, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableColumnFlags_WidthStretch)) {
         // headers
         ImGui::TableSetupColumn("", ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_WidthFixed, 25);
         ImGui::TableSetupColumn("Diffuse");
