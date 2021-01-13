@@ -279,6 +279,8 @@ int MainWindow::run() {
         }
 
         // prepare renderers
+        this->updateStages();
+
         {
             PROFILE_SCOPE(WillBeginFrame);
             for(auto rit = this->stages.rbegin(); rit != this->stages.rend(); ++rit) {
@@ -485,4 +487,41 @@ void MainWindow::endFrameFpsUpdate() {
 void MainWindow::quit() {
     Logging::debug("MainWindow::quit() called");
     this->running = false;
+}
+
+/**
+ * Processes changes to the steps list.
+ */
+void MainWindow::updateStages() {
+    int w, h;
+
+    while(!this->stageChanges.empty()) {
+        const auto req = this->stageChanges.front();
+        this->stageChanges.pop();
+
+        switch(req.type) {
+            case StageChanges::SET_PRIMARY: {
+                // ensure it's the correct size
+                SDL_GL_GetDrawableSize(this->win, &w, &h);
+                req.step->reshape(w, h);
+
+                this->stages[0] = req.step;
+                break;
+            }
+
+            default:
+                XASSERT(false, "Unsupported change type: {}", req.type);
+        }
+    }
+}
+
+/**
+ * Sets the primary (0th) run loop step
+ */
+void MainWindow::setPrimaryStep(std::shared_ptr<RunLoopStep> step) {
+    StageChanges change(step);
+    change.type = StageChanges::SET_PRIMARY;
+
+    this->stageChanges.push(change);
+    this->setMouseCaptureState(true);
 }

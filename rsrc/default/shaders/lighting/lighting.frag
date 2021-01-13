@@ -186,11 +186,13 @@ void main() {
 
 
         // Multiply all lighting so far by inverse of shadow
-        vec3 sunDirection = directionalLights[0].Direction;
-        vec4 FragPosLightSpace = lightSpaceMatrix * vec4(FragWorldPos, 1.0f);
-        float shadow = ShadowCalculation(FragPosLightSpace, Normal, sunDirection);
+        if(shadowContribution > 0) {
+            vec3 sunDirection = directionalLights[0].Direction;
+            vec4 FragPosLightSpace = lightSpaceMatrix * vec4(FragWorldPos, 1.0f);
+            float shadow = ShadowCalculation(FragPosLightSpace, Normal, sunDirection);
 
-        lighting *= 1.0 - clamp(shadow * shadowContribution, 0, 1);
+            lighting *= 1.0 - clamp(shadow * shadowContribution, 0, 1);
+        }
 
 
         // Spot lights

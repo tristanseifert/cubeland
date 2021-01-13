@@ -58,6 +58,12 @@ class FileWorldReader: public WorldReader {
         std::promise<std::vector<char>> getPlayerInfo(const uuids::uuid &player, const std::string &key) override;
         std::promise<void> setPlayerInfo(const uuids::uuid &player, const std::string &key, const std::vector<char> &data) override;
 
+        std::promise<std::vector<char>> getWorldInfo(const std::string &key) override;
+        std::promise<void> setWorldInfo(const std::string &key, const std::vector<char> &data) override;
+        std::promise<void> setWorldInfo(const std::string &key, const std::string &data) override {
+            return WorldReader::setWorldInfo(key, data);
+        }
+
     // these are the DB-context relative functions of the above
     private:
         bool haveChunkAt(int, int);
@@ -137,8 +143,8 @@ class FileWorldReader: public WorldReader {
 
         bool tableExists(const std::string &name);
 
-        bool getWorldInfo(const std::string &key, std::string &value);
-        void setWorldInfo(const std::string &key, const std::string &value);
+        bool readWorldInfo(const std::string &key, std::string &value);
+        void updateWorldInfo(const std::string &key, const std::string &value);
 
         size_t getDbBytesUsed();
 

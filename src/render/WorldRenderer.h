@@ -45,7 +45,7 @@ class WorldRenderer: public gui::RunLoopStep {
     friend class WorldRendererDebugger;
 
     public:
-        WorldRenderer(gui::MainWindow *, std::shared_ptr<gui::GameUI> &);
+        WorldRenderer(gui::MainWindow *, std::shared_ptr<gui::GameUI> &, std::shared_ptr<world::WorldSource> &);
         virtual ~WorldRenderer();
 
     public:

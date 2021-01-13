@@ -11,12 +11,13 @@
 
 namespace gui {
 class GameUI;
+class TitleScreen;
 }
 
 namespace gui::title {
 class WorldSelector: public gui::GameWindow {
     public:
-        WorldSelector();
+        WorldSelector(TitleScreen *title);
         virtual ~WorldSelector() = default;
 
         void loadRecents();
@@ -114,10 +115,23 @@ class WorldSelector: public gui::GameWindow {
         void saveRecents();
 
         void openWorld(const std::string &);
+        void createWorld(const std::string &, const bool = true);
 
+        void drawErrors(gui::GameUI *);
         void drawRecentsList(gui::GameUI *);
+        void drawCreate(gui::GameUI *);
+
+        void setError(const std::string &path, const std::string &detail);
+
+        /// file dialog filter string for world files
+        constexpr static const char *kWorldFilters = "v1 World (.world){.world}";
+        /// maximum characters for world names
+        constexpr static const size_t kNameMaxLen = 128;
 
     private:
+        // title screen instance holds the fun methods for actually changing game modes
+        TitleScreen *title = nullptr;
+
         // recents data, as loaded from prefs (if there is any)
         Recents recents;
         // whether a file dialog is open
@@ -125,6 +139,20 @@ class WorldSelector: public gui::GameWindow {
 
         // selected world
         int selectedWorld = -1;
+
+        // error message open?
+        bool isErrorOpen = false;
+        // filename to display for error message
+        std::string errorFile;
+        // error message detail text
+        std::string errorDetail;
+
+        // world creation modal open?
+        bool isCreateOpen = false;
+        // name for new world
+        char newName[kNameMaxLen] = {0};
+        // seed for new world
+        int newSeed = 420;
 };
 }
 

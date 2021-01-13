@@ -6,11 +6,14 @@
 #include "gui/MainWindow.h"
 #include "gui/PreferencesWindow.h"
 
+#include "render/WorldRenderer.h"
+
 #include "gfx/gl/buffer/Buffer.h"
 #include "gfx/gl/buffer/VertexArray.h"
 #include "gfx/gl/program/ShaderProgram.h"
 #include "gfx/gl/texture/Texture2D.h"
 
+#include <Logging.h>
 #include <imgui.h>
 
 #include <glbinding/gl/gl.h>
@@ -113,7 +116,7 @@ void TitleScreen::drawButtons(GameUI *gui) {
     // draw buttons
     if(ImGui::Button("Single Player", ImVec2(400, 0))) {
         if(!this->worldSel) {
-            this->worldSel = std::make_shared<title::WorldSelector>();
+            this->worldSel = std::make_shared<title::WorldSelector>(this);
             gui->addWindow(this->worldSel);
         }
 
@@ -180,4 +183,17 @@ void TitleScreen::draw() {
  */
 void TitleScreen::reshape(unsigned int w, unsigned int h) {
     this->plasma->resize(glm::ivec2(w / kPlasmaScale, h / kPlasmaScale));
+}
+
+
+
+/**
+ * Creates a world render, and replaces the title screen run loop step with it.
+ */
+void TitleScreen::openWorld(std::shared_ptr<world::WorldSource> &source) {
+    // create renderer
+    auto rend = std::make_shared<render::WorldRenderer>(this->win, this->gui, source);
+
+    // insert it
+    this->win->setPrimaryStep(rend);
 }

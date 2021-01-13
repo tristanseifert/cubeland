@@ -4,6 +4,7 @@
 #include <future>
 #include <memory>
 #include <vector>
+#include <string>
 
 #include <uuid.h>
 #include <glm/vec4.hpp>
@@ -60,6 +61,22 @@ class WorldReader {
          * Sets a given player's player info key value.
          */
         virtual std::promise<void> setPlayerInfo(const uuids::uuid &player, const std::string &key, const std::vector<char> &data) = 0;
+        /**
+         * Reads a particular world info key.
+         */
+        virtual std::promise<std::vector<char>> getWorldInfo(const std::string &key) = 0;
+
+        /**
+         * Sets a given world info key.
+         */
+        virtual std::promise<void> setWorldInfo(const std::string &key, const std::vector<char> &data) = 0;
+        /**
+         * Sets a string world info key.
+         */
+        virtual std::promise<void> setWorldInfo(const std::string &key, const std::string &data) {
+            std::vector<char> bytes(data.begin(), data.end());
+            return this->setWorldInfo(key, bytes);
+        }
 };
 }
 

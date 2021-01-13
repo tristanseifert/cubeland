@@ -43,20 +43,8 @@ inventory::Manager *gInventoryManager = nullptr;
 /**
  * Creates the renderer resources.
  */
-WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> &_gui) :
-    gui(_gui) {
-    // XXX: testing world source
-    try {
-        auto file = std::make_shared<world::FileWorldReader>("/Users/tristan/cubeland/build/./test3.world", true);
-        auto gen = std::make_shared<world::Terrain>(42069);
-
-        this->source = std::make_shared<world::WorldSource>(file, gen);
-        // this->source->setGenerateOnly(true);
-    } catch(std::exception &e) {
-        Logging::error("Failed to open world: {}", e.what());
-        exit(-1);
-    }
-
+WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> &_gui,
+        std::shared_ptr<world::WorldSource> &_source) : gui(_gui), source(_source) {
     // set up the vertex generator; it needs to create a GL context
     render::chunk::VertexGenerator::init(win);
 

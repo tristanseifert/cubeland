@@ -116,7 +116,7 @@ class InputManager {
         float movementSensitivity = 0.15;
 
         // whether user input has any effect on the camera position
-        bool inputUpdatesCamera = false;
+        bool inputUpdatesCamera = true;
         // when set, the input debug view is visible
         bool showDebugWindow = false;
 

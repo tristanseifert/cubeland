@@ -9,6 +9,10 @@
 
 #include <memory>
 
+namespace world {
+class WorldSource;
+}
+
 namespace gfx {
 class Buffer;
 class ShaderProgram;
@@ -27,6 +31,8 @@ class PlasmaRenderer;
 }
 
 class TitleScreen: public RunLoopStep {
+    friend class title::WorldSelector;
+
     public:
         TitleScreen(MainWindow *, std::shared_ptr<GameUI> &);
         ~TitleScreen();
@@ -41,6 +47,9 @@ class TitleScreen: public RunLoopStep {
         bool handleEvent(const SDL_Event &) override {
             return false;
         }
+
+    protected:
+        void openWorld(std::shared_ptr<world::WorldSource> &);
 
     private:
         // game window that just calls into our drawing routines

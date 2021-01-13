@@ -101,9 +101,9 @@ void FileWorldReader::initializeSchema() {
         Logging::trace("World has v1 schema");
 
         std::string creator = "?", version = "?", timestamp = "?";
-        this->getWorldInfo("creator.name", creator);
-        this->getWorldInfo("creator.version", version);
-        this->getWorldInfo("creator.timestamp", timestamp);
+        this->readWorldInfo("creator.name", creator);
+        this->readWorldInfo("creator.version", version);
+        this->readWorldInfo("creator.timestamp", timestamp);
 
         Logging::debug("World created by '{}' ({}) on {}", creator, version, timestamp);
 
@@ -123,11 +123,11 @@ void FileWorldReader::initializeSchema() {
     }
 
     // set creator info
-    this->setWorldInfo("creator.name", "me.tseifert.cubeland");
-    this->setWorldInfo("creator.version", gVERSION_HASH);
+    this->updateWorldInfo("creator.name", "me.tseifert.cubeland");
+    this->updateWorldInfo("creator.version", gVERSION_HASH);
 
     time_t now = time(nullptr);
-    this->setWorldInfo("creator.timestamp", f("{:d}", now));
+    this->updateWorldInfo("creator.timestamp", f("{:d}", now));
 }
 
 
@@ -311,7 +311,7 @@ bool FileWorldReader::tableExists(const std::string &name) {
  *
  * @return Whether the value was found or not.
  */
-bool FileWorldReader::getWorldInfo(const std::string &key, std::string &value) {
+bool FileWorldReader::readWorldInfo(const std::string &key, std::string &value) {
     PROFILE_SCOPE(GetWorldInfo);
 
     int err;
@@ -339,6 +339,7 @@ bool FileWorldReader::getWorldInfo(const std::string &key, std::string &value) {
     // extract the blob data
     this->getColumn(stmt, 1, blobData);
     value = std::string(blobData.begin(), blobData.end());
+    found = true;
 
 beach:;
     // clean up
@@ -349,7 +350,7 @@ beach:;
 /**
  * Sets a world info value to the given string value.
  */
-void FileWorldReader::setWorldInfo(const std::string &key, const std::string &value) {
+void FileWorldReader::updateWorldInfo(const std::string &key, const std::string &value) {
     PROFILE_SCOPE(SetWorldInfo);
 
     int err;
@@ -595,4 +596,56 @@ std::promise<void> FileWorldReader::setPlayerInfo(const uuids::uuid &player, con
 
     return prom;
 }
+
+
+
+/**
+ * Gets a world info key.
+ */
+std::promise<std::vector<char>> FileWorldReader::getWorldInfo(const std::string &key) {
+    this->canAcceptRequests();
+    std::promise<std::vector<char>> prom;
+
+    this->workQueue.enqueue({ .f = [&, key]{
+        try {
+            std::vector<char> data;
+            std::string temp = "?";
+
+            if(this->readWorldInfo(key, temp)) {
+                data.assign(temp.begin(), temp.end());
+            } else {
+                data.clear();
+            }
+
+            prom.set_value(data);
+        } catch (std::exception &e) {
+            Logging::error("Failed to read world info: {}", e.what());
+            prom.set_exception(std::current_exception());
+        }
+    }});
+
+    return prom;
+}
+
+/**
+ * Writes out a world info key.
+ */
+std::promise<void> FileWorldReader::setWorldInfo(const std::string &key, const std::vector<char> &data) {
+    this->canAcceptRequests();
+    std::promise<void> prom;
+
+    this->workQueue.enqueue({ .f = [&, key, data]{
+        try {
+            const std::string str(data.begin(), data.end());
+            this->updateWorldInfo(key, str);
+            prom.set_value();
+        } catch (std::exception &e) {
+            Logging::error("Failed to write world info: {}", e.what());
+            prom.set_exception(std::current_exception());
+        }
+    }});
+
+    return prom;
+}
+
 

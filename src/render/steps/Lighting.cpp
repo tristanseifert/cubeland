@@ -334,7 +334,7 @@ void Lighting::preRender(WorldRenderer *renderer) {
 
     // render shadow map and restore the previously bound framebuffer after
     if(this->shadowEnabled) {
-        GLint drawFboId = FrameBuffer::currentDrawBuffer();
+        const auto drawFboId = FrameBuffer::currentDrawBuffer();
         this->renderShadowMap(renderer);
         FrameBuffer::bindDrawBufferByName(drawFboId);
     }
@@ -393,7 +393,12 @@ void Lighting::render(WorldRenderer *renderer) {
 
     // light space matrix was fucked earlier
     this->program->setUniformMatrix("lightSpaceMatrix", this->shadowViewMatrix);
-    this->program->setUniform1f("shadowContribution", this->shadowFactor);
+
+    if(this->shadowEnabled) {
+        this->program->setUniform1f("shadowContribution", this->shadowFactor);
+    } else {
+        this->program->setUniform1f("shadowContribution", 0);
+    }
     this->program->setUniform1f("ssaoFactor", this->ssaoFactor);
 
     // send fog properties
