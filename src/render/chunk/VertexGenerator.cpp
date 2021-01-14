@@ -189,8 +189,8 @@ process:;
         }
     }
 
-    // detach context
-    SDL_GL_MakeCurrent(this->window->getSDLWindow(), nullptr);
+    // clean up thread data
+    MUtils::Profiler::FinishThread();
 }
 
 /**
@@ -434,7 +434,9 @@ void VertexGenerator::workerGenerate(const std::shared_ptr<world::Chunk> &chunk,
 
     req.vertices = std::move(vertices);
 
-    this->bufferReqs.enqueue(req);
+    if(this->run) {
+        this->bufferReqs.enqueue(req);
+    }
 }
 
 

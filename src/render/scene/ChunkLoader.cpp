@@ -169,6 +169,9 @@ ChunkLoader::ChunkLoader() {
  * Cleans up all the resources of the chunk loader.
  */
 ChunkLoader::~ChunkLoader() {
+    // stop work queue
+    this->chunkWorkQueue.cleanup();
+
     delete this->mAllocPlot;
     delete this->mDataChunkPlot;
     delete this->mDisplayChunkPlot;

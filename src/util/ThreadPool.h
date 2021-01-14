@@ -13,6 +13,10 @@
 
 #include "io/Format.h"
 
+namespace MUtils::Profiler {
+extern void FinishThread();
+}
+
 namespace util {
     template<class T> class ThreadPool {
         public:
@@ -69,6 +73,13 @@ namespace util {
             virtual ~ThreadPool() {
                 this->stopWorkers();
             }
+        
+            /**
+             * Prepares the work queue deallocation by stopping acceptance of new work, and stopping existing workers.
+             */
+            virtual void cleanup() {
+                this->stopWorkers(true);
+            }
 
         protected:
             virtual void workerMain(size_t i) {
@@ -81,11 +92,17 @@ namespace util {
                     this->workQueue.wait_dequeue(item);
                     item();
                 }
+                
+                this->workerThreadWillEnd(i);
             } 
 
             /// Callback invoked when a thread is started
             virtual void workerThreadStarted(const size_t i) {};
-
+            /// Callback invoked when a thread is exiting
+            virtual void workerThreadWillEnd(const size_t i) {
+                MUtils::Profiler::FinishThread();
+            };
+        
             /**
              * Starts `num` worker threads.
              */

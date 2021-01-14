@@ -9,6 +9,7 @@
 #include "gui/GameUI.h"
 #include "gui/MenuBarHandler.h"
 #include "gui/MainWindow.h"
+#include "gui/Loaders.h"
 #include "gui/title/TitleScreen.h"
 
 #include "render/chunk/VertexGenerator.h"
@@ -150,6 +151,8 @@ WorldRenderer::~WorldRenderer() {
     gInventoryManager = nullptr;
     delete this->inventory;
 
+    delete this->physics;
+
     this->lighting = nullptr;
     gLightRenderer = nullptr;
     this->hdr = nullptr;
@@ -160,8 +163,6 @@ WorldRenderer::~WorldRenderer() {
     this->steps.clear();
 
     render::chunk::VertexGenerator::shutdown();
-
-    delete this->physics;
 
     delete this->input;
     this->source = nullptr;
@@ -207,17 +208,22 @@ void WorldRenderer::willBeginFrame() {
 
     // pause menu stuff
     this->animatePauseMenu();
-    if(this->isPauseMenuOpen && this->exitToTitle) {
-        // this->closePauseMenu();
+    if(this->exitToTitle) {
+        this->exitToTitle++;
+    }
 
+    if(this->isPauseMenuOpen && this->exitToTitle == 9) {
         // force writing out inventory, dirty chunks
-        this->inventory->writeInventory();
-
+        if(this->inventory->isDirty()) {
+            this->inventory->writeInventory();
+        }
+    }
+    else if(this->isPauseMenuOpen && this->exitToTitle == 10) {
         // switch to title screen
         auto title = std::make_shared<gui::TitleScreen>(this->window, this->gui);
         this->window->setPrimaryStep(title);
 
-        this->exitToTitle = false;
+        this->exitToTitle = 0;
     }
 
     // perform transfers of chunk datas
@@ -371,7 +377,7 @@ void WorldRenderer::drawPauseButtons(gui::GameUI *gui) {
     // begin the window
     ImGuiIO& io = ImGui::GetIO();
 
-    ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove; // | ImGuiWindowFlags_NoBackground;
+    ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
     ImVec2 windowPos = ImVec2(io.DisplaySize.x / 2., io.DisplaySize.y / 2.);
 
     // ImGui::SetNextWindowSize(ImVec2(402, 0));
@@ -403,7 +409,7 @@ void WorldRenderer::drawPauseButtons(gui::GameUI *gui) {
     ImGui::PushFont(btnFont);
     if(ImGui::Button("Exit to Main Menu", btnSize)) {
         // set a flag to perform this change next frame
-        this->exitToTitle = true;
+        this->exitToTitle = 1;
     }
     ImGui::PopFont();
     if(ImGui::IsItemHovered()) {
@@ -411,10 +417,31 @@ void WorldRenderer::drawPauseButtons(gui::GameUI *gui) {
     }
 
     ImGui::PopStyleColor(3);
-    ImGui::PopStyleVar();
+
+    // draw the "closing shit" message
+    if(this->exitToTitle > 0) {
+        ImGui::OpenPopup("Exiting");
+
+        ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always, ImVec2(.5, .5));
+        ImGui::SetNextWindowSizeConstraints(ImVec2(325, 0), ImVec2(325, 500));
+
+        if(ImGui::BeginPopupModal("Exiting", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::PushFont(gui->getFont(gui::GameUI::kGameFontBold));
+            ImGui::Spinner("##spin", 9, 3, ImGui::GetColorU32(ImGuiCol_Button));
+            ImGui::SameLine();
+            ImGui::TextUnformatted("Please wait...");
+            ImGui::PopFont();
+
+            ImGui::TextWrapped("%s", "Waiting for background work to complete. This may take a few seconds.");
+
+            ImGui::EndPopup();
+        }
+    }
 
     // done
     ImGui::End();
+
+    ImGui::PopStyleVar();
 }
 
 /**

@@ -14,7 +14,8 @@ using namespace world;
 
 /// shared thread pool
 using WorkItem = std::function<void(void)>;
-static util::ThreadPool<WorkItem> gBlockCallbackQueue("Block Callbacks", 4);
+using Pool = util::ThreadPool<WorkItem>;
+static std::unique_ptr<Pool> gBlockCallbackQueue;
 
 /// shared block registry instance
 BlockRegistry *BlockRegistry::gShared = nullptr;
@@ -37,12 +38,14 @@ void BlockRegistry::init() {
  */
 BlockRegistry::BlockRegistry() {
     this->dataGen = new BlockDataGenerator(this);
+    gBlockCallbackQueue = std::make_unique<Pool>("Block Callbacks", 4);
 }
 /**
  * Releases all resource we've allocated.
  */
 BlockRegistry::~BlockRegistry() {
     delete this->dataGen;
+    gBlockCallbackQueue = nullptr;
 }
 
 
@@ -315,7 +318,7 @@ void BlockRegistry::notifyChunkLoaded(std::shared_ptr<Chunk> &ptr) {
     for(auto &[id, info] : gShared->blocks) {
         if(info.block && info.block->wantsChunkLoadNotifications()) {
             Block *block = info.block;
-            futures.push_back(gBlockCallbackQueue.queueWorkItem([=] {
+            futures.push_back(gBlockCallbackQueue->queueWorkItem([=] {
                 block->chunkWasLoaded(ptr);
             }));
         }
@@ -339,7 +342,7 @@ void BlockRegistry::notifyChunkWillUnload(std::shared_ptr<Chunk> &ptr) {
     for(auto &[id, info] : gShared->blocks) {
         if(info.block && info.block->wantsChunkLoadNotifications()) {
             Block *block = info.block;
-            futures.push_back(gBlockCallbackQueue.queueWorkItem([=] {
+            futures.push_back(gBlockCallbackQueue->queueWorkItem([=] {
                 block->chunkWillUnload(ptr);
             }));
         }

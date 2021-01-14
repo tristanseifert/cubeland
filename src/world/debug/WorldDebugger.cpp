@@ -781,6 +781,8 @@ void WorldDebugger::workerMain() {
         PROFILE_SCOPE(Callout);
         item();
     }
+
+    MUtils::Profiler::FinishThread();
 }
 
 /**

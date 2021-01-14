@@ -54,8 +54,7 @@ MainWindow::MainWindow() {
     this->makeWindow();
 
     // set up profiling
-    MUtils::Profiler::Init();
-    MUtils::Profiler::NameThread("Main");
+    this->initProfiler();
 
     // create the renderers
     auto bar = std::make_shared<MenuBarHandler>();
@@ -498,6 +497,11 @@ void MainWindow::updateStages() {
 
         switch(req.type) {
             case StageChanges::SET_PRIMARY: {
+                // reset mouse and profiler state
+                this->setMouseCaptureState(true);
+
+                // MUtils::Profiler::SetPaused(true);
+
                 // ensure it's the correct size
                 SDL_GL_GetDrawableSize(this->win, &w, &h);
 
@@ -515,6 +519,14 @@ void MainWindow::updateStages() {
 }
 
 /**
+ * Initializes the built-in mini profiler.
+ */
+void MainWindow::initProfiler() {
+    MUtils::Profiler::Init();
+    MUtils::Profiler::NameThread("Main");
+}
+
+/**
  * Sets the primary (0th) run loop step
  */
 void MainWindow::setPrimaryStep(std::shared_ptr<RunLoopStep> step) {
@@ -522,5 +534,4 @@ void MainWindow::setPrimaryStep(std::shared_ptr<RunLoopStep> step) {
     change.type = StageChanges::SET_PRIMARY;
 
     this->stageChanges.push(change);
-    this->setMouseCaptureState(true);
 }

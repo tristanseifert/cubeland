@@ -160,6 +160,8 @@ void WorldSource::workerMain(size_t i) {
         this->workQueue.wait_dequeue(item);
         item();
     }
+
+    MUtils::Profiler::FinishThread();
 }
 
 /**
@@ -260,6 +262,8 @@ void WorldSource::writerMain() {
             (*req.completion)();
         }
     }
+
+    MUtils::Profiler::FinishThread();
 }
 
 /**

@@ -60,7 +60,8 @@ class ChunkWorker: public util::ThreadPool<WorkItem> {
             this->workQueue.enqueue([&] {});
         }
 
-        void workerThreadStarted(const size_t i) override;
+        void workerThreadStarted(const size_t) override;
+        void workerThreadWillEnd(const size_t) override;
 
     private:
         static std::shared_ptr<ChunkWorker> gShared;

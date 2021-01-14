@@ -6,6 +6,7 @@
 
 #include <functional>
 #include <unordered_map>
+#include <mutex>
 #include <cstdint>
 #include <cstddef>
 
@@ -78,6 +79,8 @@ class TickHandler {
         uint32_t nextCallbackId = 1;
         /// callbacks to execute on each tick
         std::unordered_map<uint32_t, TickCallback> callbacks;
+        /// lock over callbacks
+        std::mutex callbacksLock;
 
         /// deferred work to do next frame
         moodycamel::ConcurrentQueue<TickCallback> deferred;

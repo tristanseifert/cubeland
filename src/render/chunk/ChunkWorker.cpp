@@ -46,3 +46,10 @@ void ChunkWorker::workerThreadStarted(const size_t i) {
     const auto threadName = f("ChunkWorker {}", i+1);
     MUtils::Profiler::NameThread(threadName.c_str());
 }
+
+/**
+ * Cleans up the thread's profiler data.
+ */
+void ChunkWorker::workerThreadWillEnd(const size_t) {
+    MUtils::Profiler::FinishThread();
+}

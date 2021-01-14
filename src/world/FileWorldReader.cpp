@@ -162,6 +162,7 @@ void FileWorldReader::workerMain() {
     Logging::trace("File world reader worker exiting");
 
     this->acceptRequests = false;
+    MUtils::Profiler::FinishThread();
 }
 
 /**

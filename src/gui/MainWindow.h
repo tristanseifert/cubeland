@@ -50,6 +50,7 @@ class MainWindow {
         void startFrameFpsUpdate();
         void endFrameFpsUpdate();
 
+        void initProfiler();
         void updateStages();
 
     private:

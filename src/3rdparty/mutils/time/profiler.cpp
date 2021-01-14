@@ -10,6 +10,8 @@
 
 #include "imgui.h"
 #include "imgui_internal.h"
+
+#include <Logging.h>
 #include <fmt/format.h>
 
 using namespace std::chrono;
@@ -48,7 +50,7 @@ namespace
 
 const unsigned int frameMarkerColor = 0x22FFFFFF;
 
-const uint32_t MaxThreads = 50;
+const uint32_t MaxThreads = 75;
 const uint32_t MaxCallStack = 30;
 const uint32_t MaxEntriesPerThread = 75000;
 const uint32_t MaxFrames = 25000;
@@ -170,8 +172,19 @@ void InitThread()
 
 void FinishThread()
 {
+    // ignore if no thread index
+    if(gThreadIndexTLS <= -1) return;
+    
     std::unique_lock<std::mutex> lk(gMutex);
     assert(gThreadIndexTLS > -1 && "Trying to finish an uninitilized thread.");
+    
+    size_t active = 0;
+    for (uint32_t iThread = 0; iThread < MaxThreads; iThread++) {
+        if(gThreadData[iThread].initialized) active++;
+    }
+    
+    // Logging::trace("Finishing thread: {} ({} remain)", gThreadData[gThreadIndexTLS].name, active);
+    
     gThreadData[gThreadIndexTLS].initialized = false;
     gThreadIndexTLS = -1;
 }
@@ -969,7 +982,7 @@ void ShowProfile(bool* opened)
             auto& frameThreadInfo = frameInfo.frameThreads[threadIndex];
             auto& threadData = gThreadData[frameThreadInfo.threadIndex];
 
-            if (threadData.hidden)
+            if (threadData.hidden || !threadData.initialized)
             {
                 continue;
             }

@@ -69,6 +69,8 @@ void PushSectionBase(const char*, uint32_t, const char*, int);
 void PopSection();
 void ShowProfile(bool* opened);
 void HideThread();
+void FinishThread();
+void Reset();
 void Finish();
 
 struct ProfileScope

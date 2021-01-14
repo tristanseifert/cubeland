@@ -174,7 +174,7 @@ class WorldRenderer: public gui::RunLoopStep {
         // whether to fade out the game content
         bool isPauseMenuAnimating = false;
         // set to exit to title screen at the start of next frame
-        bool exitToTitle = false;
+        size_t exitToTitle = 0;
         // time at which the menu was opened (for animation)
         std::chrono::steady_clock::time_point menuOpenedAt;
 };

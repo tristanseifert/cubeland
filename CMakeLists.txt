@@ -326,6 +326,7 @@ target_include_directories(mutils PRIVATE libs/imgui)
 target_include_directories(mutils PRIVATE src/gui/imgui)
 
 target_link_libraries(mutils PRIVATE fmt::fmt)
+target_link_libraries(mutils PRIVATE spdlog::spdlog)
 
 target_link_libraries(cubeland PRIVATE mutils)
 target_include_directories(cubeland PRIVATE src/3rdparty)

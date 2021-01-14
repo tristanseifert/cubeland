@@ -22,6 +22,9 @@ TickHandler::TickHandler() {
  * Stops the tick timer and any pending ticks.
  */
 TickHandler::~TickHandler() {
+    // TODO: do we need to take this lock?
+    // LOCK_GUARD(this->callbacksLock, TickCbs);
+
     bool success = SDL_RemoveTimer(this->timer);
     XASSERT(success, "Failed to remove tick timer");
 }
@@ -30,6 +33,7 @@ TickHandler::~TickHandler() {
  * Tick callback
  */
 void TickHandler::tick() {
+    LOCK_GUARD(this->callbacksLock, TickCbs);
     PROFILE_SCOPE(Tick);
 
     // invoke callbacks
@@ -42,6 +46,7 @@ void TickHandler::tick() {
  * Installs a new tick callback.
  */
 uint32_t TickHandler::addCallback(const TickCallback &cb) {
+    LOCK_GUARD(this->callbacksLock, TickCbs);
     uint32_t nextId = this->nextCallbackId++;
 
     this->callbacks[nextId] = cb;
@@ -52,6 +57,7 @@ uint32_t TickHandler::addCallback(const TickCallback &cb) {
  * Removes an existing tick callback.
  */
 void TickHandler::removeCallback(const uint32_t id) {
+    LOCK_GUARD(this->callbacksLock, TickCbs);
     this->callbacks.erase(id);
 }
 
