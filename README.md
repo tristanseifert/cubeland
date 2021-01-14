@@ -15,6 +15,11 @@ The following dependencies are included as submodules:
 - **[ReactPhysics 3D](https://www.reactphysics3d.com)**: Game physics engine. Once cloned, it needs to be built using cmake: `cd libs/reactphysics3d && mkdir build && cd build && cmake .. && make -j16`
 - **[LibreSSL](https://www.libressl.org)**: TLS encryption for multiplayer connections and miscellaneous crypto stuff. Follow the directions in its readme to build it in place; it will be linked against properly. Be sure to pass `--enable-shared=no` to the config step so we link statically to it.
 
+### macOS Note
+To properly support macOS, including Apple Silicon, it's necessary to build fat (universal) binaries containing both an x86_64 and arm64e slice. When invoking CMake to generate the Makefiles, pass the `-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"` switch to it. This holds true for both the main executable and _all_ libraries.
+
+*** Note: *** Currently, the FastNoise2 library doesn't seem to support arm64 properly. There's some NEON support in it but it appears rather broken :(
+
 ## Resources
 All images (as well as other resources) are stored in resource libraries. These can be generated with the `build_rsrc` tool. To generate the default resources library, run `cd tools && ./build_rsrc.py ../rsrc/textures ../build/default.rsrc`
 

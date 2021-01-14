@@ -109,10 +109,11 @@ void VertexGenerator::removeCallback(const uint32_t token) {
     // erase it from the chunk callback mapping
     {
         LOCK_GUARD(this->chunkCallbackMapLock, ChunkCbMap);
-        const auto count = std::erase_if(this->chunkCallbackMap, [token](const auto &item) {
+        // TODO: fix this once clang unfucks itself
+        /*const auto count = */std::erase_if(this->chunkCallbackMap, [token](const auto &item) {
             return (item.second == token);
         });
-        XASSERT(count, "No callback with token ${:x} in chunk->callback map", token);
+        //XASSERT(count, "No callback with token ${:x} in chunk->callback map", token);
     }
 
     // then, actually remove the callback

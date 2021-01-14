@@ -8,8 +8,8 @@ using namespace util;
 
 CPUID CPUID::gShared;
 
+#if defined(__x86_64__)
 #ifdef __GNUC__
-
 void __cpuid(int* cpuinfo, int info) {
     __asm__ __volatile__(
         "xchg %%ebx, %%edi;"
@@ -30,7 +30,7 @@ unsigned long long _xgetbv(unsigned int index) {
     return ((unsigned long long)edx << 32) | eax;
 }
 #endif
-
+#endif
 
 /**
  * Initializes the CPUID detector.
@@ -38,6 +38,7 @@ unsigned long long _xgetbv(unsigned int index) {
  * This will check all available extensions.
  */
 CPUID::CPUID() {
+#if defined(__x86_64__)
     // get cpuid
     int cpuinfo[4];
     __cpuid(cpuinfo, 1);
@@ -67,5 +68,5 @@ CPUID::CPUID() {
         this->sse4aSupportted = cpuinfo[2] & (1 << 6) || false;
         this->sse5Supportted = cpuinfo[2] & (1 << 11) || false;
     }
+#endif
 }
-

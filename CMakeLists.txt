@@ -423,8 +423,8 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
     # llvm C++ library, in default Homebrew location
     # TODO: is there a better way to do this? if the version of the c++ lib changes, shit will die
-    add_custom_command(TARGET cubeland POST_BUILD COMMAND ${CMAKE_INSTALL_NAME_TOOL} -change /usr/local/opt/llvm/lib/libc++.1.dylib @rpath/libc++.1.dylib ${BUNDLE_BINARY})
+    # add_custom_command(TARGET cubeland POST_BUILD COMMAND ${CMAKE_INSTALL_NAME_TOOL} -change /usr/local/opt/llvm/lib/libc++.1.dylib @rpath/libc++.1.dylib ${BUNDLE_BINARY})
 
-    file(COPY /usr/local/opt/llvm/lib/libc++.1.dylib DESTINATION ${BUNDLE_FRAMEWORK_PATH} FOLLOW_SYMLINK_CHAIN)
-    file(COPY /usr/local/opt/llvm/lib/libc++abi.1.dylib DESTINATION ${BUNDLE_FRAMEWORK_PATH} FOLLOW_SYMLINK_CHAIN)
+    #file(COPY /usr/local/opt/llvm/lib/libc++.1.dylib DESTINATION ${BUNDLE_FRAMEWORK_PATH} FOLLOW_SYMLINK_CHAIN)
+    #file(COPY /usr/local/opt/llvm/lib/libc++abi.1.dylib DESTINATION ${BUNDLE_FRAMEWORK_PATH} FOLLOW_SYMLINK_CHAIN)
 endif()

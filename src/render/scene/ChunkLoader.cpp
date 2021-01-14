@@ -709,14 +709,13 @@ std::shared_ptr<render::WorldChunk> ChunkLoader::makeWorldChunk() {
  */
 void ChunkLoader::pruneLoadedChunksList() {
     PROFILE_SCOPE(PruneChunks);
-
-    size_t numChunks = 0, numWorldChunks = 0, numVisibility = 0;
+    bool needsDealloc = false;
 
     // remove the stored chunks, if we are able to obtain the lock
     if(this->chunksToDeallocLock.try_lock()){
         PROFILE_SCOPE(DataChunk);
 
-        numChunks = std::erase_if(this->loadedChunks, [&](const auto &item) {
+        std::erase_if(this->loadedChunks, [&](const auto &item) {
             auto const& [pos, chunk] = item;
             const auto distance = std::max(fabs(pos.x - this->centerChunkPos.x), fabs(pos.y - this->centerChunkPos.y));
             bool toRemove = (distance > this->cacheReleaseDistance);
@@ -725,6 +724,8 @@ void ChunkLoader::pruneLoadedChunksList() {
             }
             return toRemove;
         });
+
+        needsDealloc = !this->chunksToDealloc.empty();
 
         this->mDataChunksDealloc->AddNewValue(this->chunksToDealloc.size());
         this->chunksToDeallocLock.unlock();
@@ -750,7 +751,7 @@ void ChunkLoader::pruneLoadedChunksList() {
         for(const auto &pos : toRemove) {
             this->chunks.erase(pos);
         }
-        numWorldChunks = toRemove.size();
+        toRemove.size();
 
         this->mDisplayCached->AddNewValue(this->chunkQueue.size_approx());
     }
@@ -758,7 +759,7 @@ void ChunkLoader::pruneLoadedChunksList() {
     // garbage collect the visibility map
     {
         PROFILE_SCOPE(VisibilityMap);
-        numWorldChunks = std::erase_if(this->visibilityMap, [&](const auto &item) {
+        std::erase_if(this->visibilityMap, [&](const auto &item) {
             auto const& [pos, visible] = item;
             const auto distance = std::max(fabs(pos.x - this->centerChunkPos.x), fabs(pos.y - this->centerChunkPos.y));
             return (distance > this->visibilityReleaseDistance);
@@ -766,13 +767,8 @@ void ChunkLoader::pruneLoadedChunksList() {
 
     }
 
-    if(numChunks || numWorldChunks) {
-        Logging::debug("Released {} data chunk(s), {} drawing chunk(s), {} visibility map entries", 
-                numChunks, numWorldChunks, numVisibility);
-    }
-
     // if we removed chunks, queue deallocation
-    if(numChunks) {
+    if(needsDealloc) {
         auto future = this->chunkWorkQueue.queueWorkItem([&] {
             PROFILE_SCOPE(DeallocChunks);
             LOCK_GUARD(this->chunksToDeallocLock, DeallocChunksList);

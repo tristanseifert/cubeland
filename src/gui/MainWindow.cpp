@@ -43,11 +43,13 @@ MainWindow::MainWindow() {
     int w = 0, h = 0;
 
     // check CPU extensions
+#if defined(__x86_64__)
     if(!util::CPUID::isAvxSupported()) {
         Logging::error("CPU is missing the AVX instruction set. Cannot continue");
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "CPU Requirements Error", "Your processor must support at least the AVX instruction set. This means at least AMD Jaguar/Bulldozer or Intel Sandy Bridge.", nullptr);
         exit(-1);
     }
+#endif
 
     // set up GL and main window
     this->configGLContext();

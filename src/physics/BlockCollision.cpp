@@ -61,7 +61,7 @@ void BlockCollision::startFrame() {
     // discard all bodies that are too far away
     {
         LOCK_GUARD(this->bodiesLock, BodiesLock);
-        const auto erased = std::erase_if(this->bodies, [&, bodyPos](const auto &item) {
+        std::erase_if(this->bodies, [&, bodyPos](const auto &item) {
             const auto& [blockPos, info] = item;
             // if too far away, we need to delete the physics body to ensure it's not dangling around
             if(distance2(bodyPos, glm::vec3(blockPos)) > kBlockMaxDistance) {
@@ -73,14 +73,10 @@ void BlockCollision::startFrame() {
 
             return false;
         });
-
-        if(erased) {
-            // Logging::trace("Removed {} block bodies due to distance", erased);
-        }
     }
 
     // remove chunk observers that are no longer needed
-    const auto erased = std::erase_if(this->chunkObservers, [&](const auto &item) {
+    std::erase_if(this->chunkObservers, [&](const auto &item) {
         const auto& [chunkPos, token] = item;
 
         if(!this->activeChunks.contains(chunkPos)) {
@@ -94,10 +90,6 @@ void BlockCollision::startFrame() {
 
         return false;
     });
-
-    if(erased) {
-        // Logging::trace("Removed {} chunk observers", erased);
-    }
 }
 
 /**
