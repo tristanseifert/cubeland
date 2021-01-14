@@ -89,6 +89,11 @@ void AboutWindow::draw(GameUI *gui) {
             ImGui::Text("Build Type: Debug");
 #endif
 
+            ImGui::Bullet();
+            ImGui::Text("Built On: ");
+            ImGui::SameLine();
+            ImGui::Text("%s at %s", __DATE__, __TIME__);
+
             ImGui::EndTabItem();
         }
 

@@ -18,6 +18,7 @@
 
 #include <glbinding/gl/gl.h>
 #include <glbinding/Binding.h>
+#include <SDL.h>
 
 using namespace gui;
 
@@ -86,9 +87,22 @@ TitleScreen::~TitleScreen() {
 
 
 /**
+ * When the step is about to render for the first time, enable cursor.
+ */
+void TitleScreen::stepAdded() {
+    // force cursor to be displayed
+    this->win->setMouseCaptureState(false);
+}
+
+/**
  * Updates the background drawing and timing for animations.
  */
 void TitleScreen::willBeginFrame() {
+    using namespace gl;
+
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+
     this->plasma->draw(this->time / 5.);
     this->time += 1. / 60.;
 }
@@ -164,6 +178,12 @@ void TitleScreen::drawButtons(GameUI *gui) {
  */
 void TitleScreen::draw() {
     using namespace gl;
+    int w, h;
+
+    // update viewport
+    auto win = this->win->getSDLWindow();
+    SDL_GL_GetDrawableSize(win, &w, &h);
+    glViewport(0, 0, (GLsizei) w, (GLsizei) h);
 
     // draw the plasma background layer
     auto plasmaTex = this->plasma->getOutput();

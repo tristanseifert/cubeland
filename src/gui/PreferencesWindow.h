@@ -16,6 +16,7 @@ class PreferencesWindow: public GameWindow {
         void load() {
             this->loadUiPaneState();
             this->loadGfxPaneState();
+            this->loadPerfPaneState();
         }
 
     public:
@@ -29,6 +30,10 @@ class PreferencesWindow: public GameWindow {
         void loadGfxPaneState();
         void saveGfxPaneState();
         void drawGfxPane(GameUI *);
+
+        void loadPerfPaneState();
+        void savePerfPaneState();
+        void drawPerfPane(GameUI *);
 
         void drawKeyValue(GameUI *, const std::string &key, const std::string &value);
 
@@ -47,6 +52,19 @@ class PreferencesWindow: public GameWindow {
             bool fancySky;
             bool dirShadows;
         } gfx;
+
+        // state for the performance pane
+        struct {
+            // drawing worker threads
+            int drawThreads = 0;
+            // world source threads
+            int sourceThreads = 0;
+
+            // render distance (in chunks)
+            int renderDist = 0;
+            // how many chunks outside render distance to keep in cache
+            int renderCacheBuffer = 0;
+        } perf;
 };
 }
 

@@ -8,6 +8,8 @@
 #include "input/PlayerPosPersistence.h"
 #include "gui/GameUI.h"
 #include "gui/MenuBarHandler.h"
+#include "gui/MainWindow.h"
+#include "gui/title/TitleScreen.h"
 
 #include "render/chunk/VertexGenerator.h"
 #include "world/FileWorldReader.h"
@@ -32,6 +34,7 @@
 #include <mutils/time/profiler.h>
 #include <glm/ext.hpp>
 #include <SDL.h>
+#include <imgui.h>
 
 using namespace render;
 
@@ -43,13 +46,13 @@ inventory::Manager *gInventoryManager = nullptr;
 /**
  * Creates the renderer resources.
  */
-WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> &_gui,
-        std::shared_ptr<world::WorldSource> &_source) : gui(_gui), source(_source) {
+WorldRenderer::WorldRenderer(gui::MainWindow *_win, std::shared_ptr<gui::GameUI> &_gui,
+        std::shared_ptr<world::WorldSource> &_source) : window(_win), gui(_gui), source(_source) {
     // set up the vertex generator; it needs to create a GL context
-    render::chunk::VertexGenerator::init(win);
+    render::chunk::VertexGenerator::init(_win);
 
     // create the IO manager
-    this->input = new input::InputManager(win);
+    this->input = new input::InputManager(_win);
 
     // then, the render steps
     auto scnRnd = std::make_shared<SceneRenderer>();
@@ -122,6 +125,10 @@ WorldRenderer::WorldRenderer(gui::MainWindow *win, std::shared_ptr<gui::GameUI> 
  * Releases all of our render resources.
  */
 WorldRenderer::~WorldRenderer() {
+    if(this->pauseWin) {
+        this->gui->removeWindow(this->pauseWin);
+    }
+
     delete this->timeSaver;
 
     this->source->flushDirtyChunksSync();
@@ -198,6 +205,21 @@ void WorldRenderer::willBeginFrame() {
         this->time += 1./(3600. * 24);
     }
 
+    // pause menu stuff
+    this->animatePauseMenu();
+    if(this->isPauseMenuOpen && this->exitToTitle) {
+        // this->closePauseMenu();
+
+        // force writing out inventory, dirty chunks
+        this->inventory->writeInventory();
+
+        // switch to title screen
+        auto title = std::make_shared<gui::TitleScreen>(this->window, this->gui);
+        this->window->setPrimaryStep(title);
+
+        this->exitToTitle = false;
+    }
+
     // perform transfers of chunk datas
     render::chunk::VertexGenerator::startOfFrame();
 }
@@ -269,8 +291,21 @@ bool WorldRenderer::handleEvent(const SDL_Event &event) {
     if(event.type == SDL_KEYDOWN) {
         const auto &k = event.key.keysym;
 
+        // ESC toggles the pause menu
+        if(k.scancode == SDL_SCANCODE_ESCAPE) {
+            // close pause menu if it's open
+            if(this->isPauseMenuOpen) {
+                this->closePauseMenu();
+            }
+            // open if no other cursor-requiring stuff is open
+            else {
+                if(!this->input->getCursorCount()) {
+                    this->openPauseMenu();
+                }
+            }
+        }
         // F3 toggles the scene debugging overlays
-        if(k.scancode == SDL_SCANCODE_F3) {
+        else if(k.scancode == SDL_SCANCODE_F3) {
             gSceneRenderer->toggleDebugOverlays();
         }
         // F9 toggles menu bar
@@ -325,4 +360,130 @@ void WorldRenderer::updateView() {
 
         stage->projectionMatrix = this->projection;
     }
+}
+
+
+
+/**
+ * Draws the pause menu buttons.
+ */
+void WorldRenderer::drawPauseButtons(gui::GameUI *gui) {
+    // begin the window
+    ImGuiIO& io = ImGui::GetIO();
+
+    ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove; // | ImGuiWindowFlags_NoBackground;
+    ImVec2 windowPos = ImVec2(io.DisplaySize.x / 2., io.DisplaySize.y / 2.);
+
+    // ImGui::SetNextWindowSize(ImVec2(402, 0));
+    ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always, ImVec2(.5, .5));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 4.);
+
+    if(!ImGui::Begin("Pause Menu Buttons", nullptr, windowFlags)) {
+        return;
+    }
+
+    const ImVec2 btnSize(400, 0);
+    const auto btnFont = gui->getFont(gui::GameUI::kGameFontHeading2);
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(.1, 0, 0, 1));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(.25, 0, 0, 1));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(.33, .066, .066, .9));
+
+    // close the menu
+    ImGui::PushFont(btnFont);
+    if(ImGui::Button("Return to Game", btnSize)) {
+        this->closePauseMenu();
+    }
+    ImGui::PopFont();
+    if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Closes this menu so you can get back to playing with cubes");
+    }
+
+    // return to title
+    ImGui::Dummy(ImVec2(0,10));
+    ImGui::PushFont(btnFont);
+    if(ImGui::Button("Exit to Main Menu", btnSize)) {
+        // set a flag to perform this change next frame
+        this->exitToTitle = true;
+    }
+    ImGui::PopFont();
+    if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Saves the current world and returns to the title screen");
+    }
+
+    ImGui::PopStyleColor(3);
+    ImGui::PopStyleVar();
+
+    // done
+    ImGui::End();
+}
+
+/**
+ * Animates the pause menu.
+ */
+void WorldRenderer::animatePauseMenu() {
+    using namespace std::chrono;
+
+    // bail if pause menu is not animating
+    if(!this->isPauseMenuAnimating) return;
+
+    const auto now = steady_clock::now();
+    const auto diff = duration_cast<milliseconds>(now - this->menuOpenedAt).count();
+    const float diffSecs = ((float) diff) / 1000.;
+
+    // stop animating if we've been a whole animation period
+    if(diffSecs >= kPauseAnimationDuration) {
+        this->isPauseMenuAnimating = false;
+
+        this->hdr->setVignetteParams(.33, .5);
+        this->hdr->setHsvAdjust(glm::vec3(0, .26, .75));
+    }
+    // otherwise, fade out the saturation
+    else {
+        const float frac = std::min((diffSecs / kPauseAnimationDuration) + .1, 1.);
+        const auto sqt = frac*frac;
+        const auto t = sqt / (2. * (sqt - frac) + 1.f);
+
+        this->hdr->setVignetteParams(1 - (.67 * t), std::min(.5 ,(t * 2.5) * .5));
+        this->hdr->setHsvAdjust(glm::vec3(0, 1. - (.74 * t), 1 - (.25 * t)));
+    }
+}
+
+/**
+ * Opens the pause menu.
+ */
+void WorldRenderer::openPauseMenu() {
+    // open pause menu
+    this->isPauseMenuOpen = true;
+    this->paused = true;
+
+    if(!this->pauseWin) {
+        this->pauseWin = std::make_shared<PauseWindow>(this);
+        this->gui->addWindow(this->pauseWin);
+    }
+
+    this->pauseWin->setVisible(true);
+
+    // start the timer for animating
+    this->isPauseMenuAnimating = true;
+    this->menuOpenedAt = std::chrono::steady_clock::now();
+
+    this->input->incrementCursorCount();
+}
+
+/**
+ * Closes the pause menu.
+ */
+void WorldRenderer::closePauseMenu() {
+    // close pause menu
+    this->isPauseMenuOpen = false;
+    this->isPauseMenuAnimating = false;
+    this->paused = false;
+
+    this->pauseWin->setVisible(false);
+
+    // restore the saturation of the game content
+    this->hdr->setHsvAdjust(glm::vec3(0,1,1));
+    this->hdr->setVignetteParams(1, 0);
+
+    this->input->decrementCursorCount();
 }

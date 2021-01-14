@@ -70,6 +70,7 @@ class BlockRegistry {
         /// Releases the shared handle to the block registry
         static void shutdown() {
             delete gShared;
+            gShared = nullptr;
         }
 
         /// Determines whether the given block id is for an air block.

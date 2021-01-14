@@ -41,6 +41,23 @@ class HDR: public RenderStep {
         void setDepthBuffer(std::shared_ptr<gfx::Texture2D>);
         void setOutputFBO(std::shared_ptr<gfx::FrameBuffer>, bool attach = true);
 
+        /**
+         * Sets the HSV adjustments to apply to the HDR output pixels.
+         *
+         * Hue is in the X component as 0-360 degrees; saturation and value are [0, 1] in the Y
+         * and Z components respectively.
+         */
+        void setHsvAdjust(const glm::vec3 &factors) {
+            this->hsvAdjust = factors;
+        }
+
+        /**
+         * Sets vignette parameters.
+         */
+        void setVignetteParams(const float radius, const float smoothness = .5) {
+            this->vignetteParams = glm::vec2(radius, smoothness);
+        }
+
     private:
         void setUpInputBuffers(void);
         void setUpHDRLumaBuffers(void);
@@ -99,6 +116,9 @@ class HDR: public RenderStep {
         glm::vec3 hsvAdjust = glm::vec3(0, 1, 1);
         // current frame's avg luminance
         double frameAvgLuma = 0.f;
+
+        // vignetting parameters
+        glm::vec2 vignetteParams = glm::vec2(1, 0);
 
         // mask for histo counter
         unsigned int histoFrameWait = 8;

@@ -9,6 +9,8 @@ class RunLoopStep {
         virtual ~RunLoopStep() {};
 
     public:
+        virtual void stepAdded() {};
+    
         virtual void willBeginFrame() {};
 
         // immediately before swapping buffers

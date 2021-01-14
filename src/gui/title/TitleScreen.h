@@ -38,6 +38,7 @@ class TitleScreen: public RunLoopStep {
         ~TitleScreen();
 
     public:
+        void stepAdded() override;
         void willBeginFrame() override;
         void draw() override;
 
@@ -72,7 +73,7 @@ class TitleScreen: public RunLoopStep {
 
     private:
         /// divide the viewport size by this factor for the plasma effect
-        constexpr static const float kPlasmaScale = 3.;
+        constexpr static const float kPlasmaScale = 4.;
 
     private:
         MainWindow *win = nullptr;

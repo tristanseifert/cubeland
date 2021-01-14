@@ -11,6 +11,7 @@
 #include "util/Frustum.h"
 #include "util/Intersect.h"
 #include "gui/MenuBarHandler.h"
+#include "io/PrefsManager.h"
 #include "io/MetricsManager.h"
 #include "io/Format.h"
 #include <Logging.h>
@@ -104,9 +105,9 @@ ChunkLoader::ChunkLoader() {
         this->blockInfoTex->bufferSubData(dataTexSize.x, dataTexSize.y, 0, 0,  gfx::Texture2D::RGBA16F, data.data());
     }
 
-
-    // set up chunk collection
+    // set up some internal state
     this->initDisplayChunks();
+    this->loadPrefs();
 
     // allocator metrics
     this->mAllocBytes = new MetricsGuiMetric("Allocated Memory", "B", MetricsGuiMetric::USE_SI_UNIT_PREFIX);
@@ -193,6 +194,18 @@ ChunkLoader::~ChunkLoader() {
     delete this->normalAtlasTex;
 
     gui::MenuBarHandler::unregisterItem(this->overlayMenuItem);
+}
+
+/**
+ * Loads the preferences to do with chunk loading/display.
+ */
+void ChunkLoader::loadPrefs() {
+    // render distance
+    const auto range = io::PrefsManager::getUnsigned("world.render.distance", 2);
+    this->chunkRange = std::min(std::max(range, 1U), 8U);
+
+    const auto cacheRange = io::PrefsManager::getUnsigned("world.render.cacheRange", 1);
+    this->cacheReleaseDistance = this->chunkRange + std::min(std::max(cacheRange, 1U), 10U);
 }
 
 /**
@@ -965,7 +978,8 @@ void ChunkLoader::draw(std::shared_ptr<gfx::RenderProgram> &program, const glm::
         this->mDataChunksLoading->AddNewValue(this->currentlyLoading.size());
 
         this->mDisplayChunks->AddNewValue(this->chunks.size()); 
-        this->mDisplayCulled->AddNewValue(this->numChunksCulled);
+        // divide by 2 since we draw each chunk twice (for transparency purposes)
+        this->mDisplayCulled->AddNewValue(this->numChunksCulled / 2);
     }
 }
 
@@ -1111,7 +1125,7 @@ void ChunkLoader::drawOverlay() {
     ImGui::Text("Work Queue: C %5lu L %5lu", chunk::ChunkWorker::getPendingItemCount(),
             this->chunkWorkQueue.numPending());
     ImGui::SameLine();
-    ImGui::Text("Culled: %lu", this->numChunksCulled);
+    ImGui::Text("Culled: %lu", this->numChunksCulled / 2);
 
     ImGui::Text("Offscreen Draw Pend: %lu (%lu ticks)", this->loadedOffScreen.size_approx(),
             this->eagerLoadRateLimit);

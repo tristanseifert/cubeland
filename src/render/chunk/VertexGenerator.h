@@ -241,8 +241,6 @@ class VertexGenerator {
     private:
         gui::MainWindow *window;
 
-        void *workerGlCtx = nullptr;
-
         std::atomic_bool run;
         std::unique_ptr<std::thread> worker;
         moodycamel::BlockingConcurrentQueue<WorkItem> workQueue;

@@ -222,9 +222,6 @@ MainWindow::~MainWindow() {
 void MainWindow::show() {
     XASSERT(this->win, "Window must exist");
 
-    // capture mouse
-    // this->setMouseCaptureState(true);
-
     /**
      * MacOS kludge: we need to give SDL an extra hint to make relative mouse
      * mode work. (see https://forums.libsdl.org/viewtopic.php?p=50057)
@@ -243,10 +240,10 @@ void MainWindow::show() {
 void MainWindow::setMouseCaptureState(bool captured) {
     if(captured) {
         SDL_SetRelativeMouseMode(SDL_TRUE);
-        SDL_ShowCursor(1);
+        SDL_ShowCursor(SDL_DISABLE);
     } else {
         SDL_SetRelativeMouseMode(SDL_FALSE);
-        SDL_ShowCursor(0);
+        SDL_ShowCursor(SDL_ENABLE);
     }
 }
 
@@ -503,7 +500,9 @@ void MainWindow::updateStages() {
             case StageChanges::SET_PRIMARY: {
                 // ensure it's the correct size
                 SDL_GL_GetDrawableSize(this->win, &w, &h);
+
                 req.step->reshape(w, h);
+                req.step->stepAdded();
 
                 this->stages[0] = req.step;
                 break;

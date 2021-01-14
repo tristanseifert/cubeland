@@ -393,6 +393,7 @@ void HDR::renderPerformTonemapping(void) {
     this->tonemapProgram->setUniform1i("inSceneColors", this->inColour->unit);
     this->tonemapProgram->setUniform1i("inBloomBlur", this->inBloom1->unit);
 
+    this->tonemapProgram->setUniformVec("vignetteParams", this->vignetteParams);
     this->tonemapProgram->setUniformVec("hsvAdjust", this->hsvAdjust);
     this->tonemapProgram->setUniform1f("exposure", this->exposure);
     this->tonemapProgram->setUniform1f("bloomFactor", this->bloomEnabled ? this->bloomFactor : 0);
@@ -589,6 +590,7 @@ void HDR::drawDebugWindow() {
     ImGui::DragFloat3("White Point", &this->whitePoint.x, 0.01, 0);
 
     ImGui::DragFloat3("HSV Adjust", &this->hsvAdjust.x, 0.01, 0);
+    ImGui::DragFloat2("Vignette", &this->vignetteParams.x, 0.01, 0);
 
     ImGui::PopItemWidth();
 

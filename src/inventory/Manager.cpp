@@ -55,12 +55,12 @@ bool Manager::handleEvent(const SDL_Event &event) {
     const auto &k = event.key.keysym;
 
     if(this->ui->isDetailOpen()) {
-        if(k.scancode == SDL_SCANCODE_ESCAPE) {
+        if(k.scancode == SDL_SCANCODE_ESCAPE && this->in->getCursorCount() != 0) {
             this->in->decrementCursorCount();
             this->ui->setDetailOpen(false);
             return true;
         }
-    } else {
+    } else if(!this->in->getCursorCount()) {
         // E opens inventory
         if(k.scancode == SDL_SCANCODE_E) {
             this->in->incrementCursorCount();

@@ -54,6 +54,10 @@ class InputManager {
         void incrementCursorCount();
         void decrementCursorCount();
 
+        const size_t getCursorCount() const {
+            return this->cursorRefCount;
+        }
+
         bool acceptsGameInput() const {
             return this->inputUpdatesCamera;
         }

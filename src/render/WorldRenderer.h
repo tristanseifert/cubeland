@@ -2,11 +2,13 @@
 #define RENDER_WORLDRENDERER_H
 
 #include "gui/RunLoopStep.h"
+#include "gui/GameWindow.h"
 #include "Camera.h"
 
 #include <glm/vec2.hpp>
 #include <glm/mat4x4.hpp>
 
+#include <chrono>
 #include <memory>
 #include <vector>
 
@@ -79,6 +81,28 @@ class WorldRenderer: public gui::RunLoopStep {
     private:
         void updateView();
 
+        void drawPauseButtons(gui::GameUI *);
+        void animatePauseMenu();
+        void openPauseMenu();
+        void closePauseMenu();
+
+    private:
+        /// game window for drawing pause menu
+        class PauseWindow: public gui::GameWindow {
+            public:
+                PauseWindow(WorldRenderer *_rend) : renderer(_rend) {}
+                virtual ~PauseWindow() = default;
+
+                // forward draw calls into the title screen class
+                void draw(gui::GameUI *gui) override {
+                    this->renderer->drawPauseButtons(gui);
+                }
+
+            private:
+                WorldRenderer *renderer = nullptr;
+        };
+
+
     private:
         // used for keyboard/game controller input
         input::InputManager *input = nullptr;
@@ -92,12 +116,19 @@ class WorldRenderer: public gui::RunLoopStep {
         std::shared_ptr<inventory::UI> inventoryUi = nullptr;
 
         std::shared_ptr<gui::GameUI> gui;
+        gui::MainWindow *window = nullptr;
 
         physics::Engine *physics = nullptr;
 
         world::TimePersistence *timeSaver = nullptr;
 
+        // for drawing the pause buttons
+        std::shared_ptr<PauseWindow> pauseWin = nullptr;
+
     private:
+        /// Duration in the pause fade-out, in seconds
+        constexpr static const float kPauseAnimationDuration = 1.;
+
         /**
          * World time value; this monotonically increases for every frame.
          *
@@ -137,6 +168,15 @@ class WorldRenderer: public gui::RunLoopStep {
         // whether the debugger is visible
         bool isDebuggerOpen = false;
         uint32_t debugItemToken = 0;
+
+        // whether the pause menu is being shown
+        bool isPauseMenuOpen = false;
+        // whether to fade out the game content
+        bool isPauseMenuAnimating = false;
+        // set to exit to title screen at the start of next frame
+        bool exitToTitle = false;
+        // time at which the menu was opened (for animation)
+        std::chrono::steady_clock::time_point menuOpenedAt;
 };
 }
 

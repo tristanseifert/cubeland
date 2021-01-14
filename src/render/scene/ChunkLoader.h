@@ -77,6 +77,8 @@ class ChunkLoader {
             this->showsOverlay = show;
         }
 
+        void loadPrefs();
+
     private:
         /// minimum amount of movement required before we do any sort of processing
         constexpr static const float kMoveThreshold = 0.1f;

@@ -8,6 +8,8 @@
 
 #include <imgui.h>
 
+#include <thread>
+
 using namespace gl;
 using namespace gui;
 
@@ -48,6 +50,11 @@ void PreferencesWindow::draw(GameUI *ui) {
 
         if(ImGui::BeginTabItem("Graphics")) {
             this->drawGfxPane(ui);
+            ImGui::EndTabItem();
+        }
+
+        if(ImGui::BeginTabItem("Performance")) {
+            this->drawPerfPane(ui);
             ImGui::EndTabItem();
         }
 
@@ -169,6 +176,69 @@ void PreferencesWindow::drawGfxPane(GameUI *ui) {
         this->saveGfxPaneState();
     }
 }
+
+
+
+/**
+ * Loads preferences for the performance pane.
+ */
+void PreferencesWindow::loadPerfPaneState() {
+    this->perf.drawThreads = io::PrefsManager::getUnsigned("chunk.drawWorkThreads", 4);
+    this->perf.sourceThreads = io::PrefsManager::getUnsigned("world.sourceWorkThreads", 2);
+    this->perf.renderDist = io::PrefsManager::getUnsigned("world.render.distance", 2);
+    this->perf.renderCacheBuffer = io::PrefsManager::getUnsigned("world.render.cacheRange", 1);
+}
+
+/**
+ * Saves preferences for the performance pane.
+ */
+void PreferencesWindow::savePerfPaneState() {
+    io::PrefsManager::setUnsigned("chunk.drawWorkThreads", std::max(1, this->perf.drawThreads));
+    io::PrefsManager::setUnsigned("world.sourceWorkThreads", std::max(1, this->perf.sourceThreads));
+    io::PrefsManager::setUnsigned("world.render.distance", std::max(1, this->perf.renderDist));
+    io::PrefsManager::setUnsigned("world.render.cacheRange", std::max(1, this->perf.renderCacheBuffer));
+}
+
+/**
+ * Draws the performance settings pane.
+ */
+void PreferencesWindow::drawPerfPane(GameUI *gui) {
+    bool dirty = false;
+
+    // detected CPU cores
+    ImGui::Bullet();
+    ImGui::Text("Available Processor Cores: %d", std::thread::hardware_concurrency());
+
+    // vertex generator threads
+    if(ImGui::InputInt("Drawing Threads", &this->perf.drawThreads)) dirty = true;
+    if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Drawing threads convert chunk data into on-screen vertices.\nHint: Increase this value to be approximately equal to the number of processor cores for optimal performance.");
+    }
+
+    // world source threads
+    if(ImGui::InputInt("World Source Threads", &this->perf.sourceThreads)) dirty = true;
+    if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("World source threads read world data and generates new chunks.\nHint: You can probably leave this at its default value.");
+    }
+
+    ImGui::Dummy(ImVec2(8, 0));
+    // render distance
+    if(ImGui::SliderInt("Render Distance", &this->perf.renderDist, 1, 8, "%d", ImGuiSliderFlags_AlwaysClamp)) dirty = true;
+    if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Maximum number of chunks beyond the player's position to load. Each chunk is 256x256x256.");
+    }
+    // render cache
+    if(ImGui::SliderInt("Render Cache Buffer", &this->perf.renderCacheBuffer, 1, 10, "%d", ImGuiSliderFlags_AlwaysClamp)) dirty = true;
+    if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Added to the render distance to calculate the maximum distance a chunk can be from the player before it is evicted from caches.\nHint: Increase this value if your machine has plenty available RAM.");
+    }
+    // save if needed
+    if(dirty) {
+        this->savePerfPaneState();
+    }
+}
+
+
 
 /**
  * Draws a key/value list item.

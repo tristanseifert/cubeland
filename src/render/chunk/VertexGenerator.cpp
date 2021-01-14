@@ -31,10 +31,6 @@ VertexGenerator *VertexGenerator::gShared = nullptr;
  * been created already.
  */
 VertexGenerator::VertexGenerator(gui::MainWindow *_window) : window(_window) {
-    // create context for the worker
-    this->workerGlCtx = SDL_GL_CreateContext(_window->getSDLWindow());
-    XASSERT(this->workerGlCtx, "Failed to create vertex generator context: {}", SDL_GetError());
-
     // start worker
     this->run = true;
     this->worker = std::make_unique<std::thread>(&VertexGenerator::workerMain, this);
@@ -61,9 +57,6 @@ VertexGenerator::~VertexGenerator() {
     this->run = false;
     this->submitWorkItem(quit);
     this->worker->join();
-
-    // delete context
-    SDL_GL_DeleteContext(this->workerGlCtx);
 }
 
 /**
@@ -161,9 +154,6 @@ void VertexGenerator::generate(std::shared_ptr<world::Chunk> &chunk, const uint6
  * Main loop of the worker thread
  */
 void VertexGenerator::workerMain() {
-    // make context current
-    SDL_GL_MakeCurrent(this->window->getSDLWindow(), this->workerGlCtx);
-
     util::Thread::setName("VtxGen Worker");
     MUtils::Profiler::NameThread("Vertex Generator");
 

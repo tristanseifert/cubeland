@@ -21,6 +21,8 @@ uniform float exposure;
 uniform float bloomFactor;
 // HSV adjustment for output pixels
 uniform vec3 hsvAdjust;
+// vignette paramters (radius, smoothness)
+uniform vec2 vignetteParams = vec2(.5, .5);
 
 // uchimura params
 uniform vec3 uchimura1;
@@ -33,6 +35,8 @@ vec3 lottes(vec3 x);
 
 vec3 rgb2hsv(vec3 c);
 vec3 hsv2rgb(vec3 c);
+
+float vignette(vec2 uv, float radius, float smoothness);
 
 void main() {
     // additively blend the HDR and bloom textures
@@ -61,7 +65,9 @@ void main() {
     float preceivedLuma = dot(hdrColor, vec3(0.2126, 0.7152, 0.0722));
 
     // output
-    FragColour = vec4(hdrColor, fxaaLuma);
+    float vig = vignette(TexCoords, vignetteParams.x, vignetteParams.y);
+
+    FragColour = vec4(hdrColor, fxaaLuma) * vig;
     LumaOut = vec4(0, 0, preceivedLuma, 1);
 }
 
@@ -158,4 +164,10 @@ vec3 lottes(vec3 x) {
       ((pow(hdrMax, a * d) - pow(midIn, a * d)) * midOut);
 
   return pow(x, a) / (pow(x, a * d) * b + c);
+}
+
+// basic vignette function
+float vignette(vec2 uv, float radius, float smoothness) {
+    float diff = radius - distance(uv, vec2(0.5, 0.5));
+    return smoothstep(-smoothness, smoothness, diff);
 }
