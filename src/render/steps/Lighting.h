@@ -60,6 +60,15 @@ class Lighting : public RenderStep {
 
         void loadPrefs();
 
+        /// Set Z distance to push fog backwards
+        void setFogOffset(const float off) {
+            this->fogOffset = off;
+        }
+        /// Set fog density
+        void setFogDensity(const float density) {
+            this->fogDensity = density;
+        }
+
     private:
         void setUpRenderBuffer();
 

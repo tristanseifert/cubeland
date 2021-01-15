@@ -365,7 +365,7 @@ void WorldSelector::drawCreate(GameUI *gui) {
         }
         // all validations passed; open the file dialog
         else {
-            const auto name = f("{}.world", this->newName);
+            const auto name = f("{}", this->newName);
             ImGuiFileDialog::Instance()->OpenModal("SaveWorld", "Save World File", kWorldFilters,
                     ".", this->newName, 1, nullptr, ImGuiFileDialogFlags_ConfirmOverwrite);
             this->isFileDialogOpen = true;
@@ -409,11 +409,17 @@ beach:;
 /**
  * Creates a new world and opens it.
  */
-void WorldSelector::createWorld(const std::string &path, const bool open) {
-    Logging::trace("Creating new world: {}", path);
+void WorldSelector::createWorld(const std::string &_path, const bool open) {
+    // ensure the extension is correct
+    std::filesystem::path path(_path);
+
+    if(path.extension().string() != ".world") {
+        path.replace_extension(".world");
+    }
+    Logging::trace("Creating new world: {}", path.string());
 
     // create world
-    auto file = std::make_shared<world::FileWorldReader>(path, true);
+    auto file = std::make_shared<world::FileWorldReader>(path.string(), true);
     auto gen = std::make_shared<world::Terrain>(this->newSeed);
     auto source = std::make_shared<world::WorldSource>(file, gen);
 
@@ -437,7 +443,6 @@ void WorldSelector::createWorld(const std::string &path, const bool open) {
  */
 void WorldSelector::openWorld(const std::string &path) {
     Logging::debug("Opening world file: {}", path);
-
 
     // ensure it exists
     std::filesystem::path p(path);

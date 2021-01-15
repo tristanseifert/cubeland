@@ -58,6 +58,8 @@ class SceneRenderer: public RenderStep {
 
         void toggleDebugOverlays();
 
+        void loadPrefs();
+
     public:
         std::optional<std::pair<glm::ivec3, glm::ivec3>> getSelectedBlockPos() const;
         // std::optional<glm::ivec3> getSelectedBlockPos() const;

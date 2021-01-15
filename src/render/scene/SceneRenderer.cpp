@@ -212,3 +212,10 @@ void SceneRenderer::toggleDebugOverlays() {
     auto old = this->chunkLoader->isOverlayShown();
     this->chunkLoader->setOverlayShown(!old);
 }
+
+/**
+ * Loads the preferences of the scene render and its friends.
+ */
+void SceneRenderer::loadPrefs() {
+    this->chunkLoader->loadPrefs();
+}

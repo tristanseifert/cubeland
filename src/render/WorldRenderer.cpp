@@ -10,6 +10,7 @@
 #include "gui/MenuBarHandler.h"
 #include "gui/MainWindow.h"
 #include "gui/Loaders.h"
+#include "gui/InGamePrefsWindow.h"
 #include "gui/title/TitleScreen.h"
 
 #include "render/chunk/VertexGenerator.h"
@@ -21,6 +22,7 @@
 #include "physics/EngineDebugRenderer.h"
 #include "inventory/Manager.h"
 #include "inventory/UI.h"
+#include "io/PrefsManager.h"
 
 #include "steps/FXAA.h"
 #include "steps/Lighting.h"
@@ -49,6 +51,9 @@ inventory::Manager *gInventoryManager = nullptr;
  */
 WorldRenderer::WorldRenderer(gui::MainWindow *_win, std::shared_ptr<gui::GameUI> &_gui,
         std::shared_ptr<world::WorldSource> &_source) : window(_win), gui(_gui), source(_source) {
+    std::shared_ptr<SSAO> ssao = nullptr;
+    const bool wantSsao = io::PrefsManager::getBool("gfx.ssao", true);
+
     // set up the vertex generator; it needs to create a GL context
     render::chunk::VertexGenerator::init(_win);
 
@@ -62,8 +67,10 @@ WorldRenderer::WorldRenderer(gui::MainWindow *_win, std::shared_ptr<gui::GameUI>
     scnRnd->setWorldSource(this->source);
     this->steps.push_back(scnRnd);
 
-    auto ssao = std::make_shared<SSAO>();
-    this->steps.push_back(ssao);
+    if(wantSsao) {
+        ssao = std::make_shared<SSAO>();
+        this->steps.push_back(ssao);
+    }
 
     auto physDbg = std::make_shared<physics::EngineDebugRenderer>();
     this->steps.push_back(physDbg);
@@ -84,13 +91,15 @@ WorldRenderer::WorldRenderer(gui::MainWindow *_win, std::shared_ptr<gui::GameUI>
 
     // Set up some shared buffers
     this->lighting->setSceneRenderer(scnRnd);
-    this->lighting->setOcclusionTex(ssao->occlusionTex);
 
     this->hdr->setDepthBuffer(this->lighting->gDepth);
     this->hdr->setOutputFBO(this->fxaa->getFXAABuffer());
 
-    ssao->setDepthTex(this->lighting->gDepth);
-    ssao->setNormalTex(this->lighting->gNormal);
+    if(ssao) {
+        this->lighting->setOcclusionTex(ssao->occlusionTex);
+        ssao->setDepthTex(this->lighting->gDepth);
+        ssao->setNormalTex(this->lighting->gNormal);
+    }
 
     this->debugger = new WorldRendererDebugger(this);
 
@@ -121,6 +130,9 @@ WorldRenderer::WorldRenderer(gui::MainWindow *_win, std::shared_ptr<gui::GameUI>
     }
 
     this->debugItemToken = gui::MenuBarHandler::registerItem("World", "World Renderer Debug", &this->isDebuggerOpen);
+
+    // load preferences
+    this->loadPrefs();
 }
 /**
  * Releases all of our render resources.
@@ -166,6 +178,25 @@ WorldRenderer::~WorldRenderer() {
 
     delete this->input;
     this->source = nullptr;
+}
+
+/**
+ * Loads world renderer preferences.
+ */
+void WorldRenderer::loadPrefs() {
+    using namespace io;
+
+    this->projFoV = PrefsManager::getFloat("gfx.fov", 74.);
+
+    // calculate the zFar for render distance
+    const auto renderDist = PrefsManager::getUnsigned("world.render.distance", 2);
+    this->zFar = 416.666 * renderDist;
+
+    this->lighting->setFogOffset(225. * renderDist);
+
+    if(gSceneRenderer) {
+        gSceneRenderer->loadPrefs();
+    }
 }
 
 /**
@@ -404,6 +435,22 @@ void WorldRenderer::drawPauseButtons(gui::GameUI *gui) {
         ImGui::SetTooltip("Closes this menu so you can get back to playing with cubes");
     }
 
+    // Preferences
+    ImGui::Dummy(ImVec2(0,10));
+    ImGui::PushFont(btnFont);
+    if(ImGui::Button("Preferences", btnSize)) {
+        if(!this->prefsWin) {
+            this->prefsWin = std::make_shared<gui::InGamePrefsWindow>(this);
+            this->gui->addWindow(this->prefsWin);
+        }
+
+        this->prefsWin->setVisible(true);
+    }
+    ImGui::PopFont();
+    if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Change a subset of game settings");
+    }
+
     // return to title
     ImGui::Dummy(ImVec2(0,10));
     ImGui::PushFont(btnFont);
@@ -507,6 +554,10 @@ void WorldRenderer::closePauseMenu() {
     this->paused = false;
 
     this->pauseWin->setVisible(false);
+
+    if(this->prefsWin) {
+        this->prefsWin->setVisible(false);
+    }
 
     // restore the saturation of the game content
     this->hdr->setHsvAdjust(glm::vec3(0,1,1));

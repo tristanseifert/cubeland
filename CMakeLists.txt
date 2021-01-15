@@ -48,6 +48,7 @@ add_executable(cubeland
     src/gui/MainWindow.cpp
     src/gui/GameUI.cpp
     src/gui/PreferencesWindow.cpp
+    src/gui/InGamePrefsWindow.cpp
     src/gui/Loaders.cpp
     src/gui/MetricsDisplay.cpp
     src/gui/MenuBarHandler.cpp

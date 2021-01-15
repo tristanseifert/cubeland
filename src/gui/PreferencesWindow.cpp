@@ -32,7 +32,7 @@ void PreferencesWindow::draw(GameUI *ui) {
     ImGuiWindowFlags winFlags = ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse;
     ImVec2 windowPos = ImVec2(io.DisplaySize.x / 2., io.DisplaySize.y / 2.);
 
-    ImGui::SetNextWindowFocus();
+    // ImGui::SetNextWindowFocus();
     ImGui::SetNextWindowSize(ImVec2(800, 600));
     ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always, ImVec2(.5, .5));
 
@@ -68,8 +68,8 @@ void PreferencesWindow::draw(GameUI *ui) {
  * Reads the user interface preferences.
  */
 void PreferencesWindow::loadUiPaneState() {
-    this->stateUi.restoreWindowSize = io::PrefsManager::getBool("window.restoreSize");
-    this->stateUi.dpiAware = io::PrefsManager::getBool("window.hiDpi", true);
+    this->stateUi.restoreWindowSize = io::PrefsManager::getBool("window.restoreSize", true);
+    this->stateUi.dpiAware = io::PrefsManager::getBool("window.hiDpi", false);
 }
 /**
  * Writes the settings displayed on the UI preferences pane back to the preferences.
@@ -112,8 +112,10 @@ void PreferencesWindow::drawUiPane(GameUI *ui) {
  * Loads the graphics preferences.
  */
 void PreferencesWindow::loadGfxPaneState() {
-    this->gfx.fancySky = io::PrefsManager::getBool("gfx.fancySky");
+    this->gfx.fancySky = io::PrefsManager::getBool("gfx.fancySky", true);
     this->gfx.dirShadows = io::PrefsManager::getBool("gfx.sunShadow");
+    this->gfx.ssao = io::PrefsManager::getBool("gfx.ssao", true);
+    this->gfx.fov = io::PrefsManager::getFloat("gfx.fov", 74.);
 }
 /**
  * Saves the graphics preferences.
@@ -121,6 +123,8 @@ void PreferencesWindow::loadGfxPaneState() {
 void PreferencesWindow::saveGfxPaneState() {
     io::PrefsManager::setBool("gfx.fancySky", this->gfx.fancySky);
     io::PrefsManager::setBool("gfx.sunShadow", this->gfx.dirShadows);
+    io::PrefsManager::setBool("gfx.ssao", this->gfx.ssao);
+    io::PrefsManager::setFloat("gfx.fov", this->gfx.fov);
 }
 /**
  * Draws the "graphics" preferences pane.
@@ -160,6 +164,12 @@ void PreferencesWindow::drawGfxPane(GameUI *ui) {
 
     ImGui::Separator();
 
+    // field of view
+    if(ImGui::SliderFloat("Field of View", &this->gfx.fov, 25, 125, "%.1f", ImGuiSliderFlags_AlwaysClamp)) dirty = true;
+    if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Adjusts how much of the environment is visible.");
+    }
+
     // whether fancy sky is used
     if(ImGui::Checkbox("Fancy Sky", &this->gfx.fancySky)) dirty = true;
     if(ImGui::IsItemHovered()) {
@@ -171,6 +181,13 @@ void PreferencesWindow::drawGfxPane(GameUI *ui) {
     if(ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Global light sources (e.g. sun and moon) will cast shadows when enabled.");
     }
+
+    // ambient occlusion
+    if(ImGui::Checkbox("Ambient Occlusion", &this->gfx.ssao)) dirty = true;
+    if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Selectively darkens areas of intersecting planes, such as corners of rooms.");
+    }
+
     // save if needed
     if(dirty) {
         this->saveGfxPaneState();

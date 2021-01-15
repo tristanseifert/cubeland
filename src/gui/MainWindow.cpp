@@ -158,7 +158,7 @@ void MainWindow::makeWindow() {
     int err;
 
     // create window; allowing for HiDPI contexts (if requested)
-    const bool hiDpi = io::PrefsManager::getBool("window.hiDpi", true);
+    const bool hiDpi = io::PrefsManager::getBool("window.hiDpi", false);
 
     const auto flags = SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE |
                         (hiDpi ? SDL_WINDOW_ALLOW_HIGHDPI : 0);
@@ -168,7 +168,7 @@ void MainWindow::makeWindow() {
     XASSERT(this->win != nullptr, "Failed to create window: {}", SDL_GetError());
 
     // resize window to stored size if needed
-    if(io::PrefsManager::getBool("window.restoreSize")) {
+    if(io::PrefsManager::getBool("window.restoreSize", true)) {
         this->restoreWindowSize();
     }
 

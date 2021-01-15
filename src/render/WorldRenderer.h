@@ -15,6 +15,7 @@
 namespace gui {
 class MainWindow;
 class GameUI;
+class InGamePrefsWindow;
 }
 namespace inventory {
 class Manager;
@@ -78,6 +79,8 @@ class WorldRenderer: public gui::RunLoopStep {
             return this->time;
         }
 
+        void loadPrefs();
+
     private:
         void updateView();
 
@@ -124,6 +127,8 @@ class WorldRenderer: public gui::RunLoopStep {
 
         // for drawing the pause buttons
         std::shared_ptr<PauseWindow> pauseWin = nullptr;
+        // in game preferences
+        std::shared_ptr<gui::InGamePrefsWindow> prefsWin = nullptr;
 
     private:
         /// Duration in the pause fade-out, in seconds

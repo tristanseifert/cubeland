@@ -127,7 +127,7 @@ class ChunkLoader {
 
         void updateVisible(const glm::vec3 &cameraPos, const glm::mat4 &projView);
 
-        void updateDeferredChunks();
+        bool updateDeferredChunks();
         void addLoadedChunk(LoadChunkInfo &pending);
         void pruneLoadedChunksList();
 

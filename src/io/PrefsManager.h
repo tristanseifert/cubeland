@@ -28,6 +28,9 @@ class PrefsManager final {
         }
 
     public:
+        static const double getFloat(const std::string &key, const double fallback = 0);
+        static void setFloat(const std::string &key, const double value);
+
         static const unsigned int getUnsigned(const std::string &key, const unsigned int fallback = 0);
         static void setUnsigned(const std::string &key, const unsigned int value);
 

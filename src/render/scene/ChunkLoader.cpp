@@ -273,7 +273,7 @@ void ChunkLoader::updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirect
 
     // perform any deferred chunk loading/unloading
     this->updateVisible(pos, projView);
-    this->updateDeferredChunks();
+    needsDrawOrderUpdate |= this->updateDeferredChunks();
 
     // update which chunks are visible at the moment only if the direction changed enough
     glm::vec3 dirDelta = viewDirection - this->lastDirection;
@@ -555,8 +555,10 @@ void ChunkLoader::updateLookAtSelection(const glm::ivec2 chunkPos, const glm::iv
  * We load chunks on the background on dedicated work queues, and to avoid blocking the render loop
  * while this happens, we don't block on them becoming ready. Instead, each frame, we check if the
  * data has become available; if so, we load it into the appropriate chunk.
+ *
+ * @return Whether chunks were added to the display list.
  */
-void ChunkLoader::updateDeferredChunks() {
+bool ChunkLoader::updateDeferredChunks() {
     PROFILE_SCOPE(UpdateDeferredChunks);
     bool addedDisplayChunk = false;
 
@@ -658,6 +660,8 @@ again:;
 
 
     this->mDisplayEager->AddNewValue(this->loadedOffScreen.size_approx());
+
+    return addedDisplayChunk;
 }
 
 /**

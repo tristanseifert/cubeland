@@ -93,7 +93,7 @@ uniform mat4 viewMatrixInv;
 // Light view matrix: world space -> light space
 uniform mat4 lightSpaceMatrix;
 // contribution of shadow
-uniform float shadowContribution;
+uniform float shadowContribution = 0;
 
 float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 sunDirection);
 // Calculates the fog distance, given the depth value.
@@ -133,8 +133,13 @@ void main() {
     // if only the skybox is rendered at a given light, skip lighting
     if(Depth < 1.0) {
         // Ambient lighting
-        float AmbientOcclusion = SampleOcclusion(TexCoord);
-        vec3 ambient = Diffuse * ambientLight.Intensity * max(mix(1, AmbientOcclusion, ssaoFactor), 0.33);
+        vec3 ambient = Diffuse * ambientLight.Intensity;
+
+        if(ssaoFactor > 0) {
+            float AmbientOcclusion = SampleOcclusion(TexCoord);
+            ambient *= max(mix(1, AmbientOcclusion, ssaoFactor), 0.33);
+        }
+
         vec3 lighting = vec3(0, 0, 0);
 
         // Directional lights

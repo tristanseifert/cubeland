@@ -51,6 +51,10 @@ class PreferencesWindow: public GameWindow {
 
             bool fancySky;
             bool dirShadows;
+            bool ssao;
+
+            // field of view (degrees)
+            float fov;
         } gfx;
 
         // state for the performance pane

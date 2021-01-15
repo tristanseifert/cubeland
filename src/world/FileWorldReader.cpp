@@ -128,6 +128,19 @@ void FileWorldReader::initializeSchema() {
 
     time_t now = time(nullptr);
     this->updateWorldInfo("creator.timestamp", f("{:d}", now));
+
+    // generate a random world id
+    std::random_device rand;
+    auto seedData = std::array<int, std::mt19937::state_size> {};
+    std::generate(std::begin(seedData), std::end(seedData), std::ref(rand));
+
+    std::seed_seq seq(std::begin(seedData), std::end(seedData));
+
+    std::mt19937 generator(seq);
+    uuids::uuid_random_generator gen{generator};
+    const uuids::uuid newId = gen();
+
+    this->updateWorldInfo("world.id", uuids::to_string(newId));
 }
 
 

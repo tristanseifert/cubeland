@@ -101,7 +101,7 @@ Lighting::Lighting() : RenderStep("Render Debug", "Lighting") {
  * Loads the preferences for rendering.
  */
 void Lighting::loadPrefs() {
-    this->skyEnabled = io::PrefsManager::getBool("gfx.fancySky", false);
+    this->skyEnabled = io::PrefsManager::getBool("gfx.fancySky", true);
     this->shadowEnabled = io::PrefsManager::getBool("gfx.sunShadow", true);
 }
 
@@ -370,9 +370,14 @@ void Lighting::render(WorldRenderer *renderer) {
     this->gMatProps->bind();
     this->gDepth->bind();
     this->shadowTex->bind();
-    this->occlusionTex->bind();
 
-    this->program->setUniform1i("gOcclusion", this->occlusionTex->unit);
+    if(this->occlusionTex) {
+        this->occlusionTex->bind();
+        this->program->setUniform1i("gOcclusion", this->occlusionTex->unit);
+        this->program->setUniform1f("ssaoFactor", this->ssaoFactor);
+    } else {
+        this->program->setUniform1f("ssaoFactor", 0);
+    }
 
     // Send ambient light
     this->program->setUniform1f("ambientLight.Intensity", this->ambientIntensity);
@@ -399,7 +404,6 @@ void Lighting::render(WorldRenderer *renderer) {
     } else {
         this->program->setUniform1f("shadowContribution", 0);
     }
-    this->program->setUniform1f("ssaoFactor", this->ssaoFactor);
 
     // send fog properties
     this->program->setUniform1f("fogDensity", this->fogDensity);
