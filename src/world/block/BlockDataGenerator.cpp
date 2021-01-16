@@ -49,8 +49,6 @@ void BlockDataGenerator::buildBlockTextureAtlas(glm::ivec2 &size, std::vector<st
 
     // build atlas layout if needed
     if(this->forceBlockAtlasUpdate) {
-        Logging::debug("Rebuilding block texture atlas...");
-
         std::unordered_map<BlockRegistry::TextureId, glm::ivec2> sizes;
         sizes.reserve(this->registry->textures.size());
 
@@ -78,8 +76,6 @@ void BlockDataGenerator::buildBlockMaterialTextureAtlas(glm::ivec2 &size, std::v
 
     // build atlas layout if needed
     if(this->forceBlockMaterialAtlasUpdate) {
-        Logging::debug("Rebuilding block material texture atlas...");
-
         std::unordered_map<BlockRegistry::TextureId, glm::ivec2> sizes;
         sizes.reserve(this->registry->textures.size());
 
@@ -106,8 +102,6 @@ void BlockDataGenerator::buildBlockNormalTextureAtlas(glm::ivec2 &size, std::vec
 
     // build atlas layout if needed
     if(this->forceBlockNormalAtlasUpdate) {
-        Logging::debug("Rebuilding block normal texture atlas...");
-
         std::unordered_map<BlockRegistry::TextureId, glm::ivec2> sizes;
         sizes.reserve(this->registry->textures.size());
 
@@ -133,8 +127,6 @@ void BlockDataGenerator::buildInventoryTextureAtlas(glm::ivec2 &size, std::vecto
 
     // build atlas layout if needed
     if(this->forceInventoryAtlasUpdate) {
-        Logging::debug("Rebuilding inventory texture atlas...");
-
         std::unordered_map<BlockRegistry::TextureId, glm::ivec2> sizes;
         sizes.reserve(this->registry->textures.size());
 

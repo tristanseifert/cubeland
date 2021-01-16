@@ -60,6 +60,7 @@ class WorldRenderer: public gui::RunLoopStep {
     public:
         void willBeginFrame() override;
         void draw() override;
+        void willQuit() override;
 
         void reshape(unsigned int width, unsigned int height) override;
         bool handleEvent(const SDL_Event &) override;
@@ -160,6 +161,9 @@ class WorldRenderer: public gui::RunLoopStep {
     private:
         /// Duration in the pause fade-out, in seconds
         constexpr static const float kPauseAnimationDuration = 1.;
+
+        /// set when we're going to quit soon
+        bool isQuitting = false;
 
         /**
          * World time value; this monotonically increases for every frame.

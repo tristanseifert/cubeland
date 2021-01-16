@@ -83,6 +83,8 @@ class MainWindow {
 
         // run the main render loop as long as this is true
         std::atomic_bool running;
+        // if run flag is false, number of frames to render before quitting
+        size_t quitFrames = 0;
 
         // various rendering pieces
         std::vector<std::shared_ptr<RunLoopStep>> stages;

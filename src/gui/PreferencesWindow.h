@@ -3,6 +3,8 @@
 
 #include "GameWindow.h"
 
+#include <array>
+#include <functional>
 #include <string>
 
 namespace gui {
@@ -30,12 +32,39 @@ class PreferencesWindow: public GameWindow {
         void loadGfxPaneState();
         void saveGfxPaneState();
         void drawGfxPane(GameUI *);
+        void loadGfxPresetLow() {
+            this->gfx.fancySky = false;
+            this->gfx.dirShadows = false;
+            this->gfx.ssao = false;
+        }
+        void loadGfxPresetMedium() {
+            this->gfx.fancySky = true;
+            // this->gfx.dirShadows = true;
+            this->gfx.ssao = false;
+        }
+        void loadGfxPresetHigh() {
+            this->gfx.fancySky = true;
+            // this->gfx.dirShadows = true;
+            this->gfx.ssao = true;
+        }
+        void loadGfxPresetUltra() {
+            // TODO: make this its own thing
+            loadGfxPresetHigh();
+        }
 
         void loadPerfPaneState();
         void savePerfPaneState();
         void drawPerfPane(GameUI *);
 
         void drawKeyValue(GameUI *, const std::string &key, const std::string &value);
+
+    private:
+        const std::array<std::function<void()>, 4> kGfxPresets = {
+            std::bind(&PreferencesWindow::loadGfxPresetLow, this),
+            std::bind(&PreferencesWindow::loadGfxPresetMedium, this),
+            std::bind(&PreferencesWindow::loadGfxPresetHigh, this),
+            std::bind(&PreferencesWindow::loadGfxPresetUltra, this),
+        };
 
     private:
         // state for the UI prefs pane

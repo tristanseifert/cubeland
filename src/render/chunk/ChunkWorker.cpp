@@ -24,7 +24,6 @@ ChunkWorker::ChunkWorker() : ThreadPool("Chunk Worker") {
     unsigned int fallback = std::min(hwThreads, 5U);
 
     this->numWorkers = io::PrefsManager::getUnsigned("chunk.drawWorkThreads", fallback);
-    Logging::debug("Using {} chunk workers", this->numWorkers);
 
     // create workers
     this->startWorkers(this->numWorkers);

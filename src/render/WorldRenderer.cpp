@@ -151,6 +151,7 @@ WorldRenderer::~WorldRenderer() {
     this->workerRun = false;
     this->work.enqueue(WorkItem());
     this->worker->join();
+    this->worker = nullptr;
 
     if(this->pauseWin) {
         this->gui->removeWindow(this->pauseWin);
@@ -210,9 +211,9 @@ void WorldRenderer::loadPrefs() {
 
     // calculate the zFar for render distance
     const auto renderDist = PrefsManager::getUnsigned("world.render.distance", 2);
-    this->zFar = 416.666 * renderDist;
+    this->zFar = 400. * renderDist;
 
-    this->lighting->setFogOffset(225. * renderDist);
+    this->lighting->setFogOffset(205. * renderDist);
 
     if(gSceneRenderer) {
         gSceneRenderer->loadPrefs();
@@ -323,7 +324,22 @@ void WorldRenderer::draw() {
     if(this->needsScreenshot) {
         this->captureScreenshot();
         this->needsScreenshot = false;
+
+        // save it as well if it's a quitting time screenshot
+        if(this->isQuitting) {
+            this->saveScreenshot();
+        }
     }
+}
+
+/**
+ * When we're about to quit, force a screenshot on the next render loop iteration. (Main window
+ * guarantees that we'll have at least one more frame drawn before quitting, after this method is
+ * invoked by it)
+ */
+void WorldRenderer::willQuit() {
+    this->needsScreenshot = true;
+    this->isQuitting = true;
 }
 
 /**
@@ -452,9 +468,6 @@ void WorldRenderer::drawPauseButtons(gui::GameUI *gui) {
     const ImVec2 btnSize(400, 0);
     const ImVec2 btnSize2(196, 0);
     const auto btnFont = gui->getFont(gui::GameUI::kGameFontHeading2);
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(.1, 0, 0, 1));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(.25, 0, 0, 1));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(.33, .066, .066, .9));
 
     // close the menu
     ImGui::PushFont(btnFont);
@@ -505,7 +518,6 @@ void WorldRenderer::drawPauseButtons(gui::GameUI *gui) {
     if(ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Saves the current world and exits the game");
     }
-    ImGui::PopStyleColor(3);
 
     // draw the "closing shit" message
     if(this->exitToTitle > 0) {

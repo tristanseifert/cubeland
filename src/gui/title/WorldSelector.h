@@ -21,6 +21,8 @@
 
 #include <glm/vec2.hpp>
 
+typedef struct jpeg_common_struct *j_common_ptr;
+
 namespace gui {
 class GameUI;
 class TitleScreen;
@@ -160,6 +162,8 @@ class WorldSelector: public gui::GameWindow {
         void workerMain();
         void workerSelectionChanged(const WorldSelection &);
         bool decodeImage(const std::filesystem::path &, std::vector<std::byte> &, glm::ivec2 &);
+
+        static void jpegErrorExit(j_common_ptr);
 
         /// file dialog filter string for world files
         constexpr static const char *kWorldFilters = "v1 World (.world){.world}";

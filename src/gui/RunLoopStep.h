@@ -24,6 +24,9 @@ class RunLoopStep {
         virtual void reshape(unsigned int width, unsigned int height) {};
 
         virtual bool handleEvent(const SDL_Event &) = 0;
+
+        /// invoked when we're about to quit
+        virtual void willQuit() {};
 };
 }
 

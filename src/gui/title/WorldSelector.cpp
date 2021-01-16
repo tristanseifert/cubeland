@@ -622,8 +622,14 @@ void WorldSelector::workerSelectionChanged(const WorldSelection &sel) {
         // decode the image
         glm::ivec2 size(0);
         std::vector<std::byte> data;
-        if(!this->decodeImage(previewPath, data, size)) {
-            goto done;
+
+        try {
+            if(!this->decodeImage(previewPath, data, size)) {
+                goto done;
+            }
+        } catch (std::exception &e) {
+            this->backgroundInfo = BgImageInfo();
+            throw;
         }
 
         // downscale it if needed
@@ -680,6 +686,8 @@ bool WorldSelector::decodeImage(const std::filesystem::path &path, std::vector<s
 
     // set up the decompressor
     cinfo.err = jpeg_std_error(&jerr);
+    jerr.error_exit = &WorldSelector::jpegErrorExit;
+
     jpeg_create_decompress(&cinfo);
 
     // open file
@@ -718,5 +726,21 @@ beach:;
     jpeg_destroy_decompress(&cinfo);
 
     return success;
+}
+
+/**
+ * Throws an exception with the JPEG error message.
+ */
+void WorldSelector::jpegErrorExit(j_common_ptr cinfo) {
+    // build message
+    char buffer[JMSG_LENGTH_MAX];
+    memset(&buffer, 0, sizeof(buffer));
+    (*cinfo->err->format_message)(cinfo, buffer);
+
+    Logging::error("LibJPEG Error: {}", buffer);
+
+    // clean up
+    jpeg_destroy(cinfo);
+    throw std::runtime_error(f("LibJPEG: {}", buffer));
 }
 

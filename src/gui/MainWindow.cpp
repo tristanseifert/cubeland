@@ -262,7 +262,7 @@ int MainWindow::run() {
     Logging::trace("Entering main loop");
 
     // main run loop
-    while(this->running) {
+    while(this->running || this->quitFrames--) {
         // start the FPS counting
         MUtils::Profiler::NewFrame();
         auto frameStart = std::chrono::high_resolution_clock::now();
@@ -406,7 +406,12 @@ void MainWindow::handleEvent(const SDL_Event &event, int &reason) {
         // quit
         case SDL_QUIT:
             this->running = false;
+            this->quitFrames = 2;
             reason = 1;
+
+            for(auto &step : this->stages) {
+                step->willQuit();
+            }
             break;
     }
 

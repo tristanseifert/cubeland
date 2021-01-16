@@ -139,7 +139,7 @@ void PreferencesWindow::drawGfxPane(GameUI *ui) {
     };
 
     if(ImGui::Button("Load Preset")) {
-        // TODO: yeet
+        (this->kGfxPresets[this->gfx.preset % 4])();
         dirty = true;
     } if(ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Replaces graphics settings with the selected preset.");
@@ -148,7 +148,7 @@ void PreferencesWindow::drawGfxPane(GameUI *ui) {
     ImGui::SameLine();
     ImGui::PushItemWidth(200);
     if(ImGui::BeginCombo("Preset", kPresetNames[this->gfx.preset])) {
-        for(size_t j = 0; j < kNumPresets; j++) {
+        for(size_t j = 0; j < kNumPresets-1; j++) {
             const bool isSelected = (this->gfx.preset == j);
 
             if(ImGui::Selectable(kPresetNames[j], isSelected)) {
@@ -229,7 +229,7 @@ void PreferencesWindow::drawPerfPane(GameUI *gui) {
     // vertex generator threads
     if(ImGui::InputInt("Drawing Threads", &this->perf.drawThreads)) dirty = true;
     if(ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Drawing threads convert chunk data into on-screen vertices.\nHint: Increase this value to be approximately equal to the number of processor cores for optimal performance.");
+        ImGui::SetTooltip("Drawing threads convert chunk data into on-screen vertices.\nHint: Increase this value to be approximately 2/3 the number of processor cores for optimal performance.");
     }
 
     // world source threads
@@ -242,7 +242,7 @@ void PreferencesWindow::drawPerfPane(GameUI *gui) {
     // render distance
     if(ImGui::SliderInt("Render Distance", &this->perf.renderDist, 1, 8, "%d", ImGuiSliderFlags_AlwaysClamp)) dirty = true;
     if(ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Maximum number of chunks beyond the player's position to load. Each chunk is 256x256x256.");
+        ImGui::SetTooltip("Maximum number of chunks beyond the player's position to load. Each chunk is 256 blocks in each axis.");
     }
     // render cache
     if(ImGui::SliderInt("Render Cache Buffer", &this->perf.renderCacheBuffer, 1, 10, "%d", ImGuiSliderFlags_AlwaysClamp)) dirty = true;
