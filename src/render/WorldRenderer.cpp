@@ -24,6 +24,7 @@
 #include "inventory/UI.h"
 #include "io/PathHelper.h"
 #include "io/PrefsManager.h"
+#include "util/Easing.h"
 
 #include "steps/FXAA.h"
 #include "steps/Lighting.h"
@@ -270,8 +271,12 @@ void WorldRenderer::willBeginFrame() {
     }
     else if(this->isPauseMenuOpen && this->exitToTitle == 10) {
         // switch to title screen
-        auto title = std::make_shared<gui::TitleScreen>(this->window, this->gui);
-        this->window->setPrimaryStep(title);
+        if(this->needsQuit) {
+            this->window->quit();
+        } else {
+            auto title = std::make_shared<gui::TitleScreen>(this->window, this->gui);
+            this->window->setPrimaryStep(title);
+        }
 
         this->exitToTitle = 0;
     }
@@ -445,6 +450,7 @@ void WorldRenderer::drawPauseButtons(gui::GameUI *gui) {
     }
 
     const ImVec2 btnSize(400, 0);
+    const ImVec2 btnSize2(196, 0);
     const auto btnFont = gui->getFont(gui::GameUI::kGameFontHeading2);
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(.1, 0, 0, 1));
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(.25, 0, 0, 1));
@@ -479,8 +485,7 @@ void WorldRenderer::drawPauseButtons(gui::GameUI *gui) {
     // return to title
     ImGui::Dummy(ImVec2(0,10));
     ImGui::PushFont(btnFont);
-    if(ImGui::Button("Exit to Main Menu", btnSize)) {
-        // set a flag to perform this change next frame
+    if(ImGui::Button("Main Menu", btnSize2)) {
         this->exitToTitle = 1;
         this->saveScreenshot();
     }
@@ -489,6 +494,17 @@ void WorldRenderer::drawPauseButtons(gui::GameUI *gui) {
         ImGui::SetTooltip("Saves the current world and returns to the title screen");
     }
 
+    ImGui::SameLine();
+    ImGui::PushFont(btnFont);
+    if(ImGui::Button("Quit", btnSize2)) {
+        this->exitToTitle = 1;
+        this->needsQuit = true;
+        this->saveScreenshot();
+    }
+    ImGui::PopFont();
+    if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Saves the current world and exits the game");
+    }
     ImGui::PopStyleColor(3);
 
     // draw the "closing shit" message
@@ -540,11 +556,11 @@ void WorldRenderer::animatePauseMenu() {
     // otherwise, fade out the saturation
     else {
         const float frac = std::min((diffSecs / kPauseAnimationDuration) + .1, 1.);
-        const auto sqt = frac*frac;
-        const auto t = sqt / (2. * (sqt - frac) + 1.f);
+        const auto t = util::Easing::easeInQuad(frac);
+        const auto t2 = util::Easing::easeInOutCubic(frac);
 
         this->hdr->setVignetteParams(1 - (.67 * t), std::min(.5 ,(t * 2.5) * .5));
-        this->hdr->setHsvAdjust(glm::vec3(0, 1. - (.74 * t), 1 - (.25 * t)));
+        this->hdr->setHsvAdjust(glm::vec3(0, 1. - (.74 * t2), 1 - (.25 * t2)));
     }
 }
 

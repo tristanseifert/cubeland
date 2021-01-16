@@ -37,6 +37,10 @@ class MainWindow {
 
         void setPrimaryStep(std::shared_ptr<RunLoopStep> step);
 
+        const bool isHiDpi() const {
+            return (this->scale > 1.5);
+        }
+
     private:
         void initGLLibs();
         void configGLContext();
@@ -84,6 +88,9 @@ class MainWindow {
         std::vector<std::shared_ptr<RunLoopStep>> stages;
         // changes to make to stages
         std::queue<StageChanges> stageChanges;
+
+        // scale (pixels per point)
+        float scale = 1.;
 
     private:
         // number of frames for which to average fps

@@ -16,8 +16,6 @@
 #include <glbinding/glbinding.h>
 #include <SDL.h>
 
-#include <jpeglib.h>
-
 #include <iterator>
 #include <chrono>
 #include <string>
@@ -359,14 +357,23 @@ void MainWindow::handleEvent(const SDL_Event &event, int &reason) {
                 case SDL_WINDOWEVENT_RESIZED: {
                     PROFILE_SCOPE(Reshape);
 
+                    // calculate the new scale factor
+                    int cw, ch;
+                    SDL_GetWindowSize(this->win, &w, &h);
+                    SDL_GL_GetDrawableSize(this->win, &cw, &ch);
+
+                    const float xScale = ((float) cw) / ((float) w);
+                    const float yScale = ((float) ch) / ((float) h);
+                    this->scale = std::max(xScale, yScale);
+
                     // update viewport
-                    SDL_GL_GetDrawableSize(this->win, &w, &h);
-                    glViewport(0, 0, (GLsizei) w, (GLsizei) h);
+                    SDL_GL_GetDrawableSize(this->win, &cw, &ch);
+                    glViewport(0, 0, (GLsizei) cw, (GLsizei) ch);
 
                     this->saveWindowSize();
 
                     for(auto &render : this->stages) {
-                        render->reshape(w, h);
+                        render->reshape(cw, ch);
                     }
                     break;
                 }

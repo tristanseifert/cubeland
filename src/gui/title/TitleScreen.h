@@ -58,8 +58,15 @@ class TitleScreen: public RunLoopStep {
     protected:
         void openWorld(std::shared_ptr<world::WorldSource> &);
 
-        void setBgVignette(const float radius, const float smoothness) {
+        void setVignetteParams(const glm::vec2 &params) {
+            this->setVignetteParams(params.x, params.y);
+        }
+        void setVignetteParams(const float radius, const float smoothness) {
             this->vignetteParams = glm::vec2(radius, smoothness);
+        }
+
+        const bool isBgVisible() const {
+            return this->showBackground;
         }
 
         void clearBackgroundImage(const bool animate = true);
@@ -84,9 +91,34 @@ class TitleScreen: public RunLoopStep {
     private:
         void drawButtons(GameUI *gui);
 
+        void animateBackground();
+
     private:
         /// divide the viewport size by this factor for the plasma effect
         constexpr static const float kPlasmaScale = 4.;
+
+        /// duration to fade in a background image, in seconds
+        constexpr static const float kBgFadeInDuration = .66;
+        /// duration to fade out the background image, in seconds
+        constexpr static const float kBgFadeOutDuration = 1.;
+        /// duration of crossfading between images
+        constexpr static const float kBgCrossfadeDuration = 1.33;
+
+        /// vignetting factors for displaying backgrounds
+        constexpr static const glm::vec2 kBgVignette = glm::vec2(.633, .5);
+
+        enum class AnimationType {
+            /// No in-progress animation
+            None,
+            /// No image is visible yet; fade in background 0
+            FadeIn1,
+            /// Whatever image is currently visible, fade it out.
+            FadeOut,
+            /// Image 1 is visible; crossfade to image 2
+            Crossfade1To2,
+            /// Image 2 is visible; crossfade to image 1
+            Crossfade2To1,
+        };
 
     private:
         MainWindow *win = nullptr;
@@ -113,11 +145,18 @@ class TitleScreen: public RunLoopStep {
         // whether background is shown
         bool showBackground = false;
         // background image texture
-        gfx::Texture2D *bgTexture = nullptr;
+        gfx::Texture2D *bgTextures[2] = { nullptr, nullptr };
         // opacity of the background texture
         float bgFactor = 0;
+        // mix facter between the two bg textures
+        float bgMixFactor = 0;
         // vignetting parameters
         glm::vec2 vignetteParams = glm::vec2(1, 0);
+
+        /// animation for background
+        AnimationType bgAnim = AnimationType::None;
+        /// time point to use for the start of the bg animation
+        std::chrono::steady_clock::time_point bgAnimationStart;
 };
 }
 

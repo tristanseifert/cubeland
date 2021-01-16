@@ -42,7 +42,6 @@ FileWorldReader::FileWorldReader(const std::string &path, const bool create, con
         flags |= SQLITE_OPEN_CREATE;
     }
 
-    Logging::trace("Attempting to open world: {} (create: {})", path, create);
     err = sqlite3_open_v2(path.c_str(), &this->db, flags, nullptr);
     if(err != SQLITE_OK) {
         throw std::runtime_error(f("Failed to open world: SQLite error {} ({})", 
@@ -122,7 +121,7 @@ void FileWorldReader::initializeSchema() {
 
     // set creator info
     this->updateWorldInfo("creator.name", "me.tseifert.cubeland");
-    this->updateWorldInfo("creator.version", gVERSION_HASH);
+    this->updateWorldInfo("creator.version", gVERSION_TAG);
 
     time_t now = time(nullptr);
     this->updateWorldInfo("creator.timestamp", f("{:d}", now));

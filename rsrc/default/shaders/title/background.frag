@@ -6,10 +6,10 @@ in vec2 TexCoord;
 // sampler for input texture (background)
 uniform sampler2D texPlasma;
 
-// sampler for second background texture
-uniform sampler2D texOverlay;
+// sampler for second background texture (the overlays)
+uniform sampler2D texOverlay1, texOverlay2;
 // alpha factor of second texture
-uniform float overlayFactor = 0;
+uniform float overlayFactor = 0, overlayMix = 0;
 
 // vignetting params
 uniform vec2 vignetteParams = vec2(1, 0);
@@ -24,19 +24,24 @@ float vignette(vec2 uv, float radius, float smoothness);
 
 void main() {
     // sample the plasma texture
-    vec4 color = texture(texPlasma, TexCoord);
-    vec3 hsv = rgb2hsv(color.rgb);
+    vec4 bgColor = texture(texPlasma, TexCoord);
+    vec3 hsv = rgb2hsv(bgColor.rgb);
     // hsv.y *= .75;
     hsv.z *= .5;
-    color = vec4(hsv2rgb(hsv), color.a);
+    bgColor = vec4(hsv2rgb(hsv), bgColor.a);
 
     // overlay
-    vec4 overlay = texture(texOverlay, TexCoord);
-    color = mix(color, overlay, overlayFactor);
+    vec4 overlay1 = texture(texOverlay1, TexCoord);
+    vec4 overlay2 = texture(texOverlay2, TexCoord);
+    vec4 overlay = mix(overlay1, overlay2, overlayMix);
+    overlay.a *= overlayFactor;
+
+    float sA = overlay.a;
+    vec3 color = (overlay.rgb * sA) + (bgColor.rgb * (1 - sA));
 
     // output
     float vig = vignette(TexCoord, vignetteParams.x, vignetteParams.y);
-    FragColor = color * vig;
+    FragColor = vec4(color * vig, 1);
 }
 
 // Converts an RGB pixel to HSV

@@ -207,6 +207,8 @@ class WorldRenderer: public gui::RunLoopStep {
         bool isPauseMenuAnimating = false;
         // set to exit to title screen at the start of next frame
         size_t exitToTitle = 0;
+        // set to quit instead of exit to title
+        bool needsQuit = false;
         // time at which the menu was opened (for animation)
         std::chrono::steady_clock::time_point menuOpenedAt;
         // when set, we capture a screenshot of the world after rendering it next frame

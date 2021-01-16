@@ -21,6 +21,10 @@ class GameWindow {
         virtual bool usesGameStyle() const {
             return true;
         }
+        /// Whether this window class will receive draw events if invisible
+        virtual bool skipDrawIfInvisible() const {
+            return true;
+        }
 
     protected:
         bool visible = true;

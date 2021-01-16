@@ -319,7 +319,7 @@ void GameUI::willBeginFrame() {
 
     for(auto &w : this->windows) {
         // ignore invisible windows
-        if(!w->isVisible()) continue;
+        if(!w->isVisible() && w->skipDrawIfInvisible()) continue;
 
         // apply game style if needed
         if(!appliedStyle && w->usesGameStyle()) {

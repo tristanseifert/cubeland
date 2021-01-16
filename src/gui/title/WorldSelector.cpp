@@ -1,6 +1,7 @@
 #include "WorldSelector.h"
 #include "TitleScreen.h"
 #include "gui/GameUI.h"
+#include "gui/MainWindow.h"
 
 #include "io/PrefsManager.h"
 #include "io/Format.h"
@@ -49,6 +50,11 @@ WorldSelector::WorldSelector(TitleScreen *_title) : title(_title) {
     // create worker thread
     this->workerRun = true;
     this->worker = std::make_unique<std::thread>(std::bind(&WorldSelector::workerMain, this));
+
+    // determine preview scale factor
+    if(_title->win->isHiDpi()) {
+        this->previewScaleFactor = 4.;
+    }
 }
 
 /**
@@ -69,10 +75,8 @@ void WorldSelector::startOfFrame() {
     if(this->backgroundInfo) {
         if(!this->backgroundInfo->valid) {
             this->title->clearBackgroundImage();
-            this->title->setBgVignette(1, 0);
         } else {
             this->title->setBackgroundImage(this->backgroundInfo->data, this->backgroundInfo->size, true);
-            this->title->setBgVignette(.65, .5);
         }
 
         this->backgroundInfo = std::nullopt;
@@ -143,6 +147,18 @@ void WorldSelector::saveRecents() {
  */
 void WorldSelector::draw(GameUI *gui) {
     using namespace igfd;
+
+    if(this->visible != this->lastVisible) {
+        if(!this->visible) {
+            // clear the background image if we're closing
+            if(this->title->isBgVisible()) {
+                this->title->clearBackgroundImage();
+            }
+        }
+
+        this->lastVisible = this->visible;
+    }
+    if(!this->visible) return;
 
     // constrain prefs window size
     ImGuiIO& io = ImGui::GetIO();
@@ -584,8 +600,6 @@ void WorldSelector::workerMain() {
  */
 void WorldSelector::workerSelectionChanged(const WorldSelection &sel) {
     // check to see if the world exists
-    Logging::trace("Selected: {}", sel.path);
-
     const std::filesystem::path path(sel.path);
 
     if(!std::filesystem::exists(path)) {
@@ -600,15 +614,11 @@ void WorldSelector::workerSelectionChanged(const WorldSelection &sel) {
     const auto worldIdBytes = idProm.get_future().get();
     const std::string worldId(worldIdBytes.begin(), worldIdBytes.end());
 
-    Logging::trace("World id for {}: {}", sel.path, worldId);
-
     // open the world preview image and decode it, if it exists
     std::filesystem::path previewPath(io::PathHelper::cacheDir());
     previewPath /= f("worldpreview-{}.jpg", worldId);
 
     if(std::filesystem::exists(previewPath)) {
-        auto start = std::chrono::high_resolution_clock::now();
-
         // decode the image
         glm::ivec2 size(0);
         std::vector<std::byte> data;
@@ -626,23 +636,19 @@ void WorldSelector::workerSelectionChanged(const WorldSelection &sel) {
             size = newSize;
         }
 
-        // convert to RGBA, then blur
-        {
-            std::vector<std::byte> data2;
-            data2.resize(size.x * size.y * 4);
+        // convert to RGBA (in place), then blur
+        data.resize(size.x * size.y * 4);
 
-            for(size_t y = 0; y < size.y; y++) {
-                for(size_t x = 0; x < size.x; x++) {
-                    data2[(y * size.x * 4) + x*4 + 0] = data[(y * size.x * 3) + x*3 + 0];
-                    data2[(y * size.x * 4) + x*4 + 1] = data[(y * size.x * 3) + x*3 + 1];
-                    data2[(y * size.x * 4) + x*4 + 2] = data[(y * size.x * 3) + x*3 + 2];
-                    data2[(y * size.x * 4) + x*4 + 3] = std::byte(0xFF);
-                }
+        for(int y = size.y-1; y >= 0; y--) {
+            for(int x = size.x-1; x >= 0; x--) {
+                data[(y * size.x * 4) + x*4 + 0] = data[(y * size.x * 3) + x*3 + 0];
+                data[(y * size.x * 4) + x*4 + 1] = data[(y * size.x * 3) + x*3 + 1];
+                data[(y * size.x * 4) + x*4 + 2] = data[(y * size.x * 3) + x*3 + 2];
+                data[(y * size.x * 4) + x*4 + 3] = std::byte(0xFF);
             }
-
-            util::Blur::StackBlur((uint8_t *) data2.data(), size, kBgBlurRadius);
-            data = data2;
         }
+
+        util::Blur::StackBlur((uint8_t *) data.data(), size, kBgBlurRadius);
 
         // done: tell the title screen to display this next frame
         {

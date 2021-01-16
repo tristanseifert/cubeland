@@ -16,6 +16,7 @@
 #include <vector>
 
 #include <avir.h>
+#include <lancir.h>
 #include <blockingconcurrentqueue.h>
 
 #include <glm/vec2.hpp>
@@ -35,6 +36,10 @@ class WorldSelector: public gui::GameWindow {
 
         void startOfFrame();
         void draw(gui::GameUI *) override;
+
+        bool skipDrawIfInvisible() const override {
+            return false;
+        }
 
     private:
         static const std::string kPrefsKey;
@@ -170,10 +175,11 @@ class WorldSelector: public gui::GameWindow {
         moodycamel::BlockingConcurrentQueue<WorkItem> work;
 
         /// shared image resizer
-        avir::CImageResizer<> imgResizer = avir::CImageResizer<>(8);
+        //avir::CImageResizer<> imgResizer = avir::CImageResizer<>(8);
+        avir::CLancIR imgResizer;
         /// downscaling factor for preview images
         // TODO: set automatically based on HiDPI setting
-        float previewScaleFactor = 4.;
+        float previewScaleFactor = 3.;
 
         /// info of a background image to upload
         std::optional<BgImageInfo> backgroundInfo = std::nullopt;
@@ -202,6 +208,9 @@ class WorldSelector: public gui::GameWindow {
         char newName[kNameMaxLen] = {0};
         // seed for new world
         int newSeed = 420;
+
+        // last frame's visibility state
+        bool lastVisible = false;
 };
 }
 
