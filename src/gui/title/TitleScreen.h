@@ -7,7 +7,12 @@
 #include "gui/RunLoopStep.h"
 #include "gui/GameWindow.h"
 
+#include <chrono>
+#include <cstddef>
 #include <memory>
+#include <vector>
+
+#include <glm/vec2.hpp>
 
 namespace world {
 class WorldSource;
@@ -17,6 +22,7 @@ namespace gfx {
 class Buffer;
 class ShaderProgram;
 class VertexArray;
+class Texture2D;
 }
 
 namespace gui {
@@ -51,6 +57,13 @@ class TitleScreen: public RunLoopStep {
 
     protected:
         void openWorld(std::shared_ptr<world::WorldSource> &);
+
+        void setBgVignette(const float radius, const float smoothness) {
+            this->vignetteParams = glm::vec2(radius, smoothness);
+        }
+
+        void clearBackgroundImage(const bool animate = true);
+        void setBackgroundImage(const std::vector<std::byte> &data, const glm::ivec2 &size, const bool animate = true);
 
     private:
         // game window that just calls into our drawing routines
@@ -96,6 +109,15 @@ class TitleScreen: public RunLoopStep {
         gfx::Buffer *vertices = nullptr;
         // vertex array defining vertices
         gfx::VertexArray *vao = nullptr;
+
+        // whether background is shown
+        bool showBackground = false;
+        // background image texture
+        gfx::Texture2D *bgTexture = nullptr;
+        // opacity of the background texture
+        float bgFactor = 0;
+        // vignetting parameters
+        glm::vec2 vignetteParams = glm::vec2(1, 0);
 };
 }
 

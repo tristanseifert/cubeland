@@ -57,6 +57,11 @@ TitleScreen::TitleScreen(MainWindow *_win, std::shared_ptr<GameUI> &_gui) : win(
 
     VertexArray::unbind();
 
+    // create background texture
+    this->bgTexture = new gfx::Texture2D(3);
+    this->bgTexture->setUsesLinearFiltering(true);
+    this->bgTexture->setDebugName("TitleBackground");
+
     // set up the button window
     this->butts = std::make_shared<ButtonWindow>(this);
     _gui->addWindow(this->butts);
@@ -77,6 +82,7 @@ TitleScreen::~TitleScreen() {
         this->gui->removeWindow(this->about);
     }
 
+    delete this->bgTexture;
     delete this->program;
     delete this->vao;
     delete this->vertices;
@@ -105,6 +111,10 @@ void TitleScreen::willBeginFrame() {
 
     this->plasma->draw(this->time / 5.);
     this->time += 1. / 60.;
+
+    if(this->worldSel) {
+        this->worldSel->startOfFrame();
+    }
 }
 
 /**
@@ -190,7 +200,17 @@ void TitleScreen::draw() {
     plasmaTex->bind();
 
     this->program->bind();
-    this->program->setUniform1i("inTexture", plasmaTex->unit);
+    this->program->setUniform1i("texPlasma", plasmaTex->unit);
+
+    if(this->showBackground) {
+        this->bgTexture->bind();
+        this->program->setUniform1i("texOverlay", this->bgTexture->unit);
+        this->program->setUniform1f("overlayFactor", this->bgFactor);
+    } else {
+        this->program->setUniform1f("overlayFactor", 0);
+    }
+
+    this->program->setUniformVec("vignetteParams", this->vignetteParams);
 
     this->vao->bind();
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -216,4 +236,32 @@ void TitleScreen::openWorld(std::shared_ptr<world::WorldSource> &source) {
 
     // insert it
     this->win->setPrimaryStep(rend);
+}
+
+
+
+/**
+ * Sets the background image.
+ */
+void TitleScreen::setBackgroundImage(const std::vector<std::byte> &data, const glm::ivec2 &size,
+        const bool animate) {
+    // select correct texture
+    gfx::Texture2D *tex = this->bgTexture;
+
+    // transfer
+    XASSERT(tex, "Invalid background texture");
+
+    tex->allocateBlank(size.x, size.y, gfx::Texture2D::RGBA8);
+    tex->bufferSubData(size.x, size.y, 0, 0,  gfx::Texture2D::RGBA8, data.data());
+
+    // TODO: handle crossfading
+    this->bgFactor = 1;
+    this->showBackground = true;
+}
+
+/**
+ * Clears the background image.
+ */
+void TitleScreen::clearBackgroundImage(const bool animate) {
+    this->showBackground = false;
 }

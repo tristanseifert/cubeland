@@ -69,7 +69,7 @@ std::shared_ptr<Chunk> FileWorldReader::loadChunk(int x, int z) {
     // next, process each slice
     SliceState state;
 
-    for(const auto [y, sliceId] : sliceIds) {
+    for(const auto &[y, sliceId] : sliceIds) {
         this->loadSlice(state, sliceId, chunk, y);
     }
 

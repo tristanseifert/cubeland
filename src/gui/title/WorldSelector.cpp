@@ -4,6 +4,9 @@
 
 #include "io/PrefsManager.h"
 #include "io/Format.h"
+#include "io/PathHelper.h"
+#include "util/Blur.h"
+#include "util/Thread.h"
 
 #include "world/FileWorldReader.h"
 #include "world/generators/Terrain.h"
@@ -11,6 +14,7 @@
 
 #include <Logging.h>
 
+#include <mutils/time/profiler.h>
 #include <imgui.h>
 #include <ImGuiFileDialog/ImGuiFileDialog.h>
 
@@ -25,8 +29,11 @@
 #include <memory>
 #include <sstream>
 #include <stdexcept>
+#include <cstdio>
 #include <cstring>
 #include <ctime>
+
+#include <jpeglib.h>
 
 using namespace gui::title;
 
@@ -38,6 +45,38 @@ const std::string WorldSelector::kPrefsKey = "ui.worldSelector.recents";
 WorldSelector::WorldSelector(TitleScreen *_title) : title(_title) {
     // configure file dialogs
     igfd::ImGuiFileDialog::Instance()->SetExtentionInfos(".world", ImVec4(0,0.69,0,0.9));
+
+    // create worker thread
+    this->workerRun = true;
+    this->worker = std::make_unique<std::thread>(std::bind(&WorldSelector::workerMain, this));
+}
+
+/**
+ * Ensures our work thread has shut down.
+ */
+WorldSelector::~WorldSelector() {
+    this->workerRun = false;
+    this->work.enqueue(WorkItem());
+    this->worker->join();
+}
+
+
+/**
+ * Performs main thread updates at the start of a frame.
+ */
+void WorldSelector::startOfFrame() {
+    // load background image
+    if(this->backgroundInfo) {
+        if(!this->backgroundInfo->valid) {
+            this->title->clearBackgroundImage();
+            this->title->setBgVignette(1, 0);
+        } else {
+            this->title->setBackgroundImage(this->backgroundInfo->data, this->backgroundInfo->size, true);
+            this->title->setBgVignette(.65, .5);
+        }
+
+        this->backgroundInfo = std::nullopt;
+    }
 }
 
 
@@ -68,6 +107,8 @@ void WorldSelector::loadRecents() {
 
         this->recents = std::move(r);
         this->selectedWorld = -1;
+
+        this->updateSelectionThumb();
     } catch(std::exception &e) {
         Logging::error("Failed to deserialize world file recents list: {}", e.what());
     }
@@ -156,6 +197,7 @@ void WorldSelector::draw(GameUI *gui) {
             this->recents.recents[this->selectedWorld] = std::nullopt;
             this->selectedWorld = -1;
 
+            this->updateSelectionThumb();
             this->saveRecents();
         }
         if(ImGui::IsItemHovered()) {
@@ -290,7 +332,10 @@ void WorldSelector::drawRecentsList(GameUI *gui) {
                 const auto str = f("{}\nLast Played: {}", path.filename().string(), timeBuf);
 
                 if(ImGui::Selectable(str.c_str(), (this->selectedWorld == i), ImGuiSelectableFlags_AllowDoubleClick)) {
-                    this->selectedWorld = i;
+                    if(i != this->selectedWorld) {
+                        this->selectedWorld = i;
+                        this->updateSelectionThumb();
+                    }
 
                     // open right away on double click
                     if(ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
@@ -492,3 +537,180 @@ void WorldSelector::openWorld(const std::string &path) {
     // if we get here, we should actually go and open the world :D
     this->title->openWorld(source);
 }
+
+/**
+ * Called when the selection changes to update the background.
+ */
+void WorldSelector::updateSelectionThumb() {
+    // decode world info if needed
+    if(this->selectedWorld != -1) {
+        WorldSelection sel;
+        sel.path = this->recents.recents[this->selectedWorld]->path;
+
+        this->work.enqueue(sel);
+    }
+}
+
+
+
+/**
+ * Worker thread main loop
+ */
+void WorldSelector::workerMain() {
+    util::Thread::setName("World Renderer Worker");
+    MUtils::Profiler::NameThread("World Renderer Worker");
+
+    // main loop
+    while(this->workerRun) {
+        WorkItem item;
+        this->work.wait_dequeue(item);
+
+        try {
+            if(std::holds_alternative<WorldSelection>(item)) {
+                const auto &sel = std::get<WorldSelection>(item);
+                this->workerSelectionChanged(sel);
+            }
+        } catch(std::exception &e) {
+            Logging::error("WorldSelector received exception: {}", e.what());
+        }
+    }
+
+    // clean up
+    MUtils::Profiler::FinishThread();
+}
+
+/**
+ * A new world file has been selected.
+ */
+void WorldSelector::workerSelectionChanged(const WorldSelection &sel) {
+    // check to see if the world exists
+    Logging::trace("Selected: {}", sel.path);
+
+    const std::filesystem::path path(sel.path);
+
+    if(!std::filesystem::exists(path)) {
+        Logging::info("Ignoring selection {}; file does not exist", sel.path);
+        return;
+    }
+
+    // try to open it (but read only) and read out the world ID
+    world::FileWorldReader source(path.string(), false, true);
+
+    auto idProm = source.getWorldInfo("world.id");
+    const auto worldIdBytes = idProm.get_future().get();
+    const std::string worldId(worldIdBytes.begin(), worldIdBytes.end());
+
+    Logging::trace("World id for {}: {}", sel.path, worldId);
+
+    // open the world preview image and decode it, if it exists
+    std::filesystem::path previewPath(io::PathHelper::cacheDir());
+    previewPath /= f("worldpreview-{}.jpg", worldId);
+
+    if(std::filesystem::exists(previewPath)) {
+        auto start = std::chrono::high_resolution_clock::now();
+
+        // decode the image
+        glm::ivec2 size(0);
+        std::vector<std::byte> data;
+        if(!this->decodeImage(previewPath, data, size)) {
+            goto done;
+        }
+
+        // downscale it if needed
+        if(this->previewScaleFactor > 1) {
+            const auto newSize = size / glm::ivec2(this->previewScaleFactor);
+
+            this->imgResizer.resizeImage((const uint8_t *) data.data(), size.x, size.y, 0, 
+                    (uint8_t *) data.data(), newSize.x, newSize.y, 3, 0);
+
+            size = newSize;
+        }
+
+        // convert to RGBA, then blur
+        {
+            std::vector<std::byte> data2;
+            data2.resize(size.x * size.y * 4);
+
+            for(size_t y = 0; y < size.y; y++) {
+                for(size_t x = 0; x < size.x; x++) {
+                    data2[(y * size.x * 4) + x*4 + 0] = data[(y * size.x * 3) + x*3 + 0];
+                    data2[(y * size.x * 4) + x*4 + 1] = data[(y * size.x * 3) + x*3 + 1];
+                    data2[(y * size.x * 4) + x*4 + 2] = data[(y * size.x * 3) + x*3 + 2];
+                    data2[(y * size.x * 4) + x*4 + 3] = std::byte(0xFF);
+                }
+            }
+
+            util::Blur::StackBlur((uint8_t *) data2.data(), size, kBgBlurRadius);
+            data = data2;
+        }
+
+        // done: tell the title screen to display this next frame
+        {
+            BgImageInfo info;
+            info.valid = true;
+            info.data = data;
+            info.size = size;
+
+            this->backgroundInfo = info;
+        }
+done:;
+    } else {
+        // to invalidate background
+        this->backgroundInfo = BgImageInfo();
+    }
+}
+
+/**
+ * Loads the given JPEG image. The output buffer will contain 24bpp RGB data.
+ */
+bool WorldSelector::decodeImage(const std::filesystem::path &path, std::vector<std::byte> &outData,
+        glm::ivec2 &outSize) {
+    bool success = false;
+    FILE *file;
+    struct jpeg_decompress_struct cinfo;
+    struct jpeg_error_mgr jerr;
+    size_t line = 0;
+    JSAMPROW rowPtr = nullptr;
+
+    // set up the decompressor
+    cinfo.err = jpeg_std_error(&jerr);
+    jpeg_create_decompress(&cinfo);
+
+    // open file
+    file = fopen(path.string().c_str(), "rb");
+    if(!file) {
+        Logging::error("Failed to open JPEG: {}", path.string());
+        goto beach;
+    }
+
+    jpeg_stdio_src(&cinfo, file);
+
+    // read JPEG header
+    (void) jpeg_read_header(&cinfo, true);
+
+    outSize.x = cinfo.image_width;
+    outSize.y = cinfo.image_height;
+
+    // decompress into output work
+    (void) jpeg_start_decompress(&cinfo);
+
+    outData.resize(outSize.x * outSize.y * 3);
+
+    while(cinfo.output_scanline < cinfo.output_height) {
+        line = cinfo.output_scanline;
+        rowPtr = reinterpret_cast<JSAMPROW>(outData.data() + ((outSize.y - 1 - line) * (outSize.x * 3)));
+        jpeg_read_scanlines(&cinfo, &rowPtr, 1);
+    }
+
+    // successfully read image
+    (void) jpeg_finish_decompress(&cinfo);
+    success = true;
+
+    // clean up
+beach:;
+    fclose(file);
+    jpeg_destroy_decompress(&cinfo);
+
+    return success;
+}
+

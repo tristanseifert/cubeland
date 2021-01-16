@@ -79,7 +79,7 @@ void AboutWindow::draw(GameUI *gui) {
             ImGui::Text("Build: ");
             ImGui::SameLine();
             ImGui::PushFont(mono);
-            ImGui::TextUnformatted(gVERSION_HASH);
+            ImGui::Text("%s (%.8s)", gVERSION_TAG, gVERSION_HASH);
             ImGui::PopFont();
 
             ImGui::Bullet();

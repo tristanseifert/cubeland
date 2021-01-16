@@ -185,6 +185,15 @@ std::promise<std::vector<char>> WorldSource::getPlayerInfo(const std::string &ke
 
 
 /**
+ * Returns world info value for the given key.
+ */
+std::promise<std::vector<char>> WorldSource::getWorldInfo(const std::string &key) {
+    return this->reader->getWorldInfo(key);
+}
+
+
+
+/**
  * Determines chunks to write out.
  */
 void WorldSource::startOfFrame() {

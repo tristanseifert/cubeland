@@ -43,7 +43,7 @@ class FileWorldReader: public WorldReader {
 
     public:
         FileWorldReader() = delete;
-        FileWorldReader(const std::string &path, const bool create = false);
+        FileWorldReader(const std::string &path, const bool create = false, const bool readonly = false);
 
         ~FileWorldReader();
 

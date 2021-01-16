@@ -22,6 +22,7 @@
 #include "physics/EngineDebugRenderer.h"
 #include "inventory/Manager.h"
 #include "inventory/UI.h"
+#include "io/PathHelper.h"
 #include "io/PrefsManager.h"
 
 #include "steps/FXAA.h"
@@ -38,6 +39,11 @@
 #include <glm/ext.hpp>
 #include <SDL.h>
 #include <imgui.h>
+
+#include <cstdio>
+#include <filesystem>
+
+#include <jpeglib.h>
 
 using namespace render;
 
@@ -131,13 +137,20 @@ WorldRenderer::WorldRenderer(gui::MainWindow *_win, std::shared_ptr<gui::GameUI>
 
     this->debugItemToken = gui::MenuBarHandler::registerItem("World", "World Renderer Debug", &this->isDebuggerOpen);
 
-    // load preferences
+    // load preferences and work queue
+    this->workerRun = true;
+    this->worker = std::make_unique<std::thread>(std::bind(&WorldRenderer::workerMain, this));
+
     this->loadPrefs();
 }
 /**
  * Releases all of our render resources.
  */
 WorldRenderer::~WorldRenderer() {
+    this->workerRun = false;
+    this->work.enqueue(WorkItem());
+    this->worker->join();
+
     if(this->pauseWin) {
         this->gui->removeWindow(this->pauseWin);
     }
@@ -178,6 +191,12 @@ WorldRenderer::~WorldRenderer() {
 
     delete this->input;
     this->source = nullptr;
+
+    // release the pause screenshot data
+    if(this->screenshot) {
+        delete[] this->screenshot;
+        this->screenshot = nullptr;
+    }
 }
 
 /**
@@ -293,6 +312,12 @@ void WorldRenderer::draw() {
         } else if(step->requiresBoundHDRBuffer()) {
             this->hdr->unbindHDRBuffer();
         }
+    }
+
+    // screenshot time!
+    if(this->needsScreenshot) {
+        this->captureScreenshot();
+        this->needsScreenshot = false;
     }
 }
 
@@ -457,6 +482,7 @@ void WorldRenderer::drawPauseButtons(gui::GameUI *gui) {
     if(ImGui::Button("Exit to Main Menu", btnSize)) {
         // set a flag to perform this change next frame
         this->exitToTitle = 1;
+        this->saveScreenshot();
     }
     ImGui::PopFont();
     if(ImGui::IsItemHovered()) {
@@ -542,6 +568,9 @@ void WorldRenderer::openPauseMenu() {
     this->menuOpenedAt = std::chrono::steady_clock::now();
 
     this->input->incrementCursorCount();
+
+    // TODO: take a screenshot, which we compress and save to disk for the world
+    this->needsScreenshot = true;
 }
 
 /**
@@ -564,4 +593,142 @@ void WorldRenderer::closePauseMenu() {
     this->hdr->setVignetteParams(1, 0);
 
     this->input->decrementCursorCount();
+
+    // release the pause screenshot data
+    if(this->screenshot) {
+        delete[] this->screenshot;
+        this->screenshot = nullptr;
+    }
+}
+
+/**
+ * Captures a screenshot of the currently bound framebuffer. We assume this is the main window
+ * framebuffer.
+ */
+void WorldRenderer::captureScreenshot() {
+    using namespace gl;
+    PROFILE_SCOPE(CaptureScreenshot);
+
+    // allocate the buffer
+    const size_t w = this->viewportWidth, h = this->viewportHeight;
+
+    std::byte *buf = new std::byte[w * h * 3];
+
+    // get the pixels
+    {
+        PROFILE_SCOPE_STR("glReadPixels", 0xFF0000FF);
+        glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, buf);
+    }
+
+    // store it for later
+    XASSERT(!this->screenshot, "Attempting to write out duplicate pause screenshots");
+    this->screenshot = buf;
+}
+
+/**
+ * Saves the screenshot on the worker thread. This should be called right when it's apparent that
+ * we'll be going back to the main menu/exiting the level.
+ */
+void WorldRenderer::saveScreenshot() {
+    // put together a work request
+    SaveScreenshot save;
+
+    save.data = this->screenshot;
+    save.size = glm::ivec2(this->viewportWidth, this->viewportHeight);
+
+    this->work.enqueue(save);
+
+    // clean up
+    this->screenshot = nullptr;
+}
+
+
+
+/**
+ * Worker main function
+ */
+void WorldRenderer::workerMain() {
+    util::Thread::setName("World Renderer Worker");
+    MUtils::Profiler::NameThread("World Renderer Worker");
+
+    // collect work requests
+    while(this->workerRun) {
+        WorkItem i;
+        this->work.wait_dequeue(i);
+
+        if(std::holds_alternative<std::monostate>(i)) {
+            // nothing
+        }
+        // save a screenshot
+        else if(std::holds_alternative<SaveScreenshot>(i)) {
+            const auto &save = std::get<SaveScreenshot>(i);
+            this->workerSaveScreenshot(save);
+        }
+    }
+
+    // clean up
+    MUtils::Profiler::FinishThread();
+}
+
+/**
+ * Performs encoding of the given bitmap to JPEG 2000.
+ */
+void WorldRenderer::workerSaveScreenshot(const SaveScreenshot &save) {
+    FILE *file = nullptr;
+
+    size_t numRows = save.size.y;
+    JSAMPROW rowPtrs[numRows];
+
+    // prepare the input data
+    auto idProm = this->source->getWorldInfo("world.id");
+    const auto worldIdBytes = idProm.get_future().get();
+    const std::string worldId(worldIdBytes.begin(), worldIdBytes.end());
+
+    std::filesystem::path path(io::PathHelper::cacheDir());
+    path /= f("worldpreview-{}.jpg", worldId);
+
+    // set up the encoder and error handler
+    struct jpeg_compress_struct cinfo;
+    struct jpeg_error_mgr jerr;
+
+    cinfo.err = jpeg_std_error(&jerr);
+
+    jpeg_create_compress(&cinfo);
+
+    // write to an stdio stream
+    file = fopen(path.string().c_str(), "wb");
+    if(!file) {
+        Logging::error("Failed to open world screenshot '{}' for writing", path.string());
+        goto beach;
+    }
+    jpeg_stdio_dest(&cinfo, file);
+
+    // configure compression parameters
+    cinfo.image_width = save.size.x;
+    cinfo.image_height = save.size.y;
+    cinfo.input_components = 3;
+    cinfo.in_color_space = JCS_RGB;
+
+    jpeg_set_defaults(&cinfo);
+
+    jpeg_set_quality(&cinfo, kPreviewQuality, true);
+
+    // begin compression for all rows
+    jpeg_start_compress(&cinfo, TRUE);
+
+    for(size_t i = 0; i < numRows; i++) {
+        rowPtrs[i] = reinterpret_cast<JSAMPROW>(save.data + ((numRows - 1 - i) * (save.size.x * 3)));
+    }
+
+    jpeg_write_scanlines(&cinfo, rowPtrs, numRows);
+
+    // finish up compression
+    jpeg_finish_compress(&cinfo);
+
+    // clean up
+beach:;
+    if(file) fclose(file);
+    jpeg_destroy_compress(&cinfo);
+
+    delete[] save.data;
 }

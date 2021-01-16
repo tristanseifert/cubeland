@@ -3,26 +3,40 @@
 
 // input texture coordinate from vertex shader
 in vec2 TexCoord;
-// sampler for input texture
-uniform sampler2D inTexture;
+// sampler for input texture (background)
+uniform sampler2D texPlasma;
+
+// sampler for second background texture
+uniform sampler2D texOverlay;
+// alpha factor of second texture
+uniform float overlayFactor = 0;
+
+// vignetting params
+uniform vec2 vignetteParams = vec2(1, 0);
+
 // output fragment color
 layout (location = 0) out vec4 FragColor;
 
 vec3 rgb2hsv(vec3 c);
 vec3 hsv2rgb(vec3 c);
 
+float vignette(vec2 uv, float radius, float smoothness);
+
 void main() {
-    // sample
-    vec4 color = texture(inTexture, TexCoord);
-
-    // HSV transform
+    // sample the plasma texture
+    vec4 color = texture(texPlasma, TexCoord);
     vec3 hsv = rgb2hsv(color.rgb);
-
     // hsv.y *= .75;
     hsv.z *= .5;
+    color = vec4(hsv2rgb(hsv), color.a);
+
+    // overlay
+    vec4 overlay = texture(texOverlay, TexCoord);
+    color = mix(color, overlay, overlayFactor);
 
     // output
-    FragColor = vec4(hsv2rgb(hsv), color.a);
+    float vig = vignette(TexCoord, vignetteParams.x, vignetteParams.y);
+    FragColor = color * vig;
 }
 
 // Converts an RGB pixel to HSV
@@ -42,4 +56,10 @@ vec3 hsv2rgb(vec3 c) {
     vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
     vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
     return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+
+// basic vignette function
+float vignette(vec2 uv, float radius, float smoothness) {
+    float diff = radius - distance(uv, vec2(0.5, 0.5));
+    return smoothstep(-smoothness, smoothness, diff);
 }

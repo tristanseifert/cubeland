@@ -8,9 +8,15 @@
 #include <glm/vec2.hpp>
 #include <glm/mat4x4.hpp>
 
+#include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <memory>
+#include <thread>
+#include <variant>
 #include <vector>
+
+#include <blockingconcurrentqueue.h>
 
 namespace gui {
 class MainWindow;
@@ -52,11 +58,11 @@ class WorldRenderer: public gui::RunLoopStep {
         virtual ~WorldRenderer();
 
     public:
-        void willBeginFrame();
-        void draw();
+        void willBeginFrame() override;
+        void draw() override;
 
-        void reshape(unsigned int width, unsigned int height);
-        bool handleEvent(const SDL_Event &);
+        void reshape(unsigned int width, unsigned int height) override;
+        bool handleEvent(const SDL_Event &) override;
 
         /// returns a vector of (zNear, zFar) for clipping
         glm::vec2 getZPlane(void) const {
@@ -82,14 +88,6 @@ class WorldRenderer: public gui::RunLoopStep {
         void loadPrefs();
 
     private:
-        void updateView();
-
-        void drawPauseButtons(gui::GameUI *);
-        void animatePauseMenu();
-        void openPauseMenu();
-        void closePauseMenu();
-
-    private:
         /// game window for drawing pause menu
         class PauseWindow: public gui::GameWindow {
             public:
@@ -105,8 +103,37 @@ class WorldRenderer: public gui::RunLoopStep {
                 WorldRenderer *renderer = nullptr;
         };
 
+        /// indicates a screenshot is to be saved
+        struct SaveScreenshot {
+            // take ownership and release this later
+            std::byte *data;
+            // size of screenshot image
+            glm::ivec2 size;
+        };
+
+        using WorkItem = std::variant<std::monostate, SaveScreenshot>;
+
+        /// JPEG quality factor for world preview images
+        constexpr static const int kPreviewQuality = 74;
 
     private:
+        void updateView();
+
+        void drawPauseButtons(gui::GameUI *);
+        void animatePauseMenu();
+        void openPauseMenu();
+        void closePauseMenu();
+        void captureScreenshot();
+        void saveScreenshot();
+
+        void workerMain();
+        void workerSaveScreenshot(const SaveScreenshot &);
+
+    private:
+        std::unique_ptr<std::thread> worker = nullptr;
+        std::atomic_bool workerRun;
+        moodycamel::BlockingConcurrentQueue<WorkItem> work;
+
         // used for keyboard/game controller input
         input::InputManager *input = nullptr;
         input::PlayerPosPersistence *posSaver = nullptr;
@@ -182,6 +209,10 @@ class WorldRenderer: public gui::RunLoopStep {
         size_t exitToTitle = 0;
         // time at which the menu was opened (for animation)
         std::chrono::steady_clock::time_point menuOpenedAt;
+        // when set, we capture a screenshot of the world after rendering it next frame
+        bool needsScreenshot = false;
+        // screenshot buffer
+        std::byte *screenshot = nullptr;
 };
 }
 

@@ -8,6 +8,7 @@ extern "C" {
 // Global version strings
 extern const char *gVERSION;
 extern const char *gVERSION_SHORT;
+extern const char *gVERSION_TAG;
 
 extern const char *gVERSION_HASH;
 extern const char *gVERSION_BRANCH;

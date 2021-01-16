@@ -28,7 +28,7 @@ using namespace world;
  *
  * @note If creation is not requested, and the file doesn't exist, the request will fail.
  */
-FileWorldReader::FileWorldReader(const std::string &path, const bool create) : worldPath(path) {
+FileWorldReader::FileWorldReader(const std::string &path, const bool create, const bool readonly) : worldPath(path) {
     int err;
 
     // get the filename
@@ -36,7 +36,7 @@ FileWorldReader::FileWorldReader(const std::string &path, const bool create) : w
     this->filename = p.filename().string();
 
     // open database connection
-    int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX;
+    int flags = (readonly ? SQLITE_OPEN_READONLY : SQLITE_OPEN_READWRITE) | SQLITE_OPEN_NOMUTEX;
 
     if(create) {
         flags |= SQLITE_OPEN_CREATE;
@@ -98,8 +98,6 @@ void FileWorldReader::initializeSchema() {
 
     // bail if the schema (the v1 info table) exists
     if(this->tableExists("worldinfo_v1")) {
-        Logging::trace("World has v1 schema");
-
         std::string creator = "?", version = "?", timestamp = "?";
         this->readWorldInfo("creator.name", creator);
         this->readWorldInfo("creator.version", version);
@@ -172,7 +170,6 @@ void FileWorldReader::workerMain() {
             Logging::error("Failed to close world file: {} ({})", sqlite3_errstr(err), err);
         }
     }
-    Logging::trace("File world reader worker exiting");
 
     this->acceptRequests = false;
     MUtils::Profiler::FinishThread();

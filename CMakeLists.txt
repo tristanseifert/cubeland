@@ -23,6 +23,8 @@ string(REGEX REPLACE "^v[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" VERSION_PATCH "${VER
 string(REGEX REPLACE "^v[0-9]+\\.[0-9]+\\.[0-9]+(.*)" "\\1" VERSION_SHA1 "${VERSION}")
 set(VERSION_SHORT "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 
+execute_process(COMMAND git describe --tags --dirty=d OUTPUT_VARIABLE VERSION_TAG OUTPUT_STRIP_TRAILING_WHITESPACE)
+
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/version.cpp.in
     ${CMAKE_CURRENT_BINARY_DIR}/version.cpp)
 set(version_file "${CMAKE_CURRENT_BINARY_DIR}/version.cpp")
@@ -379,6 +381,16 @@ target_link_directories(cubeland PRIVATE libs/libressl/tls/.libs)
 
 target_include_directories(cubeland PRIVATE libs/libressl/include)
 target_link_libraries(cubeland PRIVATE crypto ssl tls)
+
+# LibJPEG Turbo
+target_link_directories(cubeland PRIVATE libs/libjpeg-turbo/build_x86)
+target_link_libraries(cubeland PRIVATE turbojpeg)
+
+target_include_directories(cubeland PRIVATE libs/libjpeg-turbo)
+target_include_directories(cubeland PRIVATE libs/libjpeg-turbo/build_x86)
+
+# Avir (image scaling)
+target_include_directories(cubeland PRIVATE libs/avir)
 
 ###################################################################################################
 #### platform-specific libraries

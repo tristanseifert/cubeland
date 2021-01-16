@@ -64,3 +64,9 @@
 [submodule "libs/imgui_markdown"]
 	path = libs/imgui_markdown
 	url = git@github.com:juliettef/imgui_markdown.git
+[submodule "libs/libjpeg-turbo"]
+	path = libs/libjpeg-turbo
+	url = git@github.com:libjpeg-turbo/libjpeg-turbo.git
+[submodule "libs/avir"]
+	path = libs/avir
+	url = git@github.com:avaneev/avir.git

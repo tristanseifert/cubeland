@@ -16,6 +16,8 @@
 #include <glbinding/glbinding.h>
 #include <SDL.h>
 
+#include <jpeglib.h>
+
 #include <iterator>
 #include <chrono>
 #include <string>
@@ -188,6 +190,7 @@ void MainWindow::makeWindow() {
 
     // set some context defaults
     glClearColor(0, 0, 0, 1);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
     // log info on the GL version
     Logging::info("GL version {}; vendor {}, renderer {}", glGetString(GL_VERSION),

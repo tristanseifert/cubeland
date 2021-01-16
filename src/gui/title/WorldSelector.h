@@ -3,11 +3,22 @@
 
 #include "gui/GameWindow.h"
 
-#include <chrono>
-#include <string>
-#include <optional>
 #include <array>
+#include <atomic>
 #include <cstddef>
+#include <chrono>
+#include <filesystem>
+#include <memory>
+#include <optional>
+#include <thread>
+#include <string>
+#include <variant>
+#include <vector>
+
+#include <avir.h>
+#include <blockingconcurrentqueue.h>
+
+#include <glm/vec2.hpp>
 
 namespace gui {
 class GameUI;
@@ -18,10 +29,11 @@ namespace gui::title {
 class WorldSelector: public gui::GameWindow {
     public:
         WorldSelector(TitleScreen *title);
-        virtual ~WorldSelector() = default;
+        virtual ~WorldSelector();
 
         void loadRecents();
 
+        void startOfFrame();
         void draw(gui::GameUI *) override;
 
     private:
@@ -111,6 +123,21 @@ class WorldSelector: public gui::GameWindow {
             }
         };
 
+        // indicates a new world has been selected
+        struct WorldSelection {
+            /// path to world file
+            std::string path;
+        };
+
+        // info on a background image to update
+        struct BgImageInfo {
+            bool valid = false;
+            std::vector<std::byte> data;
+            glm::ivec2 size;
+        };
+
+        using WorkItem = std::variant<std::monostate, WorldSelection>;
+
     private:
         void saveRecents();
 
@@ -123,12 +150,34 @@ class WorldSelector: public gui::GameWindow {
 
         void setError(const std::string &path, const std::string &detail);
 
+        void updateSelectionThumb();
+
+        void workerMain();
+        void workerSelectionChanged(const WorldSelection &);
+        bool decodeImage(const std::filesystem::path &, std::vector<std::byte> &, glm::ivec2 &);
+
         /// file dialog filter string for world files
         constexpr static const char *kWorldFilters = "v1 World (.world){.world}";
         /// maximum characters for world names
         constexpr static const size_t kNameMaxLen = 128;
 
+        /// blur radius for level backgrounds
+        constexpr static const size_t kBgBlurRadius = 15.;
+
     private:
+        std::unique_ptr<std::thread> worker = nullptr;
+        std::atomic_bool workerRun;
+        moodycamel::BlockingConcurrentQueue<WorkItem> work;
+
+        /// shared image resizer
+        avir::CImageResizer<> imgResizer = avir::CImageResizer<>(8);
+        /// downscaling factor for preview images
+        // TODO: set automatically based on HiDPI setting
+        float previewScaleFactor = 4.;
+
+        /// info of a background image to upload
+        std::optional<BgImageInfo> backgroundInfo = std::nullopt;
+
         // title screen instance holds the fun methods for actually changing game modes
         TitleScreen *title = nullptr;
 
