@@ -71,7 +71,8 @@ class SQLite {
         /**
          * Binds a BLOB value to the statement,
          */
-        static void bindColumn(sqlite3_stmt *stmt, const size_t index, const std::vector<char> &value) {
+        template<class T>
+        static void bindColumn(sqlite3_stmt *stmt, const size_t index, const std::vector<T> &value) {
             int err = sqlite3_bind_blob64(stmt, index, value.data(), value.size(), nullptr);
             if(err != SQLITE_OK) {
                 sqlite3_finalize(stmt);
@@ -158,7 +159,8 @@ class SQLite {
          * @return Whether the column was non-NULL. A zero-length BLOB will return true, but the
          * output vector is trimmed to be zero bytes.
          */
-        static bool getColumn(sqlite3_stmt *stmt, const size_t col, std::vector<char> &out) {
+        template<class T>
+        static bool getColumn(sqlite3_stmt *stmt, const size_t col, std::vector<T> &out) {
             int err;
 
             // is the column NULL?
@@ -169,7 +171,7 @@ class SQLite {
             }
 
             // no, get the blob value
-            auto valuePtr = reinterpret_cast<const char *>(sqlite3_column_blob(stmt, col));
+            auto valuePtr = reinterpret_cast<const T *>(sqlite3_column_blob(stmt, col));
             if(valuePtr == nullptr) {
                 // zero length blob
                 out.clear();
@@ -256,7 +258,7 @@ class SQLite {
          * Checks whether the given table exists.
          */
         static bool tableExists(sqlite3 *db, const std::string &name) {
-               int err;
+           int err;
             bool found = false;
             sqlite3_stmt *stmt = nullptr;
 

@@ -1,1 +1,1 @@
-../logging/LoggingAssert.h
+../../shared/logging/LoggingAssert.h

@@ -28,6 +28,7 @@ class InGamePrefsWindow: public GameWindow {
 
         float fov;
         int renderDist;
+        bool inventoryHoriz;
 };
 }
 

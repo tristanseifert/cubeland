@@ -24,6 +24,9 @@ class UIDetail {
 
         void draw(gui::GameUI *gui);
 
+        /// Load user preferences; current no-op
+        void loadPrefs() {}
+
     private:
         /// drag payload type for slots in inventory
         constexpr static const char *kInventorySlotDragType = "InventoryCell";

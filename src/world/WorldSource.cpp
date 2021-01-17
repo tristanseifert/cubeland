@@ -7,6 +7,7 @@
 #include "io/Format.h"
 #include "io/PrefsManager.h"
 #include "util/Thread.h"
+#include "web/AuthManager.h"
 
 #include <Logging.h>
 #include <mutils/time/profiler.h>
@@ -30,32 +31,6 @@ using namespace world;
  */
 WorldSource::WorldSource(std::shared_ptr<WorldReader> _r, std::shared_ptr<WorldGenerator> _g,
         const size_t _numThreads) : generator(_g), reader(_r) {
-    // load player id from preferences, or generate one
-    auto id = io::PrefsManager::getUuid("player.id");
-    if(!id) {
-        // generate seeds for a UUID random generator
-        std::random_device rand;
-        auto seedData = std::array<int, std::mt19937::state_size> {};
-        std::generate(std::begin(seedData), std::end(seedData), std::ref(rand));
-
-        std::seed_seq seq(std::begin(seedData), std::end(seedData));
-
-        // create a random player id
-        std::mt19937 generator(seq);
-        uuids::uuid_random_generator gen{generator};
-        const uuids::uuid newId = gen();
-
-        // save it to prefs and set our value
-        io::PrefsManager::setUuid("player.id", newId);
-        this->playerId = newId;
-
-        Logging::info("Generated new player id: {}", newId);
-    } else {
-        this->playerId = *id;
-    }
-
-    Logging::trace("World source using player id: {}", this->playerId);
-
     // set up some additional initial state
     this->generateOnly = false;
     this->acceptRequests = true;
@@ -169,7 +144,8 @@ void WorldSource::workerMain(size_t i) {
  */
 std::future<void> WorldSource::setPlayerInfo(const std::string &key, const std::vector<char> &value) {
     return this->work([&, key, value] {
-        auto promise = this->reader->setPlayerInfo(this->playerId, key, value);
+        const auto playerId = web::AuthManager::getPlayerId();
+        auto promise = this->reader->setPlayerInfo(playerId, key, value);
         auto future = promise.get_future();
         future.get();
     });
@@ -179,7 +155,8 @@ std::future<void> WorldSource::setPlayerInfo(const std::string &key, const std::
  * Returns the player info value for the given key.
  */
 std::promise<std::vector<char>> WorldSource::getPlayerInfo(const std::string &key) {
-    return this->reader->getPlayerInfo(this->playerId, key);
+    const auto playerId = web::AuthManager::getPlayerId();
+    return this->reader->getPlayerInfo(playerId, key);
 }
 
 

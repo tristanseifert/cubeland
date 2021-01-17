@@ -33,6 +33,7 @@ class PreferencesWindow;
 namespace title {
 class AboutWindow;
 class WorldSelector;
+class ServerSelector;
 class PlasmaRenderer;
 }
 
@@ -129,6 +130,7 @@ class TitleScreen: public RunLoopStep {
         std::shared_ptr<PreferencesWindow> prefs = nullptr;
         std::shared_ptr<title::AboutWindow> about = nullptr;
         std::shared_ptr<title::WorldSelector> worldSel = nullptr;
+        std::shared_ptr<title::ServerSelector> serverSel = nullptr;
 
         title::PlasmaRenderer *plasma = nullptr;
 

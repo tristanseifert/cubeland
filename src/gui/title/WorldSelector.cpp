@@ -136,7 +136,7 @@ void WorldSelector::saveRecents() {
 
     const auto str = stream.str();
 
-    std::vector<char> blobData(str.begin(), str.end());
+    std::vector<unsigned char> blobData(str.begin(), str.end());
     io::PrefsManager::setBlob(kPrefsKey, blobData);
 }
 

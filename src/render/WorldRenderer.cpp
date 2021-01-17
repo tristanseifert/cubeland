@@ -218,6 +218,8 @@ void WorldRenderer::loadPrefs() {
     if(gSceneRenderer) {
         gSceneRenderer->loadPrefs();
     }
+
+    this->inventoryUi->loadPrefs();
 }
 
 /**
@@ -340,6 +342,16 @@ void WorldRenderer::draw() {
 void WorldRenderer::willQuit() {
     this->needsScreenshot = true;
     this->isQuitting = true;
+}
+
+/**
+ * Reload prefs if needed. We defer this until now to prevent some graphical artifacts.
+ */
+void WorldRenderer::willEndFrame() {
+    if(this->needsPrefsLoad) {
+        this->loadPrefs();
+        this->needsPrefsLoad = false;
+    }
 }
 
 /**
@@ -636,6 +648,9 @@ void WorldRenderer::closePauseMenu() {
 void WorldRenderer::captureScreenshot() {
     using namespace gl;
     PROFILE_SCOPE(CaptureScreenshot);
+
+    // bail if we've already one (if we're in menu already and we try to quit, for example)
+    if(this->screenshot) return;
 
     // allocate the buffer
     const size_t w = this->viewportWidth, h = this->viewportHeight;

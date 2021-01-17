@@ -173,9 +173,6 @@ class WorldSource {
 
         /// when set, we don't mess with the dirty chunks list
         std::atomic_bool inhibitDirtyChunkHandling = false;
-
-        /// UUID of the current player
-        uuids::uuid playerId;
 };
 }
 

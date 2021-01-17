@@ -30,22 +30,71 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/version.cpp.in
 set(version_file "${CMAKE_CURRENT_BINARY_DIR}/version.cpp")
 
 ###################################################################################################
+### code shared between the app and server
+add_library(shared STATIC
+    shared/logging/Logging.cpp
+    shared/io/ConfigManager.cpp
+    shared/io/PathHelper.cpp
+    shared/util/LZ4.cpp
+    shared/util/CPUID.cpp
+    shared/util/Thread.cpp
+)
+
+# platform-specific stuff
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    add_library(shared_platform OBJECT
+        shared/io/PathHelper+Mac.mm
+    )
+endif()
+
+include_directories(shared)
+
+# libfmt (modern C++ string formatting)
+add_subdirectory(libs/fmt ${CMAKE_CURRENT_BINARY_DIR}/libs/fmt)
+target_link_libraries(shared PRIVATE fmt::fmt)
+
+# spdlog (logging to console/file)
+find_package(spdlog REQUIRED)
+target_link_libraries(shared PRIVATE spdlog::spdlog)
+
+# libconfig (reading configuration files)
+set(BUILD_EXAMPLES OFF CACHE BOOL "Enable examples" FORCE)
+set(BUILD_TESTS OFF CACHE BOOL "Enable tests" FORCE)
+add_subdirectory(libs/libconfig ${CMAKE_CURRENT_BINARY_DIR}/libs/libconfig)
+
+target_include_directories(shared PRIVATE libs/libconfig/lib)
+target_link_libraries(shared PRIVATE config++)
+
+# lz4 (compression; used primarily for block data)
+add_library(lz4 OBJECT
+    libs/lz4/lib/lz4.c
+    libs/lz4/lib/lz4hc.c
+    libs/lz4/lib/lz4frame.c
+    libs/lz4/lib/xxhash.c
+)
+target_include_directories(lz4 PRIVATE libs/lz4/lib)
+
+target_link_libraries(shared PRIVATE lz4)
+target_include_directories(shared PRIVATE libs/lz4/lib)
+
+find_package(SQLite3 REQUIRED)
+target_link_libraries(shared PRIVATE SQLite::SQLite3)
+
+# various header-only libraries
+target_include_directories(shared PRIVATE libs/glm)
+
+target_include_directories(shared SYSTEM BEFORE PRIVATE libs/stduuid/include)
+target_include_directories(shared PRIVATE libs/stduuid/gsl)
+
+###################################################################################################
 #### sources
 # build main executable and all modules
 add_executable(cubeland
     src/main.cpp
-# logging
-    src/logging/Logging.cpp
 # io
-    src/io/ConfigManager.cpp
     src/io/PrefsManager.cpp
-    src/io/PathHelper.cpp
     src/io/ResourceManager.cpp
     src/io/MetricsManager.cpp
-# utilities
-    src/util/LZ4.cpp
-    src/util/CPUID.cpp
-    src/util/Thread.cpp
 # UI
     src/gui/MainWindow.cpp
     src/gui/GameUI.cpp
@@ -58,6 +107,7 @@ add_executable(cubeland
     src/gui/title/PlasmaRenderer.cpp
     src/gui/title/AboutWindow.cpp
     src/gui/title/WorldSelector.cpp
+    src/gui/title/ServerSelector.cpp
 # input
     src/input/InputManager.cpp
     src/input/BlockInteractions.cpp
@@ -136,6 +186,8 @@ add_executable(cubeland
 # particle systems
     src/particles/Renderer.cpp
     src/particles/System.cpp
+# client authentication and web service integration
+    src/web/AuthManager.cpp
 # resources and other misc stuff
     ${version_file}
 )
@@ -147,13 +199,8 @@ SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -mavx")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wpedantic")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-anon-enum-enum-conversion -Wno-defaulted-function-deleted -Wno-gnu-zero-variadic-macro-arguments -Wno-reorder-ctor")
 
-# platform-specific stuff
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    add_library(macos_support OBJECT
-        src/io/PathHelper+Mac.mm
-    )
-    target_link_libraries(cubeland PRIVATE macos_support)
-endif()
+# shared code
+target_link_libraries(cubeland PRIVATE shared shared_platform)
 
 ###################################################################################################
 #### resources
@@ -213,28 +260,17 @@ add_subdirectory(libs/sdl2)
 include_directories(libs/sdl2/include)
 
 # SQLite 3 (data file format)
-find_package(SQLite3 REQUIRED)
 target_link_libraries(cubeland PRIVATE SQLite::SQLite3)
 
 # Lyra (command line parsing)
 add_subdirectory(libs/Lyra)
 target_link_libraries(cubeland PUBLIC bfg::Lyra)
 
-# libfmt (modern C++ string formatting)
-add_subdirectory(libs/fmt ${CMAKE_CURRENT_BINARY_DIR}/libs/fmt)
+# config loading and string IO
 target_link_libraries(cubeland PRIVATE fmt::fmt)
-
-# libconfig (reading configuration files)
-set(BUILD_EXAMPLES OFF CACHE BOOL "Enable examples" FORCE)
-set(BUILD_TESTS OFF CACHE BOOL "Enable tests" FORCE)
-add_subdirectory(libs/libconfig ${CMAKE_CURRENT_BINARY_DIR}/libs/libconfig)
+target_link_libraries(cubeland PRIVATE spdlog::spdlog)
 
 target_include_directories(cubeland PRIVATE libs/libconfig/lib)
-target_link_libraries(cubeland PRIVATE config++)
-
-# spdlog (logging to console/file)
-find_package(spdlog REQUIRED)
-target_link_libraries(cubeland PRIVATE spdlog::spdlog)
 
 # Dear IMGui (graphics library for in-game UI)
 add_library(dearimgui OBJECT
@@ -334,18 +370,6 @@ target_link_libraries(mutils PRIVATE spdlog::spdlog)
 target_link_libraries(cubeland PRIVATE mutils)
 target_include_directories(cubeland PRIVATE src/3rdparty)
 
-# lz4 (compression; used primarily for block data)
-add_library(lz4 OBJECT
-    libs/lz4/lib/lz4.c
-    libs/lz4/lib/lz4hc.c
-    libs/lz4/lib/lz4frame.c
-    libs/lz4/lib/xxhash.c
-)
-target_include_directories(lz4 PRIVATE libs/lz4/lib)
-
-target_link_libraries(cubeland PRIVATE lz4)
-target_include_directories(cubeland PRIVATE libs/lz4/lib)
-
 # stduuid (uuid support library)
 # this has to be treated as a system library to prevent conflicts against system uuid libs
 target_include_directories(cubeland SYSTEM BEFORE PRIVATE libs/stduuid/include)
@@ -373,6 +397,7 @@ find_package(CURL COMPONENTS HTTPS SSL IPv6)
 target_link_libraries(cubeland PRIVATE CURL::libcurl)
 
 target_include_directories(cubeland PRIVATE libs/rapidjson/include)
+target_include_directories(cubeland PRIVATE libs/jwt-cpp/include)
 
 # LibreSSL
 target_link_directories(cubeland PRIVATE libs/libressl/crypto/.libs)

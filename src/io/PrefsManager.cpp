@@ -1,9 +1,9 @@
 #include "PrefsManager.h"
-#include "PathHelper.h"
+#include "io/PathHelper.h"
+#include "io/Format.h"
 
 #include "util/SQLite.h"
 
-#include "Format.h"
 #include <Logging.h>
 
 #include <sqlite3.h>
@@ -197,7 +197,7 @@ void PrefsManager::setUuid(const std::string &key, const uuids::uuid &value) {
 /**
  * Gets a blob value.
  */
-const std::optional<std::vector<char>> PrefsManager::getBlob(const std::string &key) {
+const std::optional<std::vector<unsigned char>> PrefsManager::getBlob(const std::string &key) {
     sqlite3_stmt *stmt = nullptr;
 
     // prepare the query
@@ -215,7 +215,7 @@ const std::optional<std::vector<char>> PrefsManager::getBlob(const std::string &
     } 
     // got a row with this key, get its value
     else if(err == SQLITE_ROW) {
-        std::vector<char> temp;
+        std::vector<unsigned char> temp;
         SQLite::getColumn(stmt, 0, temp);
         sqlite3_finalize(stmt);
         return temp;
@@ -228,9 +228,8 @@ const std::optional<std::vector<char>> PrefsManager::getBlob(const std::string &
 /**
  * Sets the given blob value.
  */
-void PrefsManager::setBlob(const std::string &key, const std::vector<char> &value) {
+void PrefsManager::setBlob(const std::string &key, const std::vector<unsigned char> &value) {
     sqlite3_stmt *stmt = nullptr;
-
     std::lock_guard<std::mutex> lg(shared->lock);
 
     SQLite::prepare(shared->db, "INSERT INTO prefs_blob_v1 (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, modified=CURRENT_TIMESTAMP;", &stmt);
@@ -246,6 +245,25 @@ void PrefsManager::setBlob(const std::string &key, const std::vector<char> &valu
     sqlite3_finalize(stmt);
 }
 
+/**
+ * Deletes the given blob key.
+ */
+void PrefsManager::deleteBlob(const std::string &key) {
+    sqlite3_stmt *stmt = nullptr;
+    std::lock_guard<std::mutex> lg(shared->lock);
+
+    SQLite::prepare(shared->db, "DELETE prefs_blob_v1 WHERE key = ?", &stmt);
+    SQLite::bindColumn(stmt, 1, key);
+ 
+    int err = sqlite3_step(stmt);
+    if(err != SQLITE_ROW && err != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        throw std::runtime_error(f("Failed to remove preferences key ({}): {}", err, sqlite3_errmsg(shared->db)));
+    }
+
+    sqlite3_finalize(stmt);
+
+} 
 
 
 /**

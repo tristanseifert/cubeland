@@ -1,7 +1,7 @@
 #include "ResourceManager.h"
-#include "PathHelper.h"
-
+#include "io/PathHelper.h"
 #include "io/Format.h"
+
 #include <Logging.h>
 #include <mutils/time/profiler.h>
 

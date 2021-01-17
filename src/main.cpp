@@ -5,6 +5,7 @@
 #include "io/Format.h"
 #include "logging/Logging.h"
 #include "gui/MainWindow.h"
+#include "web/AuthManager.h"
 
 #include <version.h>
 
@@ -118,6 +119,7 @@ int main(int argc, const char **argv) {
     Logging::info("Cubeland {} (commit {}) starting", gVERSION, gVERSION_HASH);
 
     io::ResourceManager::init();
+    web::AuthManager::init();
 
     // initialize SDL
     err = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
@@ -137,6 +139,7 @@ int main(int argc, const char **argv) {
     // tear down UI and other systems
     window = nullptr;
 
+    web::AuthManager::shutdown();
     io::ResourceManager::shutdown();
     io::PrefsManager::synchronize();
 

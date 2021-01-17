@@ -84,6 +84,8 @@ class PreferencesWindow: public GameWindow {
 
             // field of view (degrees)
             float fov;
+            // horizontal inventory-ness
+            bool horizontalInventory;
         } gfx;
 
         // state for the performance pane

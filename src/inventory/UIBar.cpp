@@ -3,6 +3,7 @@
 #include "ItemDrawing.h"
 #include "Manager.h"
 
+#include "io/PrefsManager.h"
 #include "world/block/BlockRegistry.h"
 #include "world/block/Block.h"
 #include "gui/GameUI.h"
@@ -22,6 +23,13 @@ using namespace inventory;
  */
 UIBar::UIBar(UI *_owner) : owner(_owner) {
 
+}
+
+/**
+ * Load the UI bar prefs, aka whether it's horizontal or vertical.
+ */
+void UIBar::loadPrefs() {
+    this->isHorizontal = io::PrefsManager::getBool("ui.inventory.isHorizontal", true);
 }
 
 /**

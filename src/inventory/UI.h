@@ -46,6 +46,8 @@ class UI: public gui::GameWindow {
             }
         }
 
+        void loadPrefs();
+
     private:
         void uploadAtlasTexture();
 

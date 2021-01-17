@@ -116,6 +116,7 @@ void PreferencesWindow::loadGfxPaneState() {
     this->gfx.dirShadows = io::PrefsManager::getBool("gfx.sunShadow");
     this->gfx.ssao = io::PrefsManager::getBool("gfx.ssao", true);
     this->gfx.fov = io::PrefsManager::getFloat("gfx.fov", 74.);
+    this->gfx.horizontalInventory = io::PrefsManager::getBool("ui.inventory.isHorizontal", true);
 }
 /**
  * Saves the graphics preferences.
@@ -125,6 +126,7 @@ void PreferencesWindow::saveGfxPaneState() {
     io::PrefsManager::setBool("gfx.sunShadow", this->gfx.dirShadows);
     io::PrefsManager::setBool("gfx.ssao", this->gfx.ssao);
     io::PrefsManager::setFloat("gfx.fov", this->gfx.fov);
+    io::PrefsManager::setBool("ui.inventory.isHorizontal", this->gfx.horizontalInventory);
 }
 /**
  * Draws the "graphics" preferences pane.
@@ -164,29 +166,46 @@ void PreferencesWindow::drawGfxPane(GameUI *ui) {
 
     ImGui::Separator();
 
-    // field of view
-    if(ImGui::SliderFloat("Field of View", &this->gfx.fov, 25, 125, "%.1f", ImGuiSliderFlags_AlwaysClamp)) dirty = true;
-    if(ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Adjusts how much of the environment is visible.");
-    }
+    // left column: graphics steps / rendering
+    const float w = (ImGui::GetContentRegionAvail().x / 2.) - 4;
+    if(ImGui::BeginChild("##gfx", ImVec2(w, 0), false, ImGuiWindowFlags_NoBackground)) {
+        // whether fancy sky is used
+        if(ImGui::Checkbox("Fancy Sky", &this->gfx.fancySky)) dirty = true;
+        if(ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Draws physically accurate clouds and sun using shaders.");
+        }
 
-    // whether fancy sky is used
-    if(ImGui::Checkbox("Fancy Sky", &this->gfx.fancySky)) dirty = true;
-    if(ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Draws physically accurate clouds and sun using shaders.");
-    }
+        // shadows
+        if(ImGui::Checkbox("Directional Light Shadows", &this->gfx.dirShadows)) dirty = true;
+        if(ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Global light sources (e.g. sun and moon) will cast shadows when enabled.");
+        }
 
-    // shadows
-    if(ImGui::Checkbox("Directional Light Shadows", &this->gfx.dirShadows)) dirty = true;
-    if(ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Global light sources (e.g. sun and moon) will cast shadows when enabled.");
+        // ambient occlusion
+        if(ImGui::Checkbox("Ambient Occlusion", &this->gfx.ssao)) dirty = true;
+        if(ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Selectively darkens areas of intersecting planes, such as corners of rooms.");
+        }
     }
+    ImGui::EndChild();
 
-    // ambient occlusion
-    if(ImGui::Checkbox("Ambient Occlusion", &this->gfx.ssao)) dirty = true;
-    if(ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Selectively darkens areas of intersecting planes, such as corners of rooms.");
+    // right column: cosmetic
+    ImGui::SameLine();
+    if(ImGui::BeginChild("##cosmetic", ImVec2(w, 0), false, ImGuiWindowFlags_NoBackground)) {
+        // field of view
+        if(ImGui::SliderFloat("Field of View", &this->gfx.fov, 25, 125, "%.1f", ImGuiSliderFlags_AlwaysClamp)) dirty = true;
+        if(ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Adjusts how much of the environment is visible.");
+        }
+
+        // inventory orientation
+        if(ImGui::Checkbox("Horizontal Inventory Bar", &this->gfx.horizontalInventory)) dirty = true;
+        if(ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("The inventory bar displays the ten items in your hot bar. It can be laid out vertically or horizontally.");
+        }
     }
+    ImGui::EndChild();
+
 
     // save if needed
     if(dirty) {

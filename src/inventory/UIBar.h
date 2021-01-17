@@ -24,6 +24,8 @@ class UIBar {
 
         bool draw(gui::GameUI *gui, bool end = true);
 
+        void loadPrefs();
+
     private:
         /// Padding between display edge and inventory window
         constexpr static const float kEdgePadding = 5.;

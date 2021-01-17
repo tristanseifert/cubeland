@@ -15,6 +15,7 @@ using namespace io;
 void InGamePrefsWindow::load() {
     this->fov = PrefsManager::getFloat("gfx.fov", 74.);
     this->renderDist = PrefsManager::getUnsigned("world.render.distance", 2);
+    this->inventoryHoriz = PrefsManager::getBool("ui.inventory.isHorizontal", true);
 }
 
 /**
@@ -23,9 +24,10 @@ void InGamePrefsWindow::load() {
 void InGamePrefsWindow::save() {
     PrefsManager::setFloat("gfx.fov", this->fov);
     PrefsManager::setUnsigned("world.render.distance", std::max(1, this->renderDist));
+    PrefsManager::setBool("ui.inventory.isHorizontal", this->inventoryHoriz);
 
     // update world renderer
-    this->renderer->loadPrefs();
+    this->renderer->requestPrefsLoad();
 }
 
 /**
@@ -53,8 +55,10 @@ void InGamePrefsWindow::draw(GameUI *gui) {
 
     // chunk drawing related stuff
     if(ImGui::SliderFloat("Field of View", &this->fov, 25, 125, "%.1f", ImGuiSliderFlags_AlwaysClamp)) dirty = true;
-
     if(ImGui::SliderInt("Render Distance", &this->renderDist, 1, 8, "%d", ImGuiSliderFlags_AlwaysClamp)) dirty = true;
+
+    // inventory
+    if(ImGui::Checkbox("Horizontal Inventory Bar", &this->inventoryHoriz)) dirty = true;
 
     // finish drawing
     ImGui::PopItemWidth();

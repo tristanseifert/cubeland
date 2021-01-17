@@ -65,6 +65,14 @@ void UI::uploadAtlasTexture() {
     ItemDrawing::setAtlasTexture(this->atlas);
 }
 
+/**
+ * Loads the inventory UI preferences.
+ */
+void UI::loadPrefs() {
+    this->bar->loadPrefs();
+    this->detail->loadPrefs();
+}
+
 
 
 /**

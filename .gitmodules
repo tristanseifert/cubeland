@@ -70,3 +70,6 @@
 [submodule "libs/avir"]
 	path = libs/avir
 	url = git@github.com:avaneev/avir.git
+[submodule "libs/jwt-cpp"]
+	path = libs/jwt-cpp
+	url = git@github.com:Thalhammer/jwt-cpp.git

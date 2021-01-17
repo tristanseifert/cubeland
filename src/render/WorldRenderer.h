@@ -61,9 +61,14 @@ class WorldRenderer: public gui::RunLoopStep {
         void willBeginFrame() override;
         void draw() override;
         void willQuit() override;
+        void willEndFrame() override;
 
         void reshape(unsigned int width, unsigned int height) override;
         bool handleEvent(const SDL_Event &) override;
+
+        void requestPrefsLoad() {
+            this->needsPrefsLoad = true;
+        }
 
         /// returns a vector of (zNear, zFar) for clipping
         glm::vec2 getZPlane(void) const {
@@ -219,6 +224,8 @@ class WorldRenderer: public gui::RunLoopStep {
         bool needsScreenshot = false;
         // screenshot buffer
         std::byte *screenshot = nullptr;
+        // force prefs to load at the end of next frame
+        bool needsPrefsLoad = false;
 };
 }
 

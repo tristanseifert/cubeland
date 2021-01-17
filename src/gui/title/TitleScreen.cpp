@@ -1,6 +1,7 @@
 #include "TitleScreen.h"
 #include "AboutWindow.h"
 #include "WorldSelector.h"
+#include "ServerSelector.h"
 #include "PlasmaRenderer.h"
 #include "gui/GameUI.h"
 #include "gui/MainWindow.h"
@@ -148,9 +149,10 @@ void TitleScreen::drawButtons(GameUI *gui) {
     }
 
     // set big ass button font
-    ImGui::PushFont(gui->getFont(GameUI::kGameFontHeading));
+    const auto bigFont = gui->getFont(GameUI::kGameFontHeading);
 
     // draw buttons
+    ImGui::PushFont(bigFont);
     if(ImGui::Button("Single Player", ImVec2(400, 0))) {
         if(!this->worldSel) {
             this->worldSel = std::make_shared<title::WorldSelector>(this);
@@ -160,7 +162,30 @@ void TitleScreen::drawButtons(GameUI *gui) {
         this->worldSel->loadRecents();
         this->worldSel->setVisible(true);
     }
+    ImGui::PopFont();
+    if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Load or create a new local world");
+    }
     ImGui::Dummy(ImVec2(0,20));
+
+    ImGui::PushFont(bigFont);
+    if(ImGui::Button("Multi Player", ImVec2(400, 0))) {
+        if(!this->serverSel) {
+            this->serverSel = std::make_shared<title::ServerSelector>(this);
+            gui->addWindow(this->serverSel);
+        }
+
+        this->serverSel->clear();
+        this->serverSel->loadRecents();
+        this->serverSel->setVisible(true);
+    }
+    ImGui::PopFont();
+    if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Connect to a remote server to play the same world with others");
+    }
+    ImGui::Dummy(ImVec2(0,20));
+
+    ImGui::PushFont(bigFont);
     if(ImGui::Button("Preferences", ImVec2(400, 0))) {
         if(!this->prefs) {
             this->prefs = std::make_shared<PreferencesWindow>();
