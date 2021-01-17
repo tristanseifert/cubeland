@@ -4,6 +4,7 @@
 #include "gui/Loaders.h"
 
 #include "web/AuthManager.h"
+#include "util/Thread.h"
 
 #include "io/PrefsManager.h"
 #include "io/Format.h"
@@ -11,7 +12,7 @@
 #include <Logging.h>
 
 #include <imgui.h>
-
+#include <mutils/time/profiler.h>
 #include <cereal/types/string.hpp>
 #include <cereal/types/vector.hpp>
 #include <cereal/types/chrono.hpp>
@@ -27,12 +28,17 @@ const std::string ServerSelector::kPrefsKey = "ui.serverSelector.recents";
  */
 ServerSelector::ServerSelector(TitleScreen *_title) : title(_title) {
     // set up worker thread
+    this->workerRun = true;
+    this->worker = std::make_unique<std::thread>(std::bind(&ServerSelector::workerMain, this));
 }
 
 /**
  * Tears down the server selector resources, like our worker thread.
  */
 ServerSelector::~ServerSelector() {
+    this->workerRun = false;
+    this->work.enqueue(WorkItem());
+    this->worker->join();
 
 }
 
@@ -42,6 +48,7 @@ ServerSelector::~ServerSelector() {
  */
 void ServerSelector::clear() {
     this->focusLayers = 0;
+    this->closeRegisterModal = 0;
 
     // check if keypair must be generated
     if(!AuthManager::areKeysAvailable()) {
@@ -288,25 +295,151 @@ void ServerSelector::drawKeypairGenaratorModal(GameUI *gui) {
 
     ImGui::Separator();
 
-    if(ImGui::Button("Cancel")) {
-        ImGui::CloseCurrentPopup();
-        this->visible = false;
-    } if(ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Abort the keypair generation process; you will not be able to connect to servers until this is completed.");
+    if(this->showLoader) {
+        ImGui::TextUnformatted("Registering key...");
+
+        ImGui::SameLine();
+        const float w = ImGui::GetContentRegionAvail().x;
+        ImGui::Dummy(ImVec2(w - 24 - 8, 0));
+
+        ImGui::SameLine();
+        ImGui::Spinner("##spin", 11, 3, ImGui::GetColorU32(ImGuiCol_Button));
+    } else {
+        if(ImGui::Button("Cancel")) {
+            ImGui::CloseCurrentPopup();
+            this->closeRegisterModal = 0;
+            this->visible = false;
+        } if(ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Abort the keypair generation process; you will not be able to connect to servers until this is completed.");
+        }
     }
 
     ImGui::SameLine();
     if(ImGui::Button("Generate Keys")) {
-        // generate keys and save
-        AuthManager::generateAuthKeys();
+        // generate the keys, then enqueue submission to web service
+        AuthManager::generateAuthKeys(false);
+        this->work.enqueue(PlainRequest::RegisterKey);
 
-        // enqueue to web service
+        // show the network progress UI
+        this->showLoader = true;
+    }
 
-        // TODO: do stuff
+    // success dialog
+   ImGui::SetNextWindowSizeConstraints(ImVec2(400, 0), ImVec2(400, 300));
+    if(this->closeRegisterModal == 1) {
+        ImGui::OpenPopup("Success");
+        this->showLoader = false;
         this->needsKeypairGen = false;
+        this->closeRegisterModal = 0;
+    }
+    if(ImGui::BeginPopupModal("Success", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+        ImGui::PushFont(gui->getFont(GameUI::kGameFontBold));
+        ImGui::TextWrapped("%s", "Keypair registered");
+        ImGui::PopFont();
+
+        ImGui::TextWrapped("%s", "The keypair was successfully registered. You may now connect to multi player servers.");
+
+        ImGui::Separator();
+        if(ImGui::Button("Dismiss")) {
+            ImGui::CloseCurrentPopup();
+            this->closeRegisterModal = 3;
+        }
+
+        ImGui::EndPopup();
+    }
+
+    // error dialog
+   ImGui::SetNextWindowSizeConstraints(ImVec2(400, 0), ImVec2(400, 300));
+    if(this->closeRegisterModal == 2) {
+        ImGui::OpenPopup("Registration Error");
+        this->showLoader = false;
+        this->closeRegisterModal = 0;
+        AuthManager::clearAuthKeys(false);
+    }
+    if(ImGui::BeginPopupModal("Registration Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+        ImGui::PushFont(gui->getFont(GameUI::kGameFontBold));
+        ImGui::TextWrapped("%s", "Failed to register keypair");
+        ImGui::PopFont();
+
+        ImGui::TextWrapped("%s", "Something went wrong while registering the key pair. The web service may also be unavailable. Please try again later.");
+
+        if(this->registerErrorDetail.has_value()) {
+            ImGui::SetNextItemOpen(true, ImGuiCond_Appearing);
+            if(ImGui::CollapsingHeader("Details")) {
+                ImGui::TextWrapped("%s", this->registerErrorDetail->c_str());
+                ImGui::Dummy(ImVec2(0,4));
+            }
+        }
+
+        ImGui::Separator();
+        if(ImGui::Button("Dismiss")) {
+            ImGui::CloseCurrentPopup();
+            this->closeRegisterModal = 0;
+            this->registerErrorDetail = std::nullopt;
+        }
+
+        ImGui::EndPopup();
+    }
+
+    // handle closing the keygen dialog
+    if(this->closeRegisterModal == 3) {
         ImGui::CloseCurrentPopup();
+        this->focusLayers--;
     }
 
     // end
     ImGui::EndPopup();
+}
+
+
+
+/**
+ * Server selector worker thread; this is mainly used to handle the network IO so we don't block
+ * the UI layer.
+ */
+void ServerSelector::workerMain() {
+    // set up thread
+    util::Thread::setName("Server Picker Worker");
+    MUtils::Profiler::NameThread("Server Picker Worker");
+
+    // get requests
+    while(this->workerRun) {
+        WorkItem i;
+        this->work.wait_dequeue(i);
+
+        // plain requests
+        if(std::holds_alternative<PlainRequest>(i)) {
+            switch(std::get<PlainRequest>(i)) {
+                case PlainRequest::RegisterKey:
+                    this->workerRegisterKey();
+                    break;
+
+                default:
+                    XASSERT(false, "Unhandled request");
+                    break;
+            }
+        }
+    }
+
+    // clean up
+    MUtils::Profiler::FinishThread();
+}
+
+/**
+ * Registers the player ID and public key with the web service.
+ */
+void ServerSelector::workerRegisterKey() {
+    try {
+        // TODO: make network request to register keys
+
+        // show success dialog
+        this->closeRegisterModal = 1;
+    } catch(std::exception &e) {
+        Logging::error("Failed to register keys: {}", e.what());
+
+        // show error dialog
+        this->registerErrorDetail = e.what();
+        this->closeRegisterModal = 2;
+    }
+
 }

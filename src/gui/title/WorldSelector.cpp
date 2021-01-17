@@ -573,8 +573,8 @@ void WorldSelector::updateSelectionThumb() {
  * Worker thread main loop
  */
 void WorldSelector::workerMain() {
-    util::Thread::setName("World Renderer Worker");
-    MUtils::Profiler::NameThread("World Renderer Worker");
+    util::Thread::setName("World Picker Worker");
+    MUtils::Profiler::NameThread("World Picker Worker");
 
     // main loop
     while(this->workerRun) {

@@ -39,6 +39,7 @@ class PlasmaRenderer;
 
 class TitleScreen: public RunLoopStep {
     friend class title::WorldSelector;
+    friend class title::ServerSelector;
 
     public:
         TitleScreen(MainWindow *, std::shared_ptr<GameUI> &);

@@ -36,14 +36,19 @@ class AuthManager {
         }
 
         /// Generates a new keypair.
-        static void generateAuthKeys() {
+        static void generateAuthKeys(const bool save = true) {
             gShared->generateKeys();
-            gShared->saveKeys();
+            if(save) gShared->saveKeys();
         }
         /// Clears existing auth data
-        static void clearAuthKeys() {
+        static void clearAuthKeys(const bool save = true) {
             gShared->authKeys = std::nullopt;
-            gShared->saveKeys();
+            if(save) gShared->saveKeys();
+        }
+
+        /// Returns the authorization token if available
+        static std::optional<std::string> apiAuthToken() {
+            return std::nullopt;
         }
 
     private:

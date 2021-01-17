@@ -4,10 +4,17 @@
 #include "gui/GameWindow.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstddef>
+#include <memory>
+#include <optional>
 #include <string>
+#include <thread>
+#include <variant>
 #include <vector>
+
+#include <blockingconcurrentqueue.h>
 
 namespace gui {
 class TitleScreen;
@@ -74,6 +81,14 @@ class ServerSelector: public gui::GameWindow {
             }
         };
 
+        /// API requests to be made from worker thread
+        enum class PlainRequest {
+            /// attempt to register authentication key
+            RegisterKey,
+        };
+
+        using WorkItem = std::variant<std::monostate, PlainRequest>;
+
     private:
         void saveRecents();
 
@@ -82,14 +97,26 @@ class ServerSelector: public gui::GameWindow {
 
         void drawKeypairGenaratorModal(GameUI *);
 
+        void workerMain();
+        void workerRegisterKey();
+
     private:
         /// title screen that provides our background
         TitleScreen *title = nullptr;
+
+        std::unique_ptr<std::thread> worker = nullptr;
+        std::atomic_bool workerRun;
+        moodycamel::BlockingConcurrentQueue<WorkItem> work;
 
         /// number of assertions on window focus; if 0, no other windows are open
         size_t focusLayers = 0;
         /// when set, the "generate keypair" dialog is shown
         bool needsKeypairGen = false;
+
+        /// the "register key" modal can be closed
+        std::atomic_int closeRegisterModal = 0;
+        /// detail to show in the registration error dialog
+        std::optional<std::string> registerErrorDetail;
 
         /// list of connected servers (and some other info)
         Recents recents;

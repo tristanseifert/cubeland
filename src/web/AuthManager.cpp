@@ -2,6 +2,7 @@
 
 #include "io/PrefsManager.h"
 #include "util/SSLHelpers.h"
+#include "util/REST.h"
 
 #include "io/Format.h"
 #include <Logging.h>
@@ -182,8 +183,6 @@ void AuthManager::generateKeys() {
     err = BIO_get_mem_data(bio, &buf);
     XASSERT(err, "Failed to get public key data");
     std::string pubPem(buf, err);
-
-    Logging::trace("Private key: {}, public key {}", privPem, pubPem);
 
     // clean up
     // need not free key as EVP_PKEY has taken ownership of it
