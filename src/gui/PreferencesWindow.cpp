@@ -1,5 +1,6 @@
 #include "PreferencesWindow.h"
 #include "GameUI.h"
+#include "MainWindow.h"
 #include "io/PrefsManager.h"
 #include "io/Format.h"
 
@@ -16,7 +17,7 @@ using namespace gui;
 /**
  * Sets up the UI with the state of the preferences.
  */
-PreferencesWindow::PreferencesWindow() {
+PreferencesWindow::PreferencesWindow(MainWindow *_window) : window(_window) {
     this->load();
 }
 
@@ -70,6 +71,7 @@ void PreferencesWindow::draw(GameUI *ui) {
 void PreferencesWindow::loadUiPaneState() {
     this->stateUi.restoreWindowSize = io::PrefsManager::getBool("window.restoreSize", true);
     this->stateUi.dpiAware = io::PrefsManager::getBool("window.hiDpi", false);
+    this->stateUi.vsync = io::PrefsManager::getBool("window.vsync", true);
 }
 /**
  * Writes the settings displayed on the UI preferences pane back to the preferences.
@@ -77,6 +79,7 @@ void PreferencesWindow::loadUiPaneState() {
 void PreferencesWindow::saveUiPaneState() {
     io::PrefsManager::setBool("window.restoreSize", this->stateUi.restoreWindowSize);
     io::PrefsManager::setBool("window.hiDpi", this->stateUi.dpiAware);
+    io::PrefsManager::setBool("window.vsync", this->stateUi.vsync);
 }
 /**
  * Draws the "User Interface" preferences pane.
@@ -100,9 +103,15 @@ void PreferencesWindow::drawUiPane(GameUI *ui) {
         ImGui::SetTooltip("Request a HiDPI rendering context, resulting in much crisper output on scaled displays, at the cost of performance.\nNote: You must restart the app for this setting to take effect.");
     }
 
+    // VSync
+    if(ImGui::Checkbox("Enable VSync", &this->stateUi.vsync)) dirty = true;
+    if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Synchronize drawing with the display's refresh interval, effectively setting the maximum frame rate to the display refresh rate.\nNote: Disabling this option may result in visual artifacts.");
+    }
     // save if needed
     if(dirty) {
         this->saveUiPaneState();
+        this->window->loadPrefs();
     }
 }
 

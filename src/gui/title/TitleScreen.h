@@ -160,6 +160,9 @@ class TitleScreen: public RunLoopStep {
         AnimationType bgAnim = AnimationType::None;
         /// time point to use for the start of the bg animation
         std::chrono::steady_clock::time_point bgAnimationStart;
+
+        // used to calculate time difference between frames (for plasma effect)
+        std::chrono::steady_clock::time_point lastFrame;
 };
 }
 

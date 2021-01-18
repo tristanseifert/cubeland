@@ -50,10 +50,14 @@ void ServerSelector::clear() {
     this->focusLayers = 0;
     this->closeRegisterModal = 0;
 
+    this->showAddServer = false;
+
     // check if keypair must be generated
     if(!AuthManager::areKeysAvailable()) {
         this->needsKeypairGen = true;
         this->focusLayers++;
+    } else {
+        this->needsKeypairGen = false;
     }
 }
 
@@ -141,7 +145,9 @@ void ServerSelector::draw(GameUI *gui) {
     ImGui::Separator();
 
     if(ImGui::Button("Add Server...")) {
-        // TODO: open the server connection dialog
+        ImGui::OpenPopup("Add Server");
+        this->focusLayers++;
+        this->showAddServer = true;
     } if(ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Enter the address of a new server to connect to");
     }
@@ -150,6 +156,9 @@ void ServerSelector::draw(GameUI *gui) {
     if(this->needsKeypairGen) {
         ImGui::OpenPopup("Generate Keypair");
         this->drawKeypairGenaratorModal(gui);
+    }
+    if(this->showAddServer) {
+        this->drawAddServerModal(gui);
     }
 
     // clean up
@@ -390,6 +399,62 @@ void ServerSelector::drawKeypairGenaratorModal(GameUI *gui) {
     // end
     ImGui::EndPopup();
 }
+
+
+/**
+ * Draws the add server modal. This is basically just a text entry box for the server's IP or
+ * DNS name.
+ */
+void ServerSelector::drawAddServerModal(GameUI *gui) {
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 windowPos = ImVec2(io.DisplaySize.x / 2., io.DisplaySize.y / 2.);
+    ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always, ImVec2(.5, .5));
+    ImGui::SetNextWindowSizeConstraints(ImVec2(474, 0), ImVec2(474, 525));
+
+    if(!ImGui::BeginPopupModal("Add Server", nullptr, ImGuiWindowFlags_AlwaysAutoResize | 
+            ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
+        return;
+    }
+
+    // description text
+    ImGui::TextWrapped("%s", "Enter the DNS name or IP address of a multi player server to connect "
+            "to. The server will also be added to the your server list.\n"
+            "If the server runs on a port other than the default, specify it by appending :1234 "
+            "to the address.");
+
+    // Path
+    ImGui::Dummy(ImVec2(0,2));
+    ImGui::InputText("Address", this->addServerUrl.data(), this->addServerUrl.size());
+    ImGui::Dummy(ImVec2(0,2));
+
+    // buttons
+    ImGui::Separator();
+    if(ImGui::Button("Cancel")) {
+        ImGui::CloseCurrentPopup();
+        this->focusLayers--;
+        this->showAddServer = false;
+    }
+
+    ImGui::SameLine();
+    if(strnlen(this->addServerUrl.data(), this->addServerUrl.size()) &&
+            ImGui::Button("Add Server")) {
+        // TODO: add server
+        Logging::trace("Adding server: {}", this->addServerUrl.data());
+
+        ImGui::CloseCurrentPopup();
+        this->focusLayers--;
+        this->showAddServer = false;
+    }
+
+    // end
+    ImGui::EndPopup();
+
+    // clear state out
+    if(!this->showAddServer) {
+        std::fill(this->addServerUrl.begin(), this->addServerUrl.end(), '\0');
+    }
+}
+
 
 
 

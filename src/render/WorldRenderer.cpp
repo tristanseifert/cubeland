@@ -143,6 +143,7 @@ WorldRenderer::WorldRenderer(gui::MainWindow *_win, std::shared_ptr<gui::GameUI>
     this->worker = std::make_unique<std::thread>(std::bind(&WorldRenderer::workerMain, this));
 
     this->loadPrefs();
+    this->lastFrame = std::chrono::steady_clock::now();
 }
 /**
  * Releases all of our render resources.
@@ -220,12 +221,15 @@ void WorldRenderer::loadPrefs() {
     }
 
     this->inventoryUi->loadPrefs();
+    this->window->loadPrefs();
 }
 
 /**
  * Prepare the world for rendering.
  */
 void WorldRenderer::willBeginFrame() {
+    using namespace std::chrono;
+
     // update the inputs and camera as well as camera display angles
     this->input->startFrame();
     this->camera.startFrame();
@@ -254,11 +258,12 @@ void WorldRenderer::willBeginFrame() {
         this->debugger->draw();
     }
 
-    // increment time (XXX: make this more accurate)
+    // increment time
     if(!this->paused) {
-        // @60fps: 60 sec * 24 min
-        this->time += 1./(3600. * 24);
+        const auto diffUs = duration_cast<microseconds>(steady_clock::now() - this->lastFrame).count();
+        this->time += (((float) diffUs) / 1000. / 1000.) / (60. * 24.);
     }
+    this->lastFrame = steady_clock::now();
 
     // pause menu stuff
     this->animatePauseMenu();

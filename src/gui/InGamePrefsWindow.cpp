@@ -16,6 +16,7 @@ void InGamePrefsWindow::load() {
     this->fov = PrefsManager::getFloat("gfx.fov", 74.);
     this->renderDist = PrefsManager::getUnsigned("world.render.distance", 2);
     this->inventoryHoriz = PrefsManager::getBool("ui.inventory.isHorizontal", true);
+    this->vsync = PrefsManager::getBool("window.vsync", true);
 }
 
 /**
@@ -25,6 +26,7 @@ void InGamePrefsWindow::save() {
     PrefsManager::setFloat("gfx.fov", this->fov);
     PrefsManager::setUnsigned("world.render.distance", std::max(1, this->renderDist));
     PrefsManager::setBool("ui.inventory.isHorizontal", this->inventoryHoriz);
+    PrefsManager::setBool("window.vsync", this->vsync);
 
     // update world renderer
     this->renderer->requestPrefsLoad();
@@ -57,7 +59,12 @@ void InGamePrefsWindow::draw(GameUI *gui) {
     if(ImGui::SliderFloat("Field of View", &this->fov, 25, 125, "%.1f", ImGuiSliderFlags_AlwaysClamp)) dirty = true;
     if(ImGui::SliderInt("Render Distance", &this->renderDist, 1, 8, "%d", ImGuiSliderFlags_AlwaysClamp)) dirty = true;
 
+    // general UI
+    ImGui::Dummy(ImVec2(0,2));
+    if(ImGui::Checkbox("Enable VSync", &this->vsync)) dirty = true;
+
     // inventory
+    ImGui::Dummy(ImVec2(0,2));
     if(ImGui::Checkbox("Horizontal Inventory Bar", &this->inventoryHoriz)) dirty = true;
 
     // finish drawing

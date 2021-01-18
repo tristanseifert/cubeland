@@ -9,8 +9,10 @@ using namespace gui;
 
 std::shared_ptr<gui::MetricsDisplay> MetricsManager::gDisplay = nullptr;
 
-void MetricsManager::submitFrameTime(float time) {
+void MetricsManager::submitFrameTime(const float time) {
     gDisplay->mFrameTime->AddNewValue(time);
 }
 
-
+void MetricsManager::setFps(const float fps) {
+    gDisplay->fps = fps;
+}

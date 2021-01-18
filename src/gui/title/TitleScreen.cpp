@@ -74,6 +74,8 @@ TitleScreen::TitleScreen(MainWindow *_win, std::shared_ptr<GameUI> &_gui) : win(
     // set up the button window
     this->butts = std::make_shared<ButtonWindow>(this);
     _gui->addWindow(this->butts);
+
+    this->lastFrame = std::chrono::steady_clock::now();
 }
 
 /**
@@ -115,12 +117,17 @@ void TitleScreen::stepAdded() {
  */
 void TitleScreen::willBeginFrame() {
     using namespace gl;
+    using namespace std::chrono;
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
 
     this->plasma->draw(this->time / 5.);
-    this->time += 1. / 60.;
+
+    // timekeeping
+    const auto diffUs = duration_cast<microseconds>(steady_clock::now() - this->lastFrame).count();
+    this->time += ((float) diffUs) / 1000. / 1000.;
+    this->lastFrame = steady_clock::now();
 
     if(this->worldSel) {
         this->worldSel->startOfFrame();
@@ -188,7 +195,7 @@ void TitleScreen::drawButtons(GameUI *gui) {
     ImGui::PushFont(bigFont);
     if(ImGui::Button("Preferences", ImVec2(400, 0))) {
         if(!this->prefs) {
-            this->prefs = std::make_shared<PreferencesWindow>();
+            this->prefs = std::make_shared<PreferencesWindow>(this->win);
             gui->addWindow(this->prefs);
         }
 

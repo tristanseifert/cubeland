@@ -19,7 +19,9 @@ class MetricsManager {
         }
 
         /// Submits the given frame time to the metrics display.
-        static void submitFrameTime(float time);
+        static void submitFrameTime(const float time);
+        /// Sets the current fps
+        static void setFps(const float fps);
 
     private:
         static std::shared_ptr<gui::MetricsDisplay> gDisplay;

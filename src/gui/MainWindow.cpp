@@ -55,6 +55,8 @@ MainWindow::MainWindow() {
     this->configGLContext();
     this->makeWindow();
 
+    this->loadPrefs();
+
     // set up profiling
     this->initProfiler();
 
@@ -155,8 +157,6 @@ void MainWindow::configGLContext() {
  * Creates the SDL window and its OpenGL context.
  */
 void MainWindow::makeWindow() {
-    int err;
-
     // create window; allowing for HiDPI contexts (if requested)
     const bool hiDpi = io::PrefsManager::getBool("window.hiDpi", false);
 
@@ -180,12 +180,6 @@ void MainWindow::makeWindow() {
 
     this->initGLLibs();
 
-    // enable VSync if possible
-    err = SDL_GL_SetSwapInterval(1);
-    if(err) {
-        Logging::error("Failed to enable vsync ({}): {}", err, SDL_GetError());
-    }
-
     // set some context defaults
     glClearColor(0, 0, 0, 1);
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
@@ -196,6 +190,30 @@ void MainWindow::makeWindow() {
 
     // all subsequent context will share objects with this buffer
     SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
+}
+
+/**
+ * Load the window preferences.
+ */
+void MainWindow::loadPrefs() {
+    int err;
+    this->vsync = io::PrefsManager::getBool("window.vsync", true);
+
+    if(this->vsync) {
+        // try adaptive vsync
+        err = SDL_GL_SetSwapInterval(-1);
+
+        if(err == -1) {
+            // no support for adaptive vsync; fallback to regular
+            err = SDL_GL_SetSwapInterval(1);
+        }
+    } else {
+        err = SDL_GL_SetSwapInterval(0);
+    }
+
+    if(err) {
+        Logging::error("Failed to set vsync {} ({}): {}", this->vsync, err, SDL_GetError());
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -315,16 +333,17 @@ int MainWindow::run() {
                 render->willEndFrame();
             }
         }
-
-        auto frameEnd = std::chrono::high_resolution_clock::now();
-        auto diffUs = std::chrono::duration_cast<std::chrono::microseconds>(frameEnd - frameStart).count();
-        io::MetricsManager::submitFrameTime(diffUs / 1000. / 1000.);
-
-        this->endFrameFpsUpdate();
         {
             PROFILE_SCOPE(SwapWindow);
             SDL_GL_SwapWindow(this->win);
         }
+
+        auto frameEnd = std::chrono::high_resolution_clock::now();
+        auto diffUs = std::chrono::duration_cast<std::chrono::microseconds>(frameEnd - frameStart).count();
+        io::MetricsManager::submitFrameTime(diffUs / 1000. / 1000.);
+        io::MetricsManager::setFps(this->getFps());
+
+        this->endFrameFpsUpdate();
 
         // invoke the final frame lifecycle callback and set up for the next one
         PROFILE_SCOPE(DidEndFrame);

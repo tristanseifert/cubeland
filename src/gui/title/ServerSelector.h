@@ -4,6 +4,7 @@
 #include "gui/GameWindow.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstddef>
@@ -94,6 +95,7 @@ class ServerSelector: public gui::GameWindow {
 
         void drawAccountBar(GameUI *);
         void drawServerList(GameUI *);
+        void drawAddServerModal(GameUI *);
 
         void drawKeypairGenaratorModal(GameUI *);
 
@@ -112,6 +114,8 @@ class ServerSelector: public gui::GameWindow {
         size_t focusLayers = 0;
         /// when set, the "generate keypair" dialog is shown
         bool needsKeypairGen = false;
+        /// when set, the "add server" dialog is shown
+        bool showAddServer = false;
 
         /// the "register key" modal can be closed
         std::atomic_int closeRegisterModal = 0;
@@ -124,6 +128,9 @@ class ServerSelector: public gui::GameWindow {
         int selectedServer = -1;
         /// whether the loading indicator is displayed in the main UI
         bool showLoader = false;
+
+        /// URL/address of the server to add
+        std::array<char, 256> addServerUrl;
 };
 }
 

@@ -104,15 +104,19 @@ void MetricsDisplay::drawOverlay(GameUI *ui) {
     }
 
     // draw the average FPS label
+    ImGui::Text("FPS: %g", this->fps);
 
     // draw the metric
-    this->gOverlay->DrawHistory();
+    if(this->showOverlayGraph) {
+        this->gOverlay->DrawHistory();
+    }
 
     // context menu
     if(ImGui::BeginPopupContextWindow()) {
         ImGui::MenuItem("Show Metrics List", nullptr, &this->showMetrics);
 
         ImGui::Separator();
+        ImGui::MenuItem("Show Frame Time Graph", nullptr, &this->showOverlayGraph);
         if(this->showFpsOverlay && ImGui::MenuItem("Close Overlay")) {
             this->showFpsOverlay = false;
         }

@@ -59,6 +59,14 @@ class MetricsDisplay: public GameWindow {
         bool showFpsOverlay = true;
 #endif
 
+#ifdef NDEBUG
+        bool showOverlayGraph = false;
+#else
+        bool showOverlayGraph = true;
+#endif
+
+        float fps = 0;
+
         uint32_t fpsOverlayMenuItem = 0;
 };
 }

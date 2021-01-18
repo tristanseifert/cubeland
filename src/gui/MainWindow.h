@@ -41,6 +41,16 @@ class MainWindow {
             return (this->scale > 1.5);
         }
 
+        /// Time to render a frame, in ms
+        const double getFrameTime() const {
+            return this->frameTimeAvg;
+        }
+        const double getFps() const {
+            return 1000. / this->frameTimeAvg;
+        }
+
+        void loadPrefs();
+
     private:
         void initGLLibs();
         void configGLContext();
@@ -85,6 +95,8 @@ class MainWindow {
         std::atomic_bool running;
         // if run flag is false, number of frames to render before quitting
         size_t quitFrames = 0;
+        /// whether we synchronize buffer swaps or not
+        bool vsync;
 
         // various rendering pieces
         std::vector<std::shared_ptr<RunLoopStep>> stages;

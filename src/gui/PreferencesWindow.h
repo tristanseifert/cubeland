@@ -9,10 +9,11 @@
 
 namespace gui {
 class GameUI;
+class MainWindow;
 
 class PreferencesWindow: public GameWindow {
     public:
-        PreferencesWindow();
+        PreferencesWindow(MainWindow *window);
         virtual ~PreferencesWindow() = default;
 
         void load() {
@@ -67,10 +68,14 @@ class PreferencesWindow: public GameWindow {
         };
 
     private:
+        // main window (so we can force GUI updates)
+        gui::MainWindow *window = nullptr;
+
         // state for the UI prefs pane
         struct {
             bool restoreWindowSize;
             bool dpiAware;
+            bool vsync;
         } stateUi;
 
         // state for the graphics prefs pane

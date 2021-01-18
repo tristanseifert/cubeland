@@ -226,6 +226,9 @@ class WorldRenderer: public gui::RunLoopStep {
         std::byte *screenshot = nullptr;
         // force prefs to load at the end of next frame
         bool needsPrefsLoad = false;
+
+        // time of last frame (for accurate world timestepping)
+        std::chrono::steady_clock::time_point lastFrame;
 };
 }
 
