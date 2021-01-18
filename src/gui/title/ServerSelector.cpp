@@ -430,7 +430,8 @@ void ServerSelector::workerMain() {
  */
 void ServerSelector::workerRegisterKey() {
     try {
-        // TODO: make network request to register keys
+        // make network request to register keys
+        AuthManager::registerAuthKeys(true);
 
         // show success dialog
         this->closeRegisterModal = 1;

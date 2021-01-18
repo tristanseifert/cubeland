@@ -74,6 +74,20 @@ AuthManager::AuthManager() {
     }
 
     this->loadKeys();
+
+    // set up the REST handler
+#ifdef NDEBUG
+    #error "TODO: define API endpoint for prod"
+#else
+    this->api = new util::REST("http://cubeland-api.test");
+#endif
+}
+
+/**
+ * Cleans up auth manager resources.
+ */
+AuthManager::~AuthManager() {
+    delete this->api;
 }
 
 
@@ -251,4 +265,34 @@ void AuthManager::decrypt(const std::vector<uint8_t> &in, std::vector<uint8_t> &
 
     out.resize(outlen1 + outlen2);
     EVP_CIPHER_CTX_cleanup(&ctx);
+}
+
+
+
+/**
+ * Build up a REST request that registers the player keys.
+ */
+void AuthManager::restRegisterKeys() {
+    using namespace rapidjson;
+
+    // build the request body
+    const auto idString = uuids::to_string(this->playerId);
+    const auto pubString = this->authKeys->pemPublic;
+
+    Document body;
+    body.SetObject()
+        .AddMember("playerId", StringRef(idString.c_str(), idString.size()), body.GetAllocator())
+        .AddMember("pubKey", StringRef(pubString.c_str(), pubString.size()), body.GetAllocator());
+
+    // submit it and parse response
+    Document response;
+
+    this->api->request("/user/register", body, response, false);
+
+    // interpret response
+    if(!response["success"].GetBool()) {
+        throw std::runtime_error("Failed to register user");
+    }
+
+    Logging::debug("Server user id: {}", response["id"].GetUint());
 }

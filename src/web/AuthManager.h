@@ -14,6 +14,10 @@
 
 #include <uuid.h>
 
+namespace util {
+class REST;
+}
+
 namespace web {
 class AuthManager {
     public:
@@ -44,6 +48,13 @@ class AuthManager {
         static void clearAuthKeys(const bool save = true) {
             gShared->authKeys = std::nullopt;
             if(save) gShared->saveKeys();
+        }
+
+
+        /// Registers with the API the current auth keys.
+        static void registerAuthKeys(const bool save = true) {
+            gShared->restRegisterKeys();
+            gShared->saveKeys();
         }
 
         /// Returns the authorization token if available
@@ -86,12 +97,14 @@ class AuthManager {
 
     private:
         AuthManager();
-        ~AuthManager() = default;
+        ~AuthManager();
 
         bool loadKeys();
         void saveKeys();
 
         void generateKeys();
+
+        void restRegisterKeys();
 
     private:
         static AuthManager *gShared;
@@ -101,6 +114,9 @@ class AuthManager {
         uuids::uuid playerId;
         /// Loaded auth keys, if any
         std::optional<AuthData> authKeys = std::nullopt;
+
+        /// REST API interface
+        util::REST *api;
 };
 }
 
