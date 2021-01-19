@@ -84,13 +84,37 @@ class ServerSelector: public gui::GameWindow {
             }
         };
 
+        /// Connection request
+        struct ConnectionReq {
+            std::string host;
+
+            ConnectionReq(const std::string &_host) : host(_host) {}
+        };
+
         /// API requests to be made from worker thread
         enum class PlainRequest {
             /// attempt to register authentication key
             RegisterKey,
         };
 
-        using WorkItem = std::variant<std::monostate, PlainRequest>;
+        using WorkItem = std::variant<std::monostate, PlainRequest, ConnectionReq>;
+
+        /// Stage of the connection cycle
+        enum class ConnectionStage {
+            /// No connection in progress
+            Idle,
+            /// Establishing connection
+            Dialing,
+            /// Authenticating user
+            Authenticating,
+            /// Loading initial chunks
+            LoadingChunks,
+            /// Connected
+            Connected,
+
+            /// An error occurred during connection
+            Error,
+        };
 
     private:
         void saveRecents();
@@ -101,9 +125,12 @@ class ServerSelector: public gui::GameWindow {
         void drawAddServerModal(GameUI *);
 
         void drawKeypairGenaratorModal(GameUI *);
+        void drawConnectingModal(GameUI *);
 
         void workerMain();
         void workerRegisterKey();
+
+        void connect(const Server &);
 
     private:
         /// title screen that provides our background
@@ -134,6 +161,17 @@ class ServerSelector: public gui::GameWindow {
 
         /// URL/address of the server to add
         std::array<char, 256> addServerUrl;
+
+        /// when set, show the conencting UI
+        bool isConnecting = false;
+        /// hostname of the server
+        std::string connHost;
+        /// current stage of the connection process for the active server
+        ConnectionStage connStage = ConnectionStage::Idle;
+        /// progress to display for the loading stage
+        float connProgress = 0;
+        /// error detail if available
+        std::optional<std::string> connError;
 };
 }
 

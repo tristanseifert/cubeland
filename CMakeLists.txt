@@ -6,6 +6,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake;${CMAKE_MODULE_PATH}")
 
 # set global C++ options
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_C_STANDARD 11)
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 
 include_directories(src)
@@ -209,6 +210,7 @@ add_executable(cubeland
     src/particles/System.cpp
 # client authentication and web service integration
     src/web/AuthManager.cpp
+    src/net/ServerConnection.cpp
 # resources and other misc stuff
     ${version_file}
 )

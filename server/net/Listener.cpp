@@ -66,6 +66,8 @@ Listener::Listener(world::WorldReader *_reader) : world(_reader) {
     // create the work thread
     this->workerRun = true;
     this->worker = std::make_unique<std::thread>(&Listener::workerMain, this);
+
+    this->murderThread = std::make_unique<std::thread>(&Listener::murdererMain, this);
 }
 
 /**
@@ -115,9 +117,13 @@ Listener::~Listener() {
     // stop accepting new requests
     this->workerRun = false;
 
+    this->removeClient(nullptr);
+
     // signal clients we're quitting
     {
         std::lock_guard<std::mutex> lg(this->clientLock);
+        Logging::debug("Closing {} remaining clients", this->clients.size());
+
         this->clients.clear();
     }
 
@@ -129,6 +135,7 @@ Listener::~Listener() {
 
     // finally, shut down the work thread
     this->worker->join();
+    this->murderThread->join();
 }
 
 
@@ -164,13 +171,39 @@ void Listener::workerMain() {
         err = tls_accept_socket(this->tls, &tlsClient, fd);
         if(err) {
             Logging::error("Failed to accept TLS client {}: {}", addr, tls_error(this->tls));
+
+            ::close(fd);
+            continue;
         }
 
         // create client
-        auto client = std::make_shared<ListenerClient>(tlsClient, fd, addr);
+        auto client = std::make_unique<ListenerClient>(this, tlsClient, fd, addr);
         {
             std::lock_guard<std::mutex> lg(this->clientLock);
-            this->clients.push_back(client);
+            this->clients.push_back(std::move(client));
         }
+    }
+}
+
+
+
+/**
+ * Main loop for the client garbage collection thread
+ */
+void Listener::murdererMain() {
+    util::Thread::setName("Client Deleter");
+
+    // dequeue pointers to erase
+    ListenerClient *clientPtr = nullptr;
+
+    while(this->workerRun) {
+        this->clientsToMurder.wait_dequeue(clientPtr);
+        if(!clientPtr) continue;
+
+        std::lock_guard<std::mutex> lg(this->clientLock);
+        this->clients.erase(std::remove_if(this->clients.begin(), this->clients.end(), 
+        [clientPtr](auto &client) {
+            return (client.get() == clientPtr);
+        }), this->clients.end());
     }
 }

@@ -5,7 +5,7 @@
 
 #include "web/AuthManager.h"
 #include "util/Thread.h"
-
+#include "net/ServerConnection.h"
 #include "io/PrefsManager.h"
 #include "io/Format.h"
 
@@ -162,9 +162,8 @@ void ServerSelector::draw(GameUI *gui) {
         // connect
         ImGui::SameLine();
         if(ImGui::Button("Connect")) {
-            // TODO: connect to selected server
             const auto &server = this->recents.servers[this->selectedServer];
-            Logging::trace("Connect to server {}", server.address);
+            this->connect(server);
         } if(ImGui::IsItemHovered()) {
             ImGui::SetTooltip("Join the selected server");
         }
@@ -188,6 +187,9 @@ void ServerSelector::draw(GameUI *gui) {
     }
     if(this->showAddServer) {
         this->drawAddServerModal(gui);
+    }
+    if(this->isConnecting) {
+        this->drawConnectingModal(gui);
     }
 
     // clean up
@@ -268,7 +270,7 @@ void ServerSelector::drawServerList(GameUI *gui) {
 
                     // connect right away on double click
                     if(ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-                        // TODO: connect
+                        this->connect(entry);
                     }
                 }
 
@@ -500,6 +502,122 @@ void ServerSelector::refreshServerStatus() {
 }
 
 /**
+ * Sends a connection request to the worker thread for the given server.
+ */
+void ServerSelector::connect(const Server &srv) {
+    ConnectionReq req(srv.address);
+    this->work.enqueue(req);
+
+    this->connHost = srv.address;
+    this->connStage = ConnectionStage::Dialing;
+    this->isConnecting = true;
+    this->focusLayers++;
+
+    ImGui::OpenPopup("Connecting");
+}
+
+/**
+ * Draws the connecting modal.
+ */
+void ServerSelector::drawConnectingModal(GameUI *gui) {
+    bool close = false;
+
+    // constrain to center
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 windowPos = ImVec2(io.DisplaySize.x / 2., io.DisplaySize.y / 2.);
+    ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always, ImVec2(.5, .5));
+    ImGui::SetNextWindowSize(ImVec2(640, 480));
+
+    if(!ImGui::BeginPopupModal("Connecting", nullptr, ImGuiWindowFlags_NoCollapse | 
+                ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
+        return;
+    }
+
+    // connection stage
+    ImGui::PushFont(gui->getFont(GameUI::kGameFontHeading3));
+    switch(this->connStage) {
+        case ConnectionStage::Dialing:
+            ImGui::TextUnformatted("Dialing server...");
+            break;
+        case ConnectionStage::Authenticating:
+            ImGui::TextUnformatted("Authenticating...");
+            break;
+        case ConnectionStage::LoadingChunks:
+            ImGui::TextUnformatted("Loading Chunks...");
+            break;
+        case ConnectionStage::Connected:
+            ImGui::TextUnformatted("Connected!");
+            break;
+        case ConnectionStage::Error:
+            ImGui::TextUnformatted("Connection Failed");
+            break;
+
+        default:
+            ImGui::Text("Unknown %d", this->connStage);
+            break;
+    }
+    ImGui::PopFont();
+
+    // TODO: pretty pictures
+
+    // progress
+    ImGui::Dummy(ImVec2(0, 2));
+    ImGui::ProgressBar(this->connProgress, ImVec2(-FLT_MIN, 0), "");
+    ImGui::Dummy(ImVec2(0, 2));
+
+    // abort button
+    const float spaceV = ImGui::GetContentRegionAvail().y;
+    ImGui::Dummy(ImVec2(0, spaceV - 22 - 8 - 6));
+
+    ImGui::Separator();
+    if(ImGui::Button("Abort")) {
+        close = true;
+    }
+
+    // show error
+    if(this->connStage == ConnectionStage::Error) {
+        ImGui::OpenPopup("Connection Error");
+
+        ImGui::SetNextWindowSizeConstraints(ImVec2(400, 0), ImVec2(400, 300));
+        if(ImGui::BeginPopupModal("Connection Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize |
+                ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
+            ImGui::PushFont(gui->getFont(GameUI::kGameFontBold));
+            ImGui::TextWrapped("An error occurred while connecting to the server.");
+            ImGui::PopFont();
+
+            ImGui::Bullet();
+            ImGui::TextWrapped("Server: %s", this->connHost.c_str());
+
+            if(this->connError.has_value()) {
+                ImGui::SetNextItemOpen(true, ImGuiCond_Appearing);
+                if(ImGui::CollapsingHeader("Details")) {
+                    ImGui::TextWrapped("%s", this->connError->c_str());
+                    ImGui::Dummy(ImVec2(0,4));
+                }
+            }
+
+            // dismiss button
+            ImGui::Separator();
+            if(ImGui::Button("Dismiss")) {
+                ImGui::CloseCurrentPopup();
+                close = true;
+            }
+
+            ImGui::EndPopup();
+        }
+    }
+
+    // close the popup if needed
+    if(close) {
+        ImGui::CloseCurrentPopup();
+        this->focusLayers--;
+        this->isConnecting = false;
+    }
+
+    ImGui::EndPopup();
+}
+
+/**
  * Server selector worker thread; this is mainly used to handle the network IO so we don't block
  * the UI layer.
  */
@@ -523,6 +641,19 @@ void ServerSelector::workerMain() {
                 default:
                     XASSERT(false, "Unhandled request");
                     break;
+            }
+        }
+        // connecting to a server
+        else if(std::holds_alternative<ConnectionReq>(i)) {
+            const auto req = std::get<ConnectionReq>(i);
+
+            try {
+                auto server = std::make_shared<net::ServerConnection>(req.host);
+            } catch(std::exception &e) {
+                Logging::error("Failed to connect to server {}: {}", req.host, e.what());
+
+                this->connError = e.what();
+                this->connStage = ConnectionStage::Error;
             }
         }
     }

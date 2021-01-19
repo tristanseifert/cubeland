@@ -146,11 +146,10 @@ int main(int argc, const char **argv) {
     }
 
     // clean up
+    Logging::info("Stopping server...");
+
     delete listener;
     delete world;
-
-    // exit
-    Logging::info("Stopping server...");
 
     Logging::stop();
 }
