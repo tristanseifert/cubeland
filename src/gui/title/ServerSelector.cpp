@@ -367,7 +367,7 @@ void ServerSelector::drawKeypairGenaratorModal(GameUI *gui) {
     }
 
     // success dialog
-   ImGui::SetNextWindowSizeConstraints(ImVec2(400, 0), ImVec2(400, 300));
+   ImGui::SetNextWindowSizeConstraints(ImVec2(420, 0), ImVec2(420, 300));
     if(this->closeRegisterModal == 1) {
         ImGui::OpenPopup("Success");
         this->showLoader = false;
@@ -391,7 +391,7 @@ void ServerSelector::drawKeypairGenaratorModal(GameUI *gui) {
     }
 
     // error dialog
-   ImGui::SetNextWindowSizeConstraints(ImVec2(400, 0), ImVec2(400, 300));
+   ImGui::SetNextWindowSizeConstraints(ImVec2(420, 0), ImVec2(420, 300));
     if(this->closeRegisterModal == 2) {
         ImGui::OpenPopup("Registration Error");
         this->showLoader = false;
@@ -578,17 +578,22 @@ void ServerSelector::drawConnectingModal(GameUI *gui) {
     if(this->connStage == ConnectionStage::Error) {
         ImGui::OpenPopup("Connection Error");
 
-        ImGui::SetNextWindowSizeConstraints(ImVec2(400, 0), ImVec2(400, 300));
+        ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always, ImVec2(.5, .5));
+        ImGui::SetNextWindowSizeConstraints(ImVec2(420, 0), ImVec2(420, 350));
         if(ImGui::BeginPopupModal("Connection Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize |
                 ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
             ImGui::PushFont(gui->getFont(GameUI::kGameFontBold));
             ImGui::TextWrapped("An error occurred while connecting to the server.");
             ImGui::PopFont();
 
+            ImGui::TextWrapped("Check that the server address and port are correct, and that your Internet connection is working properly, then try again.");
+
             ImGui::Bullet();
             ImGui::TextWrapped("Server: %s", this->connHost.c_str());
 
             if(this->connError.has_value()) {
+                ImGui::Dummy(ImVec2(0,2));
+
                 ImGui::SetNextItemOpen(true, ImGuiCond_Appearing);
                 if(ImGui::CollapsingHeader("Details")) {
                     ImGui::TextWrapped("%s", this->connError->c_str());

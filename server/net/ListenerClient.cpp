@@ -150,6 +150,7 @@ readAgain:;
 
                 // handle the message
                 hdr.length = ntohs(hdr.length);
+                hdr.tag = ntohs(hdr.tag);
                 this->handleMessage(hdr);
             }
         }

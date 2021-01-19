@@ -220,7 +220,7 @@ SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -mavx")
 
 # warnings
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wpedantic")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-anon-enum-enum-conversion -Wno-defaulted-function-deleted -Wno-gnu-zero-variadic-macro-arguments -Wno-reorder-ctor")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-anon-enum-enum-conversion -Wno-defaulted-function-deleted -Wno-gnu-zero-variadic-macro-arguments -Wno-reorder-ctor -Wno-c99-extensions")
 
 # shared code
 target_link_libraries(cubeland PRIVATE shared shared_platform)
@@ -500,6 +500,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     set(MACOSX_BUNDLE_SHORT_VERSION_STRING "420")
 
     set(BUNDLE_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/README.md)
+    list(APPEND BUNDLE_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/rsrc/cacert.pem)
     list(APPEND BUNDLE_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/build/default.rsrc)
     set_target_properties(cubeland PROPERTIES RESOURCE "${BUNDLE_RESOURCES}")
     target_sources(cubeland PUBLIC ${BUNDLE_RESOURCES})

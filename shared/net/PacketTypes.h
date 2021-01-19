@@ -38,6 +38,8 @@ struct PacketHeader {
     /// Packet minor type
     uint8_t type;
 
+    /// tag (used for responses)
+    uint16_t tag;
     /// length of packet (in units of 4 bytes) in network byte order
     uint16_t length;
 
