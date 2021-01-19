@@ -210,7 +210,7 @@ void PreferencesWindow::drawGfxPane(GameUI *ui) {
         // inventory orientation
         if(ImGui::Checkbox("Horizontal Inventory Bar", &this->gfx.horizontalInventory)) dirty = true;
         if(ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("The inventory bar displays the ten items in your hot bar. It can be laid out vertically or horizontally.");
+            ImGui::SetTooltip("The inventory bar displays the first ten items in your inventory.\nThese are the items you can place/use without opening the full inventory.");
         }
     }
     ImGui::EndChild();

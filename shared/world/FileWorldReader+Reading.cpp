@@ -3,12 +3,11 @@
 
 #include "chunk/Chunk.h"
 #include "chunk/ChunkSlice.h"
-#include "block/BlockRegistry.h"
+#include "block/BlockIds.h"
 
 #include "util/LZ4.h"
 #include "io/Format.h"
 #include <Logging.h>
-#include <mutils/time/profiler.h>
 #include <sqlite3.h>
 
 #include <cereal/types/variant.hpp>
@@ -18,6 +17,12 @@
 
 #include <sstream>
 #include <set>
+
+#if PROFILE
+#include <mutils/time/profiler.h>
+#else
+#define PROFILE_SCOPE(x) 
+#endif
 
 // uncomment to add profiling steps to inner parts of the per-row loop
 // #define PROFILE_ROW_INNER 0
@@ -93,7 +98,7 @@ std::shared_ptr<Chunk> FileWorldReader::loadChunk(int x, int z) {
                 const auto blockId = inMap[j];
                 // 0xFFFF = air
                 if(blockId == 0xFFFF) {
-                    m.idMap[j] = BlockRegistry::kAirBlockId;
+                    m.idMap[j] = kAirBlockId;
                 }
                 // 0x0000 = not defined
                 else if(!blockId) {

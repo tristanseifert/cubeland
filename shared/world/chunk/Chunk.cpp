@@ -2,7 +2,13 @@
 #include "world/block/BlockRegistry.h"
 
 #include <glm/gtx/hash.hpp>
+
+#if PROFILE
 #include <mutils/time/profiler.h>
+#else
+#define PROFILE_SCOPE(x) 
+#define LOCK_GUARD(lock, name) std::lock_guard<std::mutex> lg(lock)
+#endif
 
 #include <stdexcept>
 

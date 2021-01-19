@@ -5,7 +5,6 @@
 #include "io/Format.h"
 #include <version.h>
 #include <Logging.h>
-#include <mutils/time/profiler.h>
 #include <cmrc/cmrc.hpp>
 
 #include <sqlite3.h>
@@ -13,6 +12,12 @@
 #include <stdexcept>
 #include <filesystem>
 #include <time.h>
+
+#if PROFILE
+#include <mutils/time/profiler.h>
+#else
+#define PROFILE_SCOPE(x) 
+#endif
 
 CMRC_DECLARE(sql);
 
@@ -151,7 +156,9 @@ void FileWorldReader::workerMain() {
     int err;
 
     const auto threadName = f("World: {}", this->filename);
+#if PROFILE
     MUtils::Profiler::NameThread(threadName.c_str());
+#endif
     util::Thread::setName(threadName);
 
     // wait for work to come in
@@ -171,7 +178,9 @@ void FileWorldReader::workerMain() {
     }
 
     this->acceptRequests = false;
+#if PROFILE
     MUtils::Profiler::FinishThread();
+#endif
 }
 
 /**

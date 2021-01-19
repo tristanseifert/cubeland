@@ -41,6 +41,8 @@ class ServerSelector: public gui::GameWindow {
             std::string address;
             /// last opened timestamp
             std::chrono::system_clock::time_point lastConnected;
+            /// whether we've connected to this server before
+            bool haveConnected = false;
 
             /// Creates a new recents entry with the current time.
             Server(const std::string &_addrStr) : address(_addrStr) {
@@ -92,6 +94,7 @@ class ServerSelector: public gui::GameWindow {
 
     private:
         void saveRecents();
+        void refreshServerStatus();
 
         void drawAccountBar(GameUI *);
         void drawServerList(GameUI *);

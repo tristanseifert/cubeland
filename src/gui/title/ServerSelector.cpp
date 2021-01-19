@@ -58,6 +58,7 @@ void ServerSelector::clear() {
         this->focusLayers++;
     } else {
         this->needsKeypairGen = false;
+        this->refreshServerStatus();
     }
 }
 
@@ -149,7 +150,35 @@ void ServerSelector::draw(GameUI *gui) {
         this->focusLayers++;
         this->showAddServer = true;
     } if(ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Enter the address of a new server to connect to");
+        ImGui::SetTooltip("Add a new server to the list of servers");
+    }
+
+    // actions for the selected item
+    if(this->selectedServer >= 0) {
+        // spacing
+        ImGui::SameLine();
+        ImGui::Dummy(ImVec2(10, 0));
+
+        // connect
+        ImGui::SameLine();
+        if(ImGui::Button("Connect")) {
+            // TODO: connect to selected server
+            const auto &server = this->recents.servers[this->selectedServer];
+            Logging::trace("Connect to server {}", server.address);
+        } if(ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Join the selected server");
+        }
+
+        // remove from recents
+        ImGui::SameLine();
+        if(ImGui::Button("Remove Selected")) {
+            this->recents.servers.erase(this->recents.servers.begin() + this->selectedServer);
+
+            this->selectedServer = -1;
+            this->saveRecents();
+        } if(ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Deletes the selected server from the list");
+        }
     }
 
     // various modales
@@ -193,7 +222,7 @@ void ServerSelector::drawAccountBar(GameUI *gui) {
  */
 void ServerSelector::drawServerList(GameUI *gui) {
     const auto tableFlags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | 
-        ImGuiTableFlags_BordersOuter | (!this->recents.empty() ? ImGuiTableFlags_Sortable : 0);
+        ImGuiTableFlags_BordersOuter; // | (!this->recents.empty() ? ImGuiTableFlags_Sortable : 0);
     const ImVec2 tableSize(-FLT_MIN, 484);
 
     if(ImGui::BeginTable("##servers", 2, tableFlags, tableSize)) {
@@ -209,10 +238,10 @@ void ServerSelector::drawServerList(GameUI *gui) {
         } else {
             // configure headers
             ImGui::TableSetupColumn("##main", ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_NoSort);
-            ImGui::TableSetupColumn("Ping", ImGuiTableColumnFlags_WidthFixed, 42);
+            ImGui::TableSetupColumn("Ping", ImGuiTableColumnFlags_WidthFixed, 64);
 
-            ImGui::TableHeadersRow();
             ImGui::TableSetupScrollFreeze(0, 1);
+            ImGui::TableHeadersRow();
 
             // for each server, list it
             size_t i = 0;
@@ -220,7 +249,7 @@ void ServerSelector::drawServerList(GameUI *gui) {
                 // begin a new row
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
-                ImGui::PushID(i++);
+                ImGui::PushID(i);
 
                 std::time_t opened = std::chrono::system_clock::to_time_t(entry.lastConnected);
                 const auto openedTm = localtime(&opened);
@@ -231,7 +260,8 @@ void ServerSelector::drawServerList(GameUI *gui) {
 
                 const auto str = f("{}\nLast Connected: {}", entry.address, timeBuf);
 
-                if(ImGui::Selectable(str.c_str(), (this->selectedServer == i), ImGuiSelectableFlags_AllowDoubleClick)) {
+                if(ImGui::Selectable(str.c_str(), (this->selectedServer == i), 
+                            ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_SpanAllColumns)) {
                     if(i != this->selectedServer) {
                         this->selectedServer = i;
                     }
@@ -244,9 +274,10 @@ void ServerSelector::drawServerList(GameUI *gui) {
 
                 // ping column
                 ImGui::TableNextColumn();
-                ImGui::TextUnformatted("Ping");
+                ImGui::TextUnformatted("420 ms");
 
                 ImGui::PopID();
+                i++;
             }
         }
 
@@ -438,12 +469,16 @@ void ServerSelector::drawAddServerModal(GameUI *gui) {
     ImGui::SameLine();
     if(strnlen(this->addServerUrl.data(), this->addServerUrl.size()) &&
             ImGui::Button("Add Server")) {
-        // TODO: add server
-        Logging::trace("Adding server: {}", this->addServerUrl.data());
-
         ImGui::CloseCurrentPopup();
         this->focusLayers--;
         this->showAddServer = false;
+
+        // add the server (but don't connect)
+        const size_t len = strnlen(this->addServerUrl.data(), this->addServerUrl.size());
+        Server s(std::string(this->addServerUrl.data(), len));
+        this->recents.servers.push_back(s);
+        this->saveRecents();
+        this->refreshServerStatus();
     }
 
     // end
@@ -457,6 +492,12 @@ void ServerSelector::drawAddServerModal(GameUI *gui) {
 
 
 
+/**
+ * Request the worker to refresh the status/ping of all servers.
+ */
+void ServerSelector::refreshServerStatus() {
+
+}
 
 /**
  * Server selector worker thread; this is mainly used to handle the network IO so we don't block

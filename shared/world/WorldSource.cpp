@@ -10,12 +10,18 @@
 #include "web/AuthManager.h"
 
 #include <Logging.h>
-#include <mutils/time/profiler.h>
 
 #include <utility>
 #include <chrono>
 #include <algorithm>
 #include <random>
+
+#if PROFILE
+#include <mutils/time/profiler.h>
+#else
+#define PROFILE_SCOPE(x) 
+#define LOCK_GUARD(lock, name) std::lock_guard<std::mutex> lg(lock)
+#endif
 
 using namespace world;
 
@@ -126,7 +132,9 @@ std::shared_ptr<Chunk> WorldSource::workerGetChunk(const int x, const int z) {
 void WorldSource::workerMain(size_t i) {
     // perform some setup
     const auto threadName = f("WorldSource {}", i+1);
+#if PROFILE
     MUtils::Profiler::NameThread(threadName.c_str());
+#endif
     util::Thread::setName(threadName);
 
     // main loop; dequeue work items
@@ -136,7 +144,9 @@ void WorldSource::workerMain(size_t i) {
         item();
     }
 
+#if PROFILE
     MUtils::Profiler::FinishThread();
+#endif
 }
 
 /**
@@ -221,7 +231,9 @@ void WorldSource::startOfFrame() {
 void WorldSource::writerMain() {
     using namespace std::chrono;
 
+#if PROFILE
     MUtils::Profiler::NameThread("WorldSource Writer");
+#endif
     util::Thread::setName("WorldSource Writer");
 
     while(this->workerRun) {
@@ -249,7 +261,9 @@ void WorldSource::writerMain() {
         }
     }
 
+#if PROFILE
     MUtils::Profiler::FinishThread();
+#endif
 }
 
 /**

@@ -7,10 +7,16 @@
 #include "world/blockImpl/Stone.h"
 
 #include <Logging.h>
-#include <mutils/time/profiler.h>
 #include <FastNoise/FastNoise.h>
 #include <glm/vec3.hpp>
 #include <uuid.h>
+
+#if PROFILE
+#include <mutils/time/profiler.h>
+#else
+#define PROFILE_SCOPE(x) 
+#define LOCK_GUARD(lock, name) std::lock_guard<std::mutex> lg(lock)
+#endif
 
 using namespace world;
 

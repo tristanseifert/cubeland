@@ -2,6 +2,8 @@
 #include "Block.h"
 #include "BlockDataGenerator.h"
 
+#include "world/block/BlockIds.h"
+
 #include "util/ThreadPool.h"
 
 #include <Logging.h>
@@ -23,7 +25,7 @@ BlockRegistry *BlockRegistry::gShared = nullptr;
 /*
  * Constant block IDs
  */
-const uuids::uuid BlockRegistry::kAirBlockId = uuids::uuid::from_string("714a92e3-2984-4f0e-869e-14162d462760");
+const uuids::uuid BlockRegistry::kAirBlockId = ::world::kAirBlockId;
 
 /**
  * Attempts to initialize the block registry

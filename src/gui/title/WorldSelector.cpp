@@ -75,7 +75,7 @@ void WorldSelector::startOfFrame() {
     if(this->backgroundInfo) {
         if(!this->backgroundInfo->valid) {
             this->title->clearBackgroundImage();
-        } else {
+        } else if(this->visible) {
             this->title->setBackgroundImage(this->backgroundInfo->data, this->backgroundInfo->size, true);
         }
 

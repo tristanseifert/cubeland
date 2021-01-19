@@ -1,5 +1,5 @@
 #include "TimePersistence.h"
-#include "WorldSource.h"
+#include "world/WorldSource.h"
 
 #include "world/tick/TickHandler.h"
 #include <Logging.h>

@@ -6,12 +6,11 @@
 
 #include "chunk/Chunk.h"
 #include "chunk/ChunkSlice.h"
-#include "block/BlockRegistry.h"
+#include "block/BlockIds.h"
 
 #include "util/LZ4.h"
 #include "io/Format.h"
 #include <Logging.h>
-#include <mutils/time/profiler.h>
 #include <sqlite3.h>
 
 #include <cereal/types/variant.hpp>
@@ -20,6 +19,12 @@
 #include <cereal/archives/portable_binary.hpp>
 
 #include <sstream>
+
+#if PROFILE
+#include <mutils/time/profiler.h>
+#else
+#define PROFILE_SCOPE(x) 
+#endif
 
 using namespace world;
 
@@ -295,7 +300,7 @@ void FileWorldReader::serializeSliceBlocks(const std::shared_ptr<Chunk> &chunk, 
             // ignore nil UUIDs (array is already zeroed)
             const auto uuid = map.idMap[i];
             if(uuid.is_nil()) continue;
-            if(BlockRegistry::isAirBlock(uuid)) continue;
+            if(uuid == kAirBlockId) continue;
 
             // look it up otherwise
             if(fileIdMap.contains(uuid)) {

@@ -29,6 +29,10 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/version.cpp.in
     ${CMAKE_CURRENT_BINARY_DIR}/version.cpp)
 set(version_file "${CMAKE_CURRENT_BINARY_DIR}/version.cpp")
 
+include(CMakeRC)
+
+find_package(CURL COMPONENTS HTTPS SSL IPv6)
+
 ###################################################################################################
 ### code shared between the app and server
 add_library(shared STATIC
@@ -38,6 +42,12 @@ add_library(shared STATIC
     shared/util/LZ4.cpp
     shared/util/CPUID.cpp
     shared/util/Thread.cpp
+    shared/world/FileWorldReader.cpp
+    shared/world/FileWorldReader+Writing.cpp
+    shared/world/FileWorldReader+Reading.cpp
+    shared/world/WorldSource.cpp
+    shared/world/chunk/Chunk.cpp
+    shared/world/generators/Terrain.cpp
 )
 
 # platform-specific stuff
@@ -46,6 +56,13 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
         shared/io/PathHelper+Mac.mm
     )
 endif()
+
+# SQL statements (to compile into shared library)
+cmrc_add_resource_library(cubeland-rsrc-sql
+    rsrc/sql/world_v1.sql
+    rsrc/sql/prefs_v1.sql
+ALIAS cubeland::rsrc_sql WHENCE rsrc/sql NAMESPACE sql)
+target_link_libraries(shared PRIVATE cubeland::rsrc_sql)
 
 include_directories(shared)
 
@@ -80,14 +97,24 @@ target_include_directories(shared PRIVATE libs/lz4/lib)
 find_package(SQLite3 REQUIRED)
 target_link_libraries(shared PRIVATE SQLite::SQLite3)
 
+# fastnoise 2 (used primarily for terrain generation)
+target_link_libraries(shared PRIVATE FastNoise)
+target_link_directories(shared PRIVATE libs/fastnoise2/build/src)
+target_include_directories(shared PRIVATE libs/fastnoise2/include)
+
+# Lyra (command line parsing)
+add_subdirectory(libs/Lyra)
+target_link_libraries(shared PRIVATE bfg::Lyra)
+
 # various header-only libraries
 target_include_directories(shared PRIVATE libs/glm)
-
 target_include_directories(shared SYSTEM BEFORE PRIVATE libs/stduuid/include)
 target_include_directories(shared PRIVATE libs/stduuid/gsl)
+target_include_directories(shared PRIVATE libs/concurrentqueue)
+target_include_directories(shared PRIVATE libs/cereal/include)
 
 ###################################################################################################
-#### sources
+#### sources for app
 # build main executable and all modules
 add_executable(cubeland
     src/main.cpp
@@ -152,19 +179,13 @@ add_executable(cubeland
     src/render/steps/FXAA.cpp
     src/render/steps/SSAO.cpp
 # world handling (IO/basic behaviors)
-    src/world/FileWorldReader.cpp
-    src/world/FileWorldReader+Writing.cpp
-    src/world/FileWorldReader+Reading.cpp
-    src/world/WorldSource.cpp
     src/world/TimePersistence.cpp
     src/world/debug/WorldDebugger.cpp
-    src/world/chunk/Chunk.cpp
     src/world/block/Block.cpp
     src/world/block/BlockRegistry.cpp
     src/world/block/BlockDataGenerator.cpp
     src/world/block/RegisterBuiltins.cpp
     src/world/block/TextureLoader.cpp
-    src/world/generators/Terrain.cpp
     src/world/tick/TickHandler.cpp
 # built in block types
     src/world/blockImpl/Dirt.cpp
@@ -203,9 +224,51 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-anon-enum-enum-conversio
 target_link_libraries(cubeland PRIVATE shared shared_platform)
 
 ###################################################################################################
-#### resources
-include(CMakeRC)
+#### source for server
+add_executable(server
+    server/main.cpp
+# network communication
+    server/net/Listener.cpp
+    server/net/ListenerClient.cpp
+# resources
+    ${version_file}
+)
 
+target_link_libraries(server PRIVATE shared shared_platform)
+
+# libraries
+target_link_libraries(server PRIVATE FastNoise)
+target_link_directories(server PRIVATE libs/fastnoise2/build/src)
+target_include_directories(server PRIVATE libs/fastnoise2/include)
+
+target_include_directories(server PRIVATE libs/libconfig/lib)
+
+target_include_directories(server SYSTEM BEFORE PRIVATE libs/stduuid/include)
+target_include_directories(server PRIVATE libs/stduuid/gsl)
+target_include_directories(server PRIVATE libs/glm)
+
+# concurrent queue
+target_include_directories(server PRIVATE libs/concurrentqueue)
+
+# Cereal (serialization)
+target_include_directories(server PRIVATE libs/cereal/include)
+
+target_include_directories(server PRIVATE libs/rapidjson/include)
+target_include_directories(server PRIVATE libs/jwt-cpp/include)
+
+# LibreSSL
+target_link_directories(server PRIVATE libs/libressl/crypto/.libs)
+target_link_directories(server PRIVATE libs/libressl/ssl/.libs)
+target_link_directories(server PRIVATE libs/libressl/tls/.libs)
+target_include_directories(server PRIVATE libs/libressl/include)
+target_link_libraries(server PRIVATE crypto ssl tls)
+
+target_link_libraries(server PRIVATE fmt::fmt)
+target_link_libraries(server PRIVATE spdlog::spdlog)
+target_link_libraries(server PRIVATE bfg::Lyra)
+
+###################################################################################################
+#### resources
 # UI resources
 cmrc_add_resource_library(cubeland-rsrc-ui
 # fonts
@@ -221,13 +284,6 @@ cmrc_add_resource_library(cubeland-rsrc-ui
 # define the namespace and alias we put this lib in
 ALIAS cubeland::rsrc_ui WHENCE rsrc NAMESPACE ui)
 target_link_libraries(cubeland PRIVATE cubeland::rsrc_ui)
-
-# SQL statements
-cmrc_add_resource_library(cubeland-rsrc-sql
-    rsrc/sql/world_v1.sql
-    rsrc/sql/prefs_v1.sql
-ALIAS cubeland::rsrc_sql WHENCE rsrc/sql NAMESPACE sql)
-target_link_libraries(cubeland PRIVATE cubeland::rsrc_sql)
 
 ###################################################################################################
 #### libraries
@@ -263,7 +319,6 @@ include_directories(libs/sdl2/include)
 target_link_libraries(cubeland PRIVATE SQLite::SQLite3)
 
 # Lyra (command line parsing)
-add_subdirectory(libs/Lyra)
 target_link_libraries(cubeland PUBLIC bfg::Lyra)
 
 # config loading and string IO
@@ -393,7 +448,6 @@ target_include_directories(cubeland PRIVATE libs/reactphysics3d/include)
 target_link_libraries(cubeland PRIVATE reactphysics3d)
 
 # libcurl + RapidJSON (header only) for REST API stuff
-find_package(CURL COMPONENTS HTTPS SSL IPv6)
 target_link_libraries(cubeland PRIVATE CURL::libcurl)
 
 target_include_directories(cubeland PRIVATE libs/rapidjson/include)
@@ -421,6 +475,8 @@ target_include_directories(cubeland PRIVATE libs/avir)
 #### platform-specific libraries
 # macOS frameworks
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    target_link_libraries(server PUBLIC "-framework Foundation")
+
     target_link_libraries(cubeland PUBLIC "-framework Cocoa")
     target_link_libraries(cubeland PUBLIC "-framework ApplicationServices")
     target_link_libraries(cubeland PUBLIC "-framework OpenGL")
