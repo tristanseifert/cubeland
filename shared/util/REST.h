@@ -133,11 +133,13 @@ class REST {
             headers = curl_slist_append(headers, ua.c_str());
 
             if(authorize) {
+#ifdef CUBE_CLIENT
                 const auto token = web::AuthManager::apiAuthToken();
                 if(token) {
                     const auto hdr = f("Authorization: Bearer {}", *token);
                     headers = curl_slist_append(headers, hdr.c_str());
                 }
+#endif
             }
 
             // request type

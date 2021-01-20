@@ -5,6 +5,7 @@
 
 #include <array>
 #include <cstddef>
+#include <optional>
 
 #include <uuid.h>
 
@@ -17,6 +18,18 @@ class Auth: public PacketHandler {
         bool canHandlePacket(const PacketHeader &header) override;
         void handlePacket(const PacketHeader &header, const void *payload,
                 const size_t payloadLen) override;
+
+        /// whether the authentication process succeeded
+        const bool isAuthenticated() const {
+            return (this->state == State::Successful);
+        }
+        /// if authenticated, the ID of the client
+        const std::optional<uuids::uuid> getClientId() const {
+            if(this->isAuthenticated()) {
+                return this->clientId;
+            }
+            return std::nullopt;
+        }
 
     private:
         enum class State {
@@ -38,6 +51,8 @@ class Auth: public PacketHandler {
         /// current auth state machine state
         State state = State::Idle;
 
+        /// ID of the client (from first auth request packet)
+        uuids::uuid clientId;
         /// random data generated for client auth challenge
         std::array<std::byte, 32> challengeData;
 };

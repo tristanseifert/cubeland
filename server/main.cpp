@@ -4,6 +4,7 @@
 #include <logging/Logging.h>
 
 #include <world/FileWorldReader.h>
+#include "auth/KeyCache.h"
 #include "net/Listener.h"
 
 #include <version.h>
@@ -126,6 +127,8 @@ int main(int argc, const char **argv) {
     Logging::start();
     Logging::info("Cubeland Server {} starting", gVERSION_TAG);
 
+    auth::KeyCache::init();
+
     // open the world and start up the server
     const auto worldPath = io::ConfigManager::get("world.path", "");
     auto world = new world::FileWorldReader(worldPath, true);
@@ -153,6 +156,8 @@ int main(int argc, const char **argv) {
 
     delete listener;
     delete world;
+
+    auth::KeyCache::shutdown();
 
     Logging::stop();
 }

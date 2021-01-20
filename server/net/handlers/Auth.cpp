@@ -1,6 +1,8 @@
 #include "Auth.h"
 #include "net/ListenerClient.h"
 
+#include "auth/KeyCache.h"
+
 #include <net/PacketTypes.h>
 #include <net/EPAuth.h>
 
@@ -77,6 +79,8 @@ void Auth::handleAuthReq(const PacketHeader &header, const void *payload, const 
     AuthRequest request;
     iArc(request);
 
+    this->clientId = request.clientId;
+
     // generate data for the challenge (using arc4random_buf or LibreSSL)
     std::array<std::byte, AuthChallenge::kChallengeLength> random;
 
@@ -85,8 +89,6 @@ void Auth::handleAuthReq(const PacketHeader &header, const void *payload, const 
 #else
     RAND_bytes(reinterpret_cast<unsigned char *>(random.data()), random.size());
 #endif
-
-    this->challengeData = random;
 
     // build challenge response and serialize
     std::stringstream oStream;
@@ -97,6 +99,7 @@ void Auth::handleAuthReq(const PacketHeader &header, const void *payload, const 
 
     // update state machine
     this->state = State::VerifyChallenge;
+    this->challengeData = random;
 
     // send it
     this->client->writePacket(kEndpointAuthentication, kAuthChallenge, oStream.str(), header.tag);
@@ -118,8 +121,16 @@ void Auth::handleAuthChallengeReply(const PacketHeader &header, const void *payl
     AuthChallengeReply reply;
     iArc(reply);
 
-    // test challenge
-    // TODO: this
+    // verify the challenge
+    auto clientKey = auth::KeyCache::get(this->clientId);
+
+    try {
+        valid = util::Signature::verify(clientKey, this->challengeData.data(),
+                this->challengeData.size(), reply.signature);
+    } catch(std::exception &e) {
+        Logging::error("Failed to verify challenge response: {}", e.what());
+        valid = false;
+    }
 
     // send appropriate response
     AuthStatus status;
@@ -127,9 +138,13 @@ void Auth::handleAuthChallengeReply(const PacketHeader &header, const void *payl
     if(valid) {
         status.state = AuthStatus::kStatusSuccess;
         this->state = State::Successful;
+
+        Logging::trace("Client {} auth state: {}", this->client->getClientAddr(), "success");
     } else {
         status.state = AuthStatus::kStatusInvalidSignature;
         this->state = State::Failed;
+
+        Logging::trace("Client {} auth state: {}", this->client->getClientAddr(), "failure");
     }
 
     // send the response

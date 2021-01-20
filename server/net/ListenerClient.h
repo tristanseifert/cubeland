@@ -38,6 +38,11 @@ class ListenerClient {
         /// builds a packet by prepending a header to the specified body
         uint16_t writePacket(const uint8_t ep, const uint8_t type, const void *data, const size_t dataLen, const uint16_t tag = 0);
 
+        /// get the address of the client
+        struct sockaddr_storage getClientAddr() const {
+            return this->clientAddr;
+        }
+
     private:
         enum class PipeEvent: uint8_t {
             // do nothing

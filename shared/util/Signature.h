@@ -56,6 +56,8 @@ class Signature {
                 throw std::runtime_error(f("Failed to get digest: {}", SSLHelpers::getErrorStr()));
             }
 
+            out.resize(digestLen);
+
             // clean up
             EVP_MD_CTX_destroy(mdctx);
         }
@@ -81,7 +83,7 @@ class Signature {
             // load in the message and verify
             err = EVP_DigestVerifyUpdate(mdctx, data, dataLen);
             if(err != 1) {
-                throw std::runtime_error(f("Failed to update very digest: {}", SSLHelpers::getErrorStr()));
+                throw std::runtime_error(f("Failed to update verify digest: {}", SSLHelpers::getErrorStr()));
             }
 
             err = EVP_DigestVerifyFinal(mdctx,
@@ -90,8 +92,8 @@ class Signature {
             // clean up
             EVP_MD_CTX_destroy(mdctx);
 
-            if(err <= 0) {
-                throw std::runtime_error(f("Failed to verify signature: {}", SSLHelpers::getErrorStr()));
+            if(err <= -1) {
+                throw std::runtime_error(f("Failed to verify signature {}: {}", err, SSLHelpers::getErrorStr()));
             }
 
             return (err == 1);

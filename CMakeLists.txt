@@ -215,6 +215,8 @@ add_executable(cubeland
     ${version_file}
 )
 
+target_compile_definitions(cubeland PRIVATE CUBE_CLIENT)
+
 # optimize to have at least AVX
 SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -mavx")
 
@@ -235,14 +237,23 @@ add_executable(server
     server/net/Listener.cpp
     server/net/ListenerClient.cpp
     server/net/handlers/Auth.cpp
+# auth support
+    server/auth/KeyCache.cpp
 # resources
     ${version_file}
 )
+
+target_link_libraries(server PRIVATE cubeland::rsrc_sql)
 
 target_include_directories(server PRIVATE server)
 
 target_link_libraries(server PRIVATE shared shared_platform)
 
+# SQL statements (to compile into server library)
+cmrc_add_resource_library(server-sql
+    rsrc/sql/keycache_v1.sql
+ALIAS cubeland::server_sql WHENCE rsrc/sql NAMESPACE server_sql)
+target_link_libraries(shared PRIVATE cubeland::server_sql)
 # libraries
 target_link_libraries(server PRIVATE FastNoise)
 target_link_directories(server PRIVATE libs/fastnoise2/build/src)
@@ -273,6 +284,7 @@ target_link_libraries(server PRIVATE crypto ssl tls)
 target_link_libraries(server PRIVATE fmt::fmt)
 target_link_libraries(server PRIVATE spdlog::spdlog)
 target_link_libraries(server PRIVATE bfg::Lyra)
+target_link_libraries(server PRIVATE CURL::libcurl)
 
 ###################################################################################################
 #### resources
