@@ -1,20 +1,26 @@
 #include "ListenerClient.h"
 #include "Listener.h"
 
+#include "handlers/Auth.h"
+
 #include <Logging.h>
 #include <io/Format.h>
+#include <util/Math.h>
 #include <util/Thread.h>
 #include <net/PacketTypes.h>
 
 #include <unistd.h>
 #include <poll.h>
 
+#include <cstring>
 #include <stdexcept>
 
 #include <tls.h>
 
 using namespace net;
 
+// uncomment to log all received packet contents
+// #define LOG_PACKETS
 
 
 /**
@@ -26,6 +32,11 @@ ListenerClient::ListenerClient(Listener *_list, struct tls *_tls, const int _fd,
 
     int err;
 
+    // disable sigpipe on the socket
+    const int optval = 1;
+    err = setsockopt(_fd, SOL_SOCKET, SO_NOSIGPIPE, &optval, sizeof(int));
+    XASSERT(!err, "Failed to set SO_NOSIGPIPE: {}", strerror(errno));
+
     // set up notification pipe. the read end is non-blocking
     err = pipe(this->notePipe);
     XASSERT(!err, "Failed to create notification pipe: {}", strerror(errno));
@@ -35,6 +46,9 @@ ListenerClient::ListenerClient(Listener *_list, struct tls *_tls, const int _fd,
     XASSERT(err != -1, "Failed to get read pipe flags: {}", strerror(errno));
     err = fcntl(this->notePipe[0], F_SETFL, err | O_NONBLOCK);
     XASSERT(err != -1, "Failed to set read pipe flags: {}", strerror(errno));
+
+    // initialize packet handlers
+    this->handlers.emplace_back(new handler::Auth(this));
 
     // set up the worker
     this->workerRun = true;
@@ -53,7 +67,10 @@ ListenerClient::~ListenerClient() {
     PipeData d(PipeEvent::NoOp);
     err = ::write(this->notePipe[1], &d, sizeof(d));
     if(err == -1) {
-        Logging::error("Failed to write shut down request to pipe: {}", strerror(errno));
+        // ignore if the pipe's already been closed
+        if(errno != EPIPE) {
+            Logging::error("Failed to write shut down request to pipe: {}", strerror(errno));
+        }
     }
 
     this->worker->join();
@@ -64,8 +81,65 @@ ListenerClient::~ListenerClient() {
         Logging::error("Failed to close client fd: {}", strerror(errno));
     }
 
-    ::close(this->notePipe[0]);
     ::close(this->notePipe[1]);
+}
+
+
+
+/**
+ * Sends a event through the yenpipe.
+ */
+void ListenerClient::sendPipeData(const PipeData &d) {
+    int err = ::write(this->notePipe[1], &d, sizeof(d));
+    if(err == -1) {
+        Logging::error("Failed to write request to pipe: {}", strerror(errno));
+    }
+}
+
+
+/**
+ * Builds a valid packet header for the packet, then sends it. The payload is copied.
+ *
+ * @return Tag of the packet. You may specify the tag manually, or generate one automagically
+ */
+uint16_t ListenerClient::writePacket(const uint8_t ep, const uint8_t type, const void *data,
+        const size_t dataLen, const uint16_t _tag) {
+    // get the real tag to apply to the packet
+    auto tag = _tag;
+    if(!tag) {
+again:;
+        tag = this->nextTag++;
+        if(!tag) goto again;
+    }
+
+    // allocate memory
+    size_t reqPacketSize = sizeof(PacketHeader) + dataLen;
+    if(reqPacketSize & 0x3) {
+        reqPacketSize += 4 - (reqPacketSize & 0x3);
+    }
+
+    auto buf = new std::byte[reqPacketSize];
+    memset(buf, 0, reqPacketSize);
+
+    // construct header
+    auto hdr = reinterpret_cast<PacketHeader *>(buf);
+    hdr->endpoint = ep;
+    hdr->type = type;
+    hdr->length = IntCeil(dataLen, 4);
+
+    memcpy(hdr->payload, data, dataLen);
+
+    // send it
+    hdr->tag = htons(tag);
+    hdr->length = htons(hdr->length);
+
+    PipeData pd(PipeEvent::SendPacket);
+    pd.payload = buf;
+    pd.payloadLen = reqPacketSize;
+    this->sendPipeData(pd);
+
+    // clean up
+    return tag;
 }
 
 
@@ -78,6 +152,7 @@ void ListenerClient::workerMain() {
     int err;
     struct pollfd pfd[2];
     PacketHeader hdr;
+    bool yenpipePending = false;
 
     util::Thread::setName(f("Client Worker {}", this->clientAddr));
 
@@ -111,20 +186,28 @@ shakeAgain:;
             }
 
             // messages in note pipe?
-            if(pfd[0].revents & POLLIN) {
+            if(pfd[0].revents & POLLIN || yenpipePending) {
                 PipeData d;
 
                 do {
                     err = read(this->notePipe[0], &d, sizeof(d));
                     if(err == -1) {
+                        // try this again later
+                        if(errno == EAGAIN) {
+                            yenpipePending = true;
+                            continue;
+                        }
+
                         throw std::runtime_error(f("couldn't read yenpipe: {}", strerror(errno)));
                     } else if(!err) {
                         // nothing left in the pipe
+                        yenpipePending = false;
                         continue;
                     }
 
                     // process the event
                     this->handlePipeEvent(d);
+                    yenpipePending = false;
                 } while(err > 0);
             }
 
@@ -170,8 +253,9 @@ closeAgain:;
         Logging::error("Failed to close client {}: {}", this->clientAddr, tls_error(this->tls));
     }
 
-    // release resources
+    // release resources and close the read end of the yenpipe
     tls_free(this->tls);
+    ::close(this->notePipe[0]);
 
     // remove it from client
     this->owner->removeClient(this);
@@ -242,8 +326,19 @@ void ListenerClient::handleMessage(const PacketHeader &header) {
         }
     }
 
+#if LOG_PACKETS
     Logging::trace("Received packet {:02x}:{:02x} length {}: payload {}", header.endpoint,
             header.type, header.length, hexdump(buffer.begin(), buffer.end()));
+#endif
 
     // invoke the appropriate handler
+    for(auto &handler : this->handlers) {
+        if(handler->canHandlePacket(header)) {
+            handler->handlePacket(header, buffer.data(), buffer.size());
+            return;
+        }
+    }
+
+    Logging::warn("Unhandled packet ({}) {:02x}:{:02x} length {}: payload {}", this->clientAddr,
+            header.endpoint, header.type, header.length, hexdump(buffer.begin(), buffer.end()));
 }

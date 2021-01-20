@@ -2,9 +2,8 @@
 
 #include "world/chunk/Chunk.h"
 #include "world/chunk/ChunkSlice.h"
-#include "world/block/BlockRegistry.h"
-#include "world/blockImpl/Dirt.h"
-#include "world/blockImpl/Stone.h"
+
+#include <world/block/BlockIds.h>
 
 #include <Logging.h>
 #include <FastNoise/FastNoise.h>
@@ -101,11 +100,11 @@ void Terrain::prepareChunkMeta(std::shared_ptr<Chunk> chunk) {
     static const size_t kNumBlockIds = 3;
     static const uuids::uuid kBlockIds[kNumBlockIds] = {
         // 0: air
-        world::BlockRegistry::kAirBlockId,
+        world::kAirBlockId,
         // 1: stone
-        world::blocks::Stone::kBlockId,
+        world::blocks::kStoneBlockId,
         // 2: dirt
-        world::blocks::Dirt::kBlockId,
+        world::blocks::kDirtBlockId,
     };
 
     // build the slice ID -> UUID map

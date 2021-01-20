@@ -1,16 +1,24 @@
 #ifndef NET_SERVERCONNECTION_H
 #define NET_SERVERCONNECTION_H
 
+#include "PacketHandler.h"
+
 #include <atomic>
+#include <future>
 #include <memory>
 #include <string>
 #include <thread>
+#include <vector>
 
 struct tls;
 struct tls_config;
 
 namespace net {
 struct PacketHeader;
+
+namespace handler {
+class Auth;
+}
 
 class ServerConnection {
     public:
@@ -21,7 +29,19 @@ class ServerConnection {
         ServerConnection(const std::string &host);
         ~ServerConnection();
 
-        void authenticate();
+        bool authenticate();
+
+        uint16_t writePacket(const uint8_t ep, const uint8_t type, const std::string &payload,
+                const uint16_t tag = 0) {
+            return this->writePacket(ep, type, payload.data(), payload.size(), tag);
+        }
+        uint16_t writePacket(const uint8_t ep, const uint8_t type,
+                const std::vector<std::byte> &payload, const uint16_t tag = 0) {
+            return this->writePacket(ep, type, payload.data(), payload.size(), tag);
+        }
+
+        /// builds a packet by prepending a header to the specified body
+        uint16_t writePacket(const uint8_t ep, const uint8_t type, const void *data, const size_t dataLen, const uint16_t tag = 0);
 
     private:
         enum class PipeEvent: uint8_t {
@@ -58,8 +78,6 @@ class ServerConnection {
 
         void sendPipeData(const PipeData &);
 
-        uint16_t preparePacket(PacketHeader *);
-
     private:
         /// connection string
         const std::string host;
@@ -72,8 +90,14 @@ class ServerConnection {
         std::atomic_bool workerRun;
         std::unique_ptr<std::thread> worker;
 
+        /// all packet message handlers
+        std::vector<std::unique_ptr<PacketHandler>> handlers;
+
         /// tag value for the next packet
         uint16_t nextTag = 1;
+
+        /// auth handler
+        handler::Auth *auth = nullptr;
 };
 }
 

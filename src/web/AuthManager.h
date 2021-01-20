@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#include <util/Signature.h>
+
 #include <uuid.h>
 
 struct evp_pkey_st; 
@@ -62,6 +64,11 @@ class AuthManager {
         /// Returns the authorization token if available
         static std::optional<std::string> apiAuthToken() {
             return std::nullopt;
+        }
+
+        /// Signs data using the auth private key
+        static void sign(const void *data, const size_t dataLen, std::vector<std::byte> &out) {
+            util::Signature::sign(gShared->key, data, dataLen, out);
         }
 
     private:

@@ -4,10 +4,8 @@
 
 #include "chunk/Chunk.h"
 #include "chunk/ChunkSlice.h"
-#include "io/Format.h"
-#include "io/PrefsManager.h"
-#include "util/Thread.h"
-#include "web/AuthManager.h"
+#include <io/Format.h>
+#include <util/Thread.h>
 
 #include <Logging.h>
 
@@ -36,18 +34,15 @@ using namespace world;
  * user's preferences.
  */
 WorldSource::WorldSource(std::shared_ptr<WorldReader> _r, std::shared_ptr<WorldGenerator> _g,
-        const size_t _numThreads) : generator(_g), reader(_r) {
+        const uuids::uuid &_id, const size_t _numThreads) : generator(_g), playerId(_id), reader(_r) {
+    XASSERT(_numThreads, "Invalid thread count for world source");
+    
     // set up some additional initial state
     this->generateOnly = false;
     this->acceptRequests = true;
 
     // set up other worker threads
-    size_t numThreads = _numThreads;
-    if(!numThreads) {
-        numThreads = io::PrefsManager::getUnsigned("world.sourceWorkThreads", 2);
-    }
-
-    this->numWorkers = numThreads;
+    this->numWorkers = _numThreads;
     this->workerRun = true;
 
     for(size_t i = 0; i < this->numWorkers; i++) {
@@ -154,8 +149,7 @@ void WorldSource::workerMain(size_t i) {
  */
 std::future<void> WorldSource::setPlayerInfo(const std::string &key, const std::vector<char> &value) {
     return this->work([&, key, value] {
-        const auto playerId = web::AuthManager::getPlayerId();
-        auto promise = this->reader->setPlayerInfo(playerId, key, value);
+        auto promise = this->reader->setPlayerInfo(this->playerId, key, value);
         auto future = promise.get_future();
         future.get();
     });
@@ -165,8 +159,7 @@ std::future<void> WorldSource::setPlayerInfo(const std::string &key, const std::
  * Returns the player info value for the given key.
  */
 std::promise<std::vector<char>> WorldSource::getPlayerInfo(const std::string &key) {
-    const auto playerId = web::AuthManager::getPlayerId();
-    return this->reader->getPlayerInfo(playerId, key);
+    return this->reader->getPlayerInfo(this->playerId, key);
 }
 
 

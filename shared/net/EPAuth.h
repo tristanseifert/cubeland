@@ -7,6 +7,7 @@
 #include <uuid.h>
 #include <io/Serialization.h>
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -30,6 +31,8 @@ enum AuthMsgType: uint8_t {
     kAuthChallengeReply                 = 0x03,
     /// server -> client; auth status
     kAuthStatus                         = 0x04,
+
+    kAuthTypeMax,
 };
 
 /**
@@ -62,6 +65,11 @@ struct AuthChallenge {
     template <class Archive> void serialize(Archive &ar) {
         ar(this->challenge);
     }
+
+    AuthChallenge() {
+        std::fill(this->challenge.begin(), this->challenge.end(), std::byte(0));
+    }
+    AuthChallenge(const std::array<std::byte, kChallengeLength> &_bytes) : challenge(_bytes) {}
 };
 
 /**
@@ -74,6 +82,9 @@ struct AuthChallengeReply {
     template <class Archive> void serialize(Archive &ar) {
         ar(this->signature);
     }
+
+    AuthChallengeReply() = default;
+    AuthChallengeReply(const std::vector<std::byte> &_sig) : signature(_sig) {}
 };
 
 /**
@@ -82,17 +93,17 @@ struct AuthChallengeReply {
 struct AuthStatus {
     /// authentication state (success or an error)
     enum {
-        kStatusSuccess,
+        kStatusSuccess                  = 1,
 
         /// the player ID is not known
-        kStatusUnknownId,
+        kStatusUnknownId                = 0x80,
         /// the signature is invalid
         kStatusInvalidSignature,
         /// a temporary server error prevented signature verification
         kStatusTemporaryError,
         /// unknown error
         kStatusUnknownError,
-    } state;
+    } state = kStatusUnknownError;
 
     template <class Archive> void serialize(Archive &ar) {
         ar(this->state);

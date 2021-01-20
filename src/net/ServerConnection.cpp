@@ -1,4 +1,5 @@
 #include "ServerConnection.h"
+#include "handlers/Auth.h"
 
 #include "web/AuthManager.h"
 
@@ -15,7 +16,6 @@
 #include <unistd.h>
 #include <poll.h>
 
-#include <cereal/archives/portable_binary.hpp>
 #include <tls.h>
 
 #include <cstring>
@@ -23,6 +23,9 @@
 #include <sstream>
 
 using namespace net;
+
+// uncomment to log all received packets
+// #define LOG_PACKETS
 
 /**
  * Regex for getting the port number out of a host:port string
@@ -90,6 +93,10 @@ ServerConnection::ServerConnection(const std::string &_host) : host(_host) {
     err = fcntl(this->notePipe[0], F_SETFL, err | O_NONBLOCK);
     XASSERT(err != -1, "Failed to set read pipe flags: {}", strerror(errno));
 
+    // create handlers
+    this->auth = new handler::Auth(this);
+    this->handlers.emplace_back(this->auth);
+
     // start our worker thread
     this->workerRun = true;
     this->worker = std::make_unique<std::thread>(&ServerConnection::workerMain, this);
@@ -122,8 +129,6 @@ void ServerConnection::connect(const std::string &host, std::string &servname) {
         resolve = m[1].str();
         portStr = m[2].str();
     }
-
-    Logging::trace("Host {}, port {}", resolve, portStr);
 
     // get the server's connection address
     memset(&hints, 0, sizeof(hints));
@@ -356,9 +361,6 @@ closeAgain:;
  * Handle a worker yenpipe message.
  */
 void ServerConnection::workerHandleEvent(const PipeData &evt) {
-    Logging::debug("Yenpipe event {}, payload {}, size {}", evt.type, (void *) evt.payload,
-            evt.payloadLen);
-
     switch(evt.type) {
         case PipeEvent::SendPacket: {
             XASSERT(evt.payload && evt.payloadLen, "Invalid payload {} len {}",
@@ -401,68 +403,129 @@ void ServerConnection::sendPipeData(const PipeData &d) {
     }
 }
 
+
+
 /**
  * Handles a message received from the server
  */
-void ServerConnection::workerHandleMessage(const PacketHeader &hdr) {
-    // read the remainder of the packet
+void ServerConnection::workerHandleMessage(const PacketHeader &header) {
+   int err;
 
-    // handle it
+    // read the remainder of the packet
+    std::vector<std::byte> buffer;
+
+    if(header.length) {
+        buffer.resize(header.length * 4);
+
+        auto writePtr = buffer.data();
+        size_t toRead = buffer.size();
+
+        while(toRead > 0) {
+            err = tls_read(this->client, writePtr, toRead);
+            if(err == TLS_WANT_POLLIN || err == TLS_WANT_POLLOUT) {
+                continue;
+            }
+            else if(err == -1) {
+                throw std::runtime_error(f("tls_read() failed: {}", tls_error(this->client)));
+            } else if(err == 0) {
+                throw std::runtime_error("Connection closed");
+            }
+
+            writePtr += err;
+            toRead -= err;
+        }
+    }
+
+#if LOG_PACKETS
+    Logging::trace("Received packet {:02x}:{:02x} length {}: payload {}", header.endpoint,
+            header.type, header.length, hexdump(buffer.begin(), buffer.end()));
+#endif
+
+    // invoke the appropriate handler
+    for(auto &handler : this->handlers) {
+        if(handler->canHandlePacket(header)) {
+            handler->handlePacket(header, buffer.data(), buffer.size());
+            return;
+        }
+    }
+
+    Logging::warn("Unhandled packet ({}) {:02x}:{:02x} length {}: payload {}", this->host,
+            header.endpoint, header.type, header.length, hexdump(buffer.begin(), buffer.end()));
 }
 
 /**
  * Authenticates the client using the key pair and ID stored in the preferences.
  *
  * @note This call will block until complete.
+ *
+ * @throws An error is thrown if authentication fails for any reason. The bool return value is
+ * therefore pretty much symbolic; we'll ALWAYS return true, OR throw an exception.
  */
-void ServerConnection::authenticate() {
-    using namespace net::message;
+bool ServerConnection::authenticate() {
+    this->auth->beginAuth();
+    bool success = this->auth->waitForAuth();
 
-    std::stringstream stream;
+    if(!success) {
+        switch(this->auth->getFailureReason()) {
+            case handler::Auth::AuthFailureReason::UnknownId:
+                throw std::runtime_error("Unknown player id");
+            case handler::Auth::AuthFailureReason::InvalidSignature:
+                throw std::runtime_error("Invalid or incorrect authentication challenge response");
+            case handler::Auth::AuthFailureReason::TemporaryError:
+                throw std::runtime_error("Temporary authentication error. Try again later");
 
-    // build the auth request packet
-    net::message::AuthRequest req(web::AuthManager::getPlayerId());
-    cereal::PortableBinaryOutputArchive arc(stream);
-    arc(req);
+            default:
+                throw std::runtime_error("Unknown authentication error");
+        }
+    }
 
-    // round up size to nearest multiple of 4
-    size_t reqPacketSize = sizeof(PacketHeader) + stream.str().size();
-    Logging::trace("Len before: {}", reqPacketSize);
+    return success;
+}
+
+
+
+/**
+ * Builds a valid packet header for the packet, then sends it. The payload is copied.
+ *
+ * @return Tag of the packet. You may specify the tag manually, or generate one automagically
+ */
+uint16_t ServerConnection::writePacket(const uint8_t ep, const uint8_t type, const void *data,
+        const size_t dataLen, const uint16_t _tag) {
+    // get the real tag to apply to the packet
+    auto tag = _tag;
+    if(!tag) {
+again:;
+        tag = this->nextTag++;
+        if(!tag) goto again;
+    }
+
+    // allocate memory
+    size_t reqPacketSize = sizeof(PacketHeader) + dataLen;
     if(reqPacketSize & 0x3) {
         reqPacketSize += 4 - (reqPacketSize & 0x3);
     }
-    Logging::trace("After: {}", reqPacketSize);
 
     auto buf = new std::byte[reqPacketSize];
     memset(buf, 0, reqPacketSize);
 
+    // construct header
     auto hdr = reinterpret_cast<PacketHeader *>(buf);
-    hdr->endpoint = kEndpointAuthentication;
-    hdr->type = kAuthRequest;
-    hdr->length = IntCeil(stream.str().size(), 4);
+    hdr->endpoint = ep;
+    hdr->type = type;
+    hdr->length = IntCeil(dataLen, 4);
 
-    Logging::trace("Payload {} {}", stream.str().size(), hdr->length);
+    memcpy(hdr->payload, data, dataLen);
 
-    memcpy(hdr->payload, stream.str().data(), stream.str().size());
+    // send it
+    hdr->tag = htons(tag);
+    hdr->length = htons(hdr->length);
 
-    const auto tag = this->preparePacket(hdr);
-
-    // request it to send and set up the auth state machine
     PipeData pd(PipeEvent::SendPacket);
     pd.payload = buf;
     pd.payloadLen = reqPacketSize;
     this->sendPipeData(pd);
-}
 
-/**
- * Prepares packet for transmission. Multibyte fields are filled and a tag is added.
- */
-uint16_t ServerConnection::preparePacket(PacketHeader *hdr) {
-    // get tag
-    const auto tag = this->nextTag++;
-
-    hdr->tag = htons(tag);
-    hdr->length = htons(hdr->length);
-
+    // clean up
     return tag;
 }
+

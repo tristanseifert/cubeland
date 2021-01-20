@@ -132,6 +132,9 @@ int main(int argc, const char **argv) {
 
     auto listener = new net::Listener(world);
 
+    // we really, really do not care about SIGPIPE signals
+    signal(SIGPIPE, SIG_IGN);
+
     // server run loop; catch Ctrl+C so we can exit
     struct sigaction sigIntHandler;
 

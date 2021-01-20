@@ -277,8 +277,6 @@ int MainWindow::run() {
     int reason = 0;
     SDL_Event event;
 
-    Logging::trace("Entering main loop");
-
     // main run loop
     while(this->running || this->quitFrames--) {
         // start the FPS counting

@@ -33,7 +33,8 @@ class WorldGenerator;
 class WorldSource {
     public:
         WorldSource(std::shared_ptr<WorldReader> reader,
-                std::shared_ptr<WorldGenerator> generator, const size_t numThreads = 0);
+                std::shared_ptr<WorldGenerator> generator, const uuids::uuid &playerId,
+                    const size_t numThreads = 0);
         virtual ~WorldSource();
 
         /// Gets a chunk from either the file or the world generator.
@@ -173,6 +174,9 @@ class WorldSource {
 
         /// when set, we don't mess with the dirty chunks list
         std::atomic_bool inhibitDirtyChunkHandling = false;
+
+        /// Player ID (provided in constructor)
+        uuids::uuid playerId;
 };
 }
 

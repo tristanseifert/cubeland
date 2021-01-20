@@ -1,5 +1,4 @@
 #include "Chunk.h"
-#include "world/block/BlockRegistry.h"
 
 #include <glm/gtx/hash.hpp>
 
@@ -12,7 +11,8 @@
 
 #include <stdexcept>
 
-#include "io/Format.h"
+#include <world/block/BlockIds.h>
+#include <io/Format.h>
 #include <Logging.h>
 
 using namespace world;
@@ -131,7 +131,7 @@ void Chunk::setBlock(const glm::ivec3 &pos, const uuids::uuid &blockId, const bo
 beach:;
     // get block type for air
     for(size_t i = 0; i < map.idMap.size(); i++) {
-        if(BlockRegistry::isAirBlock(map.idMap[i])) {
+        if(map.idMap[i] == world::kAirBlockId) {
             mapAirValue = i;
             airValueFound = true;
             goto dispensary;
@@ -188,7 +188,7 @@ dispensary:;
     ChangeHints hints = ChangeHints::kNone;
     auto callbackBlockId = blockId;
 
-    if(BlockRegistry::isAirBlock(blockId)) {
+    if(blockId == world::kAirBlockId) {
         const auto &oldId = map.idMap[oldMapValue];
         callbackBlockId = oldId;
 

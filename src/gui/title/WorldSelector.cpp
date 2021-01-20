@@ -12,6 +12,7 @@
 #include "world/FileWorldReader.h"
 #include "world/generators/Terrain.h"
 #include "world/WorldSource.h"
+#include "web/AuthManager.h"
 
 #include <Logging.h>
 
@@ -471,6 +472,9 @@ beach:;
  * Creates a new world and opens it.
  */
 void WorldSelector::createWorld(const std::string &_path, const bool open) {
+    const auto numWorkers = io::PrefsManager::getUnsigned("world.sourceWorkThreads", 2);
+    const auto playerId = web::AuthManager::getPlayerId();
+
     // ensure the extension is correct
     std::filesystem::path path(_path);
 
@@ -482,7 +486,7 @@ void WorldSelector::createWorld(const std::string &_path, const bool open) {
     // create world
     auto file = std::make_shared<world::FileWorldReader>(path.string(), true);
     auto gen = std::make_shared<world::Terrain>(this->newSeed);
-    auto source = std::make_shared<world::WorldSource>(file, gen);
+    auto source = std::make_shared<world::WorldSource>(file, gen, playerId, numWorkers);
 
     // save seed/generator settings in world file
     auto p = file->setWorldInfo("generator.seed", f("{:d}", this->newSeed));
@@ -504,6 +508,9 @@ void WorldSelector::createWorld(const std::string &_path, const bool open) {
  */
 void WorldSelector::openWorld(const std::string &path) {
     Logging::debug("Opening world file: {}", path);
+
+    const auto numWorkers = io::PrefsManager::getUnsigned("world.sourceWorkThreads", 2);
+    const auto playerId = web::AuthManager::getPlayerId();
 
     // ensure it exists
     std::filesystem::path p(path);
@@ -537,7 +544,7 @@ void WorldSelector::openWorld(const std::string &path) {
         auto gen = std::make_shared<world::Terrain>(seed);
 
         // lastly, combine the file and generator to a world source
-        source = std::make_shared<world::WorldSource>(file, gen);
+        source = std::make_shared<world::WorldSource>(file, gen, playerId, numWorkers);
     } catch(std::exception &e) {
         Logging::error("Failed to open world {}: {}", path, e.what());
         this->setError(path, f("An error occurred while reading the world file: {}", e.what()));

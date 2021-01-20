@@ -9,8 +9,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_C_STANDARD 11)
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 
-include_directories(src)
-include_directories(src/include)
+include_directories(shared/include)
 
 # compile in the git version file
 include(GetGitRevisionDescription)
@@ -211,6 +210,7 @@ add_executable(cubeland
 # client authentication and web service integration
     src/web/AuthManager.cpp
     src/net/ServerConnection.cpp
+    src/net/handlers/Auth.cpp
 # resources and other misc stuff
     ${version_file}
 )
@@ -225,6 +225,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-anon-enum-enum-conversio
 # shared code
 target_link_libraries(cubeland PRIVATE shared shared_platform)
 
+target_include_directories(cubeland PUBLIC src)
+
 ###################################################################################################
 #### source for server
 add_executable(server
@@ -232,9 +234,12 @@ add_executable(server
 # network communication
     server/net/Listener.cpp
     server/net/ListenerClient.cpp
+    server/net/handlers/Auth.cpp
 # resources
     ${version_file}
 )
+
+target_include_directories(server PRIVATE server)
 
 target_link_libraries(server PRIVATE shared shared_platform)
 
@@ -365,6 +370,7 @@ add_library(dearimgui_ext OBJECT
     src/3rdparty/metricsgui/ProggyTiny.cpp
 )
 
+target_include_directories(dearimgui_ext PRIVATE src)
 add_compile_definitions(CUSTOM_IMGUIFILEDIALOG_CONFIG="gui/imgui/ImGuiFileDialogConfig.h")
 
 target_include_directories(dearimgui_ext PRIVATE src/gui/imgui)

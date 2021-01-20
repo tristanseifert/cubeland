@@ -1,10 +1,10 @@
 #include "AuthManager.h"
 
 #include "io/PrefsManager.h"
-#include "util/SSLHelpers.h"
-#include "util/REST.h"
-
-#include "io/Format.h"
+#include <util/SSLHelpers.h>
+#include <util/Signature.h>
+#include <util/REST.h>
+#include <io/Format.h>
 #include <Logging.h>
 
 #include <cereal/archives/portable_binary.hpp>
@@ -304,36 +304,7 @@ void AuthManager::decrypt(const std::vector<uint8_t> &in, std::vector<uint8_t> &
  * Signs the given data using the private key we loaded earlier or generated.
  */
 void AuthManager::signData(const void *data, const size_t dataLen, std::vector<std::byte> &out) {
-    int err;
-    size_t digestLen = 0;
-    EVP_MD_CTX *mdctx = NULL;
-
-    XASSERT(data && dataLen, "Invalid data");
-
-    // set up context with SHA-256
-    mdctx = EVP_MD_CTX_create();
-    XASSERT(mdctx, "Failed to create signature context");
-
-    err = EVP_DigestSignInit(mdctx, nullptr, EVP_sha256(), nullptr, this->key);
-    XASSERT(err == 1, "Failed to init digest ctx: {}", util::SSLHelpers::getErrorStr());
-
-    // squelch in the message and then finalize
-    err = EVP_DigestSignUpdate(mdctx, data, dataLen);
-    XASSERT(err == 1, "Failed to update digest: {}", util::SSLHelpers::getErrorStr());
-
-    // copy out
-    err = EVP_DigestSignFinal(mdctx, nullptr, &digestLen);
-    XASSERT(err == 1, "Failed to finalize digest: {}", util::SSLHelpers::getErrorStr());
-
-    XASSERT(digestLen, "Invalid digest length");
-
-    out.resize(digestLen);
-
-    err = EVP_DigestSignFinal(mdctx, reinterpret_cast<unsigned char *>(out.data()), &digestLen);
-    XASSERT(err == 1, "Failed to copy digest: {}", util::SSLHelpers::getErrorStr());
-
-    // clean up
-    EVP_MD_CTX_destroy(mdctx);
+    util::Signature::sign(this->key, data, dataLen, out);
 }
 
 

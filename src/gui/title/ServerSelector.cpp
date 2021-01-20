@@ -657,7 +657,8 @@ void ServerSelector::workerMain() {
 
                 // authenticate
                 this->connStage = ConnectionStage::Authenticating;
-                server->authenticate();
+                auto success = server->authenticate();
+                XASSERT(success, "Failed to authenticate (should not get here...)");
 
                 // load the basic chunks around us
                 this->connStage = ConnectionStage::LoadingChunks;
