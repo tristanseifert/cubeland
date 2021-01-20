@@ -3,6 +3,8 @@
 
 #include <cstdint>
 
+#include "EPAuth.h"
+
 // pack structs
 #pragma pack(push, 1)
 
@@ -42,6 +44,9 @@ struct PacketHeader {
     uint16_t tag;
     /// length of packet (in units of 4 bytes) in network byte order
     uint16_t length;
+
+    // reserved; send as 0
+    uint16_t reserved;
 
     /// payload data
     char payload[];

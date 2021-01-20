@@ -654,6 +654,18 @@ void ServerSelector::workerMain() {
 
             try {
                 auto server = std::make_shared<net::ServerConnection>(req.host);
+
+                // authenticate
+                this->connStage = ConnectionStage::Authenticating;
+                server->authenticate();
+
+                // load the basic chunks around us
+                this->connStage = ConnectionStage::LoadingChunks;
+                this->connProgress = 0;
+
+                // done! open title screen
+                this->connStage = ConnectionStage::Connected;
+
             } catch(std::exception &e) {
                 Logging::error("Failed to connect to server {}: {}", req.host, e.what());
 

@@ -21,6 +21,8 @@ class ServerConnection {
         ServerConnection(const std::string &host);
         ~ServerConnection();
 
+        void authenticate();
+
     private:
         enum class PipeEvent: uint8_t {
             // do nothing
@@ -54,7 +56,14 @@ class ServerConnection {
         void workerHandleEvent(const PipeData &);
         void workerHandleMessage(const PacketHeader &);
 
+        void sendPipeData(const PipeData &);
+
+        uint16_t preparePacket(PacketHeader *);
+
     private:
+        /// connection string
+        const std::string host;
+
         /// socket file descriptor
         int socket = -1;
         /// client connection
@@ -62,6 +71,9 @@ class ServerConnection {
 
         std::atomic_bool workerRun;
         std::unique_ptr<std::thread> worker;
+
+        /// tag value for the next packet
+        uint16_t nextTag = 1;
 };
 }
 

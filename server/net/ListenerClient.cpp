@@ -215,8 +215,35 @@ void ListenerClient::handlePipeEvent(const PipeData &data) {
  * Handle a received message.
  */
 void ListenerClient::handleMessage(const PacketHeader &header) {
+    int err;
+
     // read the remainder of the packet
+    std::vector<std::byte> buffer;
+
+    if(header.length) {
+        buffer.resize(header.length * 4);
+
+        auto writePtr = buffer.data();
+        size_t toRead = buffer.size();
+
+        while(toRead > 0) {
+            err = tls_read(this->tls, writePtr, toRead);
+            if(err == TLS_WANT_POLLIN || err == TLS_WANT_POLLOUT) {
+                continue;
+            }
+            else if(err == -1) {
+                throw std::runtime_error(f("tls_read() failed: {}", tls_error(this->tls)));
+            } else if(err == 0) {
+                throw std::runtime_error("Connection closed");
+            }
+
+            writePtr += err;
+            toRead -= err;
+        }
+    }
+
+    Logging::trace("Received packet {:02x}:{:02x} length {}: payload {}", header.endpoint,
+            header.type, header.length, hexdump(buffer.begin(), buffer.end()));
 
     // invoke the appropriate handler
-    Logging::trace("Received packet {:02x}:{:02x} length {}", header.endpoint, header.type, header.length);
 }

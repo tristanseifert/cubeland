@@ -1,9 +1,12 @@
 #include "ServerConnection.h"
 
+#include "web/AuthManager.h"
+
 #include <Logging.h>
 #include <io/Format.h>
 #include <io/PathHelper.h>
 #include <util/Thread.h>
+#include <util/Math.h>
 #include <net/PacketTypes.h>
 
 #include <sys/types.h>
@@ -12,9 +15,12 @@
 #include <unistd.h>
 #include <poll.h>
 
+#include <cereal/archives/portable_binary.hpp>
 #include <tls.h>
 
+#include <cstring>
 #include <regex>
+#include <sstream>
 
 using namespace net;
 
@@ -31,12 +37,12 @@ const static std::regex kPortRegex("^([^:]+)(?::)(\\d+)");
  * @param host Address or DNS name of the server. The port may be specified as in "host:port" if
  * not using the default.
  */
-ServerConnection::ServerConnection(const std::string &host) {
+ServerConnection::ServerConnection(const std::string &_host) : host(_host) {
     int err;
 
     // resolve hostname and connect a socket
     std::string servname;
-    this->connect(host, servname);
+    this->connect(_host, servname);
 
     // configure a TLS connection and connect it on our socket
     this->client = tls_client();
@@ -46,6 +52,16 @@ ServerConnection::ServerConnection(const std::string &host) {
     XASSERT(config, "Failed to allocate TLS config");
 
     this->buildTlsConfig(config);
+
+#ifndef NDEBUG
+    if(host.rfind("localhost", 0) == 0 || host.rfind("127.0.0.1", 0) == 0 ||
+            host.rfind("::1", 0) == 0) {
+        // if localhost (or by IP) disable SSL cert verification
+        Logging::warn("Disabling TLS cert verification for localhost");
+        tls_config_insecure_noverifycert(config);
+        tls_config_insecure_noverifyname(config);
+    }
+#endif
 
     err = tls_configure(this->client, config);
     XASSERT(err == 0, "tls_configure() failed: {}", tls_error(this->client));
@@ -170,8 +186,12 @@ void ServerConnection::connect(const std::string &host, std::string &servname) {
 void ServerConnection::buildTlsConfig(struct tls_config *cfg) {
     int err;
 
-    // Use TLSv1.3 only
+    // Use TLSv1.3 only for release; debug use 1.2 to allow decrypting
+#ifdef NDEBUG
     err = tls_config_set_protocols(cfg, TLS_PROTOCOL_TLSv1_3);
+#else
+    err = tls_config_set_protocols(cfg, TLS_PROTOCOL_TLSv1_2);
+#endif
     XASSERT(err == 0, "tls_config_set_protocols() failed: {}", tls_config_error(cfg));
 
     // cubeland protocol
@@ -179,7 +199,11 @@ void ServerConnection::buildTlsConfig(struct tls_config *cfg) {
     XASSERT(err == 0, "tls_config_set_alpn() failed: {}", tls_config_error(cfg));
 
     // use secure ciphers only
+#ifdef NDEBUG
     err = tls_config_set_ciphers(cfg, "secure");
+#else
+    err = tls_config_set_ciphers(cfg, "all");
+#endif
     XASSERT(err == 0, "tls_config_set_ciphers() failed: {}", tls_config_error(cfg));
 
     // enable ephemeral Diffie-Hellman keys; this allows forward secrecy
@@ -233,9 +257,10 @@ void ServerConnection::workerMain() {
     int err;
     struct pollfd pfd[2];
     PacketHeader hdr;
+    bool yenpipePending = false;
 
     // set up
-    util::Thread::setName("Server Worker");
+    util::Thread::setName(f("Server Worker {}", this->host));
 
     try {
         // process incoming messages and send outgoing ones
@@ -257,20 +282,28 @@ void ServerConnection::workerMain() {
             }
 
             // messages in note pipe?
-            if(pfd[0].revents & POLLIN) {
+            if(pfd[0].revents & POLLIN || yenpipePending) {
                 PipeData d;
 
                 do {
                     err = read(this->notePipe[0], &d, sizeof(d));
                     if(err == -1) {
+                        // try this again later
+                        if(errno == EAGAIN) {
+                            yenpipePending = true;
+                            continue;
+                        }
+
                         throw std::runtime_error(f("couldn't read yenpipe: {}", strerror(errno)));
                     } else if(!err) {
                         // nothing left in the pipe
+                        yenpipePending = false;
                         continue;
                     }
 
                     // process the event
                     this->workerHandleEvent(d);
+                    yenpipePending = false;
                 } while(err > 0);
             }
 
@@ -303,11 +336,13 @@ readAgain:;
 beach:;
         }
     } catch(std::exception &e) {
-        Logging::error("Server connection error: {}", e.what());
+        Logging::error("Server {} connection error: {}", this->host, e.what());
         // TODO: notify whatever handlers we've got
     }
 
     // close the connection
+    Logging::trace("Closing server connection for {}", this->host);
+
 closeAgain:;
     err = tls_close(this->client);
     if(err == TLS_WANT_POLLIN || err == TLS_WANT_POLLOUT) {
@@ -321,7 +356,49 @@ closeAgain:;
  * Handle a worker yenpipe message.
  */
 void ServerConnection::workerHandleEvent(const PipeData &evt) {
-    // TODO
+    Logging::debug("Yenpipe event {}, payload {}, size {}", evt.type, (void *) evt.payload,
+            evt.payloadLen);
+
+    switch(evt.type) {
+        case PipeEvent::SendPacket: {
+            XASSERT(evt.payload && evt.payloadLen, "Invalid payload {} len {}",
+                    (void *) evt.payload, evt.payloadLen);
+
+            size_t len = evt.payloadLen;
+            auto buf = evt.payload;
+
+            while(len > 0) {
+                int err;
+                err = tls_write(this->client, buf, len);
+
+                if(err == TLS_WANT_POLLIN || err == TLS_WANT_POLLOUT) {
+                    continue;
+                } else if(err == -1) {
+                    throw std::runtime_error(f("tls_write() failed: {}", tls_error(this->client)));
+                }
+
+                buf += err;
+                len -= err;
+            }
+
+            // clean up the payload
+            delete[] evt.payload;
+            break;
+        }
+
+        case PipeEvent::NoOp:
+            break;
+    }
+}
+
+/**
+ * Sends a event through the yenpipe.
+ */
+void ServerConnection::sendPipeData(const PipeData &d) {
+    int err = ::write(this->notePipe[1], &d, sizeof(d));
+    if(err == -1) {
+        Logging::error("Failed to write request to pipe: {}", strerror(errno));
+    }
 }
 
 /**
@@ -331,4 +408,61 @@ void ServerConnection::workerHandleMessage(const PacketHeader &hdr) {
     // read the remainder of the packet
 
     // handle it
+}
+
+/**
+ * Authenticates the client using the key pair and ID stored in the preferences.
+ *
+ * @note This call will block until complete.
+ */
+void ServerConnection::authenticate() {
+    using namespace net::message;
+
+    std::stringstream stream;
+
+    // build the auth request packet
+    net::message::AuthRequest req(web::AuthManager::getPlayerId());
+    cereal::PortableBinaryOutputArchive arc(stream);
+    arc(req);
+
+    // round up size to nearest multiple of 4
+    size_t reqPacketSize = sizeof(PacketHeader) + stream.str().size();
+    Logging::trace("Len before: {}", reqPacketSize);
+    if(reqPacketSize & 0x3) {
+        reqPacketSize += 4 - (reqPacketSize & 0x3);
+    }
+    Logging::trace("After: {}", reqPacketSize);
+
+    auto buf = new std::byte[reqPacketSize];
+    memset(buf, 0, reqPacketSize);
+
+    auto hdr = reinterpret_cast<PacketHeader *>(buf);
+    hdr->endpoint = kEndpointAuthentication;
+    hdr->type = kAuthRequest;
+    hdr->length = IntCeil(stream.str().size(), 4);
+
+    Logging::trace("Payload {} {}", stream.str().size(), hdr->length);
+
+    memcpy(hdr->payload, stream.str().data(), stream.str().size());
+
+    const auto tag = this->preparePacket(hdr);
+
+    // request it to send and set up the auth state machine
+    PipeData pd(PipeEvent::SendPacket);
+    pd.payload = buf;
+    pd.payloadLen = reqPacketSize;
+    this->sendPipeData(pd);
+}
+
+/**
+ * Prepares packet for transmission. Multibyte fields are filled and a tag is added.
+ */
+uint16_t ServerConnection::preparePacket(PacketHeader *hdr) {
+    // get tag
+    const auto tag = this->nextTag++;
+
+    hdr->tag = htons(tag);
+    hdr->length = htons(hdr->length);
+
+    return tag;
 }

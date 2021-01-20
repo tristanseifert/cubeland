@@ -14,6 +14,8 @@
 
 #include <uuid.h>
 
+struct evp_pkey_st; 
+
 namespace util {
 class REST;
 }
@@ -106,6 +108,11 @@ class AuthManager {
 
         void restRegisterKeys();
 
+        void signData(const std::vector<std::byte> &data, std::vector<std::byte> &out) {
+            this->signData(data.data(), data.size(), out);
+        }
+        void signData(const void *data, const size_t dataLen, std::vector<std::byte> &out);
+
     private:
         static AuthManager *gShared;
 
@@ -117,6 +124,9 @@ class AuthManager {
 
         /// REST API interface
         util::REST *api;
+
+        /// loaded private/public keys 
+        evp_pkey_st *key = nullptr;
 };
 }
 

@@ -87,6 +87,10 @@ AuthManager::AuthManager() {
  * Cleans up auth manager resources.
  */
 AuthManager::~AuthManager() {
+    if(this->key) {
+        EVP_PKEY_free(this->key);
+    }
+
     delete this->api;
 }
 
@@ -98,6 +102,8 @@ AuthManager::~AuthManager() {
  * @return Whether key data was successfully loaded.
  */
 bool AuthManager::loadKeys() {
+    int err;
+
     auto blob = io::PrefsManager::getBlob(kAuthDataPrefsKey);
     if(!blob) return false;
 
@@ -117,6 +123,30 @@ bool AuthManager::loadKeys() {
         Logging::error("Failed to load auth data: {}", e.what());
         return false;
     }
+
+    // decode private key
+    BIO *bio = BIO_new(BIO_s_mem());
+    XASSERT(bio, "Failed to allocate mem BIO");
+
+    auto readPtr = this->authKeys->pemPrivate.data();
+    size_t toWrite = this->authKeys->pemPrivate.size();
+
+    while(toWrite > 0) {
+        err = BIO_write(bio, readPtr, toWrite);
+
+        if(err <= 0) {
+            throw std::runtime_error(f("BIO_write failed: {}", err));
+        }
+
+        toWrite -= err;
+        readPtr += err;
+    }
+
+    this->key = PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
+    XASSERT(this->key, "Failed to load private key: {}", util::SSLHelpers::getErrorStr());
+
+    // clean up
+    BIO_free(bio);
 
     return true;
 }
@@ -200,7 +230,10 @@ void AuthManager::generateKeys() {
 
     // clean up
     // need not free key as EVP_PKEY has taken ownership of it
-    EVP_PKEY_free(pkey);
+    if(this->key) {
+        EVP_PKEY_free(this->key);
+        this->key = pkey;
+    }
     BIO_free(bio);
 
     // build the auth data
@@ -265,6 +298,42 @@ void AuthManager::decrypt(const std::vector<uint8_t> &in, std::vector<uint8_t> &
 
     out.resize(outlen1 + outlen2);
     EVP_CIPHER_CTX_cleanup(&ctx);
+}
+
+/**
+ * Signs the given data using the private key we loaded earlier or generated.
+ */
+void AuthManager::signData(const void *data, const size_t dataLen, std::vector<std::byte> &out) {
+    int err;
+    size_t digestLen = 0;
+    EVP_MD_CTX *mdctx = NULL;
+
+    XASSERT(data && dataLen, "Invalid data");
+
+    // set up context with SHA-256
+    mdctx = EVP_MD_CTX_create();
+    XASSERT(mdctx, "Failed to create signature context");
+
+    err = EVP_DigestSignInit(mdctx, nullptr, EVP_sha256(), nullptr, this->key);
+    XASSERT(err == 1, "Failed to init digest ctx: {}", util::SSLHelpers::getErrorStr());
+
+    // squelch in the message and then finalize
+    err = EVP_DigestSignUpdate(mdctx, data, dataLen);
+    XASSERT(err == 1, "Failed to update digest: {}", util::SSLHelpers::getErrorStr());
+
+    // copy out
+    err = EVP_DigestSignFinal(mdctx, nullptr, &digestLen);
+    XASSERT(err == 1, "Failed to finalize digest: {}", util::SSLHelpers::getErrorStr());
+
+    XASSERT(digestLen, "Invalid digest length");
+
+    out.resize(digestLen);
+
+    err = EVP_DigestSignFinal(mdctx, reinterpret_cast<unsigned char *>(out.data()), &digestLen);
+    XASSERT(err == 1, "Failed to copy digest: {}", util::SSLHelpers::getErrorStr());
+
+    // clean up
+    EVP_MD_CTX_destroy(mdctx);
 }
 
 
