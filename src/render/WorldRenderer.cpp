@@ -15,7 +15,7 @@
 
 #include "render/chunk/VertexGenerator.h"
 #include "world/FileWorldReader.h"
-#include "world/WorldSource.h"
+#include "world/ClientWorldSource.h"
 #include "world/TimePersistence.h"
 #include "world/generators/Terrain.h"
 #include "physics/Engine.h"
@@ -57,7 +57,7 @@ inventory::Manager *gInventoryManager = nullptr;
  * Creates the renderer resources.
  */
 WorldRenderer::WorldRenderer(gui::MainWindow *_win, std::shared_ptr<gui::GameUI> &_gui,
-        std::shared_ptr<world::WorldSource> &_source) : window(_win), gui(_gui), source(_source) {
+        std::shared_ptr<world::ClientWorldSource> &_source) : window(_win), gui(_gui), source(_source) {
     std::shared_ptr<SSAO> ssao = nullptr;
     const bool wantSsao = io::PrefsManager::getBool("gfx.ssao", true);
 
@@ -111,7 +111,9 @@ WorldRenderer::WorldRenderer(gui::MainWindow *_win, std::shared_ptr<gui::GameUI>
     this->debugger = new WorldRendererDebugger(this);
 
     // load the current world time
-    this->timeSaver = new world::TimePersistence(this->source, &this->time);
+    if(this->source->isSinglePlayer()) {
+        this->timeSaver = new world::TimePersistence(this->source, &this->time);
+    }
 
     // interactions and some game UI
     this->physics = new physics::Engine(scnRnd, &this->camera);
@@ -158,7 +160,9 @@ WorldRenderer::~WorldRenderer() {
         this->gui->removeWindow(this->pauseWin);
     }
 
-    delete this->timeSaver;
+    if(this->timeSaver) {
+        delete this->timeSaver;
+    }
 
     this->source->flushDirtyChunksSync();
 

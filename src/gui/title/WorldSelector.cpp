@@ -11,7 +11,7 @@
 
 #include "world/FileWorldReader.h"
 #include "world/generators/Terrain.h"
-#include "world/WorldSource.h"
+#include "world/LocalSource.h"
 #include "web/AuthManager.h"
 
 #include <Logging.h>
@@ -486,7 +486,7 @@ void WorldSelector::createWorld(const std::string &_path, const bool open) {
     // create world
     auto file = std::make_shared<world::FileWorldReader>(path.string(), true);
     auto gen = std::make_shared<world::Terrain>(this->newSeed);
-    auto source = std::make_shared<world::WorldSource>(file, gen, playerId, numWorkers);
+    auto source = std::make_shared<world::LocalSource>(file, gen, playerId, numWorkers);
 
     // save seed/generator settings in world file
     auto p = file->setWorldInfo("generator.seed", f("{:d}", this->newSeed));
@@ -522,7 +522,7 @@ void WorldSelector::openWorld(const std::string &path) {
     }
 
     // create a world source
-    std::shared_ptr<world::WorldSource> source = nullptr;
+    std::shared_ptr<world::LocalSource> source = nullptr;
 
     try {
         // load the file
@@ -544,7 +544,7 @@ void WorldSelector::openWorld(const std::string &path) {
         auto gen = std::make_shared<world::Terrain>(seed);
 
         // lastly, combine the file and generator to a world source
-        source = std::make_shared<world::WorldSource>(file, gen, playerId, numWorkers);
+        source = std::make_shared<world::LocalSource>(file, gen, playerId, numWorkers);
     } catch(std::exception &e) {
         Logging::error("Failed to open world {}: {}", path, e.what());
         this->setError(path, f("An error occurred while reading the world file: {}", e.what()));

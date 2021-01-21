@@ -5,7 +5,7 @@
 #include "render/chunk/ChunkWorker.h"
 #include "world/chunk/Chunk.h"
 #include "world/block/BlockRegistry.h"
-#include "world/WorldSource.h"
+#include "world/ClientWorldSource.h"
 #include "gfx/gl/texture/Texture2D.h"
 #include "gfx/model/RenderProgram.h"
 #include "util/Frustum.h"
@@ -214,7 +214,7 @@ void ChunkLoader::loadPrefs() {
 /**
  * Sets the source from which world data is loaded.
  */
-void ChunkLoader::setSource(std::shared_ptr<world::WorldSource> source) {
+void ChunkLoader::setSource(std::shared_ptr<world::ClientWorldSource> source) {
     // bail if source itself did not change
     if(source == this->source) return;
 

@@ -1,7 +1,7 @@
 #include "PlayerPosPersistence.h"
 #include "InputManager.h"
 
-#include "world/WorldSource.h"
+#include "world/ClientWorldSource.h"
 #include "world/tick/TickHandler.h"
 #include "io/Serialization.h"
 #include "io/Format.h"
@@ -22,7 +22,7 @@ const std::string PlayerPosPersistence::kDataPlayerInfoKey = "player.position";
  * whether the position or view angles changed and force them to be saved.
  */
 PlayerPosPersistence::PlayerPosPersistence(InputManager *_m,
-        std::shared_ptr<world::WorldSource> &_s) : input(_m), source(_s) {
+        std::shared_ptr<world::ClientWorldSource> &_s) : input(_m), source(_s) {
     // install tick handler
     this->dirty = false;
     this->tickHandler = world::TickHandler::add(std::bind(&PlayerPosPersistence::tick, this));

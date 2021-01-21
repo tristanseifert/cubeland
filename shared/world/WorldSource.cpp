@@ -34,9 +34,9 @@ using namespace world;
  * user's preferences.
  */
 WorldSource::WorldSource(std::shared_ptr<WorldReader> _r, std::shared_ptr<WorldGenerator> _g,
-        const uuids::uuid &_id, const size_t _numThreads) : generator(_g), playerId(_id), reader(_r) {
+        const size_t _numThreads) : generator(_g), reader(_r) {
     XASSERT(_numThreads, "Invalid thread count for world source");
-    
+
     // set up some additional initial state
     this->generateOnly = false;
     this->acceptRequests = true;
@@ -147,9 +147,9 @@ void WorldSource::workerMain(size_t i) {
 /**
  * Writes some player info data. This will go directly to the world reader.
  */
-std::future<void> WorldSource::setPlayerInfo(const std::string &key, const std::vector<char> &value) {
-    return this->work([&, key, value] {
-        auto promise = this->reader->setPlayerInfo(this->playerId, key, value);
+std::future<void> WorldSource::setPlayerInfo(const uuids::uuid &id, const std::string &key, const std::vector<char> &value) {
+    return this->work([&, key, value, id] {
+        auto promise = this->reader->setPlayerInfo(id, key, value);
         auto future = promise.get_future();
         future.get();
     });
@@ -158,8 +158,8 @@ std::future<void> WorldSource::setPlayerInfo(const std::string &key, const std::
 /**
  * Returns the player info value for the given key.
  */
-std::promise<std::vector<char>> WorldSource::getPlayerInfo(const std::string &key) {
-    return this->reader->getPlayerInfo(this->playerId, key);
+std::promise<std::vector<char>> WorldSource::getPlayerInfo(const uuids::uuid &id, const std::string &key) {
+    return this->reader->getPlayerInfo(id, key);
 }
 
 
@@ -176,7 +176,7 @@ std::promise<std::vector<char>> WorldSource::getWorldInfo(const std::string &key
 /**
  * Determines chunks to write out.
  */
-void WorldSource::startOfFrame() {
+void WorldSource::updateDirtyList() {
     if(this->inhibitDirtyChunkHandling) return;
 
     std::vector<std::pair<glm::ivec2, size_t>> toWrite;

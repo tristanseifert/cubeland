@@ -1,5 +1,5 @@
 #include "TimePersistence.h"
-#include "world/WorldSource.h"
+#include "world/ClientWorldSource.h"
 
 #include "world/tick/TickHandler.h"
 #include <Logging.h>
@@ -20,7 +20,7 @@ const std::string TimePersistence::kDataPlayerInfoKey = "world.time";
  *
  * Note that we'll try to restore the time here.
  */
-TimePersistence::TimePersistence(std::shared_ptr<WorldSource> &_s, double *_t) : source(_s),
+TimePersistence::TimePersistence(std::shared_ptr<ClientWorldSource> &_s, double *_t) : source(_s),
     time(_t) {
     // try to restore time
     this->load();

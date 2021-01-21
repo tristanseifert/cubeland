@@ -15,7 +15,7 @@
 union SDL_Event;
 
 namespace world {
-class WorldSource;
+class ClientWorldSource;
 }
 namespace render {
 class SceneRenderer;
@@ -28,7 +28,7 @@ namespace input {
 
 class BlockInteractions {
     public:
-        BlockInteractions(std::shared_ptr<render::SceneRenderer> scene, std::shared_ptr<world::WorldSource> source, inventory::Manager *);
+        BlockInteractions(std::shared_ptr<render::SceneRenderer> scene, std::shared_ptr<world::ClientWorldSource> source, inventory::Manager *);
         ~BlockInteractions();
 
         bool handleEvent(const SDL_Event &);
@@ -55,7 +55,7 @@ class BlockInteractions {
 
         inventory::Manager *inventory = nullptr;
         std::shared_ptr<render::SceneRenderer> scene;
-        std::shared_ptr<world::WorldSource> source;
+        std::shared_ptr<world::ClientWorldSource> source;
 
         std::atomic_bool destroyTimerActive = false;
         size_t destroyTimer = 0, destroyTimerTotal = 0;

@@ -35,7 +35,7 @@ class PlayerPosPersistence;
 }
 
 namespace world {
-class WorldSource;
+class ClientWorldSource;
 class TimePersistence;
 }
 
@@ -54,7 +54,7 @@ class WorldRenderer: public gui::RunLoopStep {
     friend class WorldRendererDebugger;
 
     public:
-        WorldRenderer(gui::MainWindow *, std::shared_ptr<gui::GameUI> &, std::shared_ptr<world::WorldSource> &);
+        WorldRenderer(gui::MainWindow *, std::shared_ptr<gui::GameUI> &, std::shared_ptr<world::ClientWorldSource> &);
         virtual ~WorldRenderer();
 
     public:
@@ -200,7 +200,7 @@ class WorldRenderer: public gui::RunLoopStep {
         std::vector<std::shared_ptr<RenderStep>> steps;
 
         // world source providing all data for this world
-        std::shared_ptr<world::WorldSource> source;
+        std::shared_ptr<world::ClientWorldSource> source;
 
         std::shared_ptr<Lighting> lighting = nullptr;
         std::shared_ptr<HDR> hdr = nullptr;

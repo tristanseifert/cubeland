@@ -13,7 +13,7 @@
 #include "util/ThreadPool.h"
 
 namespace world {
-class WorldSource;
+class ClientWorldSource;
 }
 
 namespace input {
@@ -21,7 +21,7 @@ class InputManager;
 
 class PlayerPosPersistence {
     public:
-        PlayerPosPersistence(InputManager *mgr, std::shared_ptr<world::WorldSource> &source);
+        PlayerPosPersistence(InputManager *mgr, std::shared_ptr<world::ClientWorldSource> &source);
         ~PlayerPosPersistence();
 
         void startOfFrame(const glm::vec3 &pos);
@@ -59,7 +59,7 @@ class PlayerPosPersistence {
 
     private:
         InputManager *input = nullptr;
-        std::shared_ptr<world::WorldSource> source = nullptr;
+        std::shared_ptr<world::ClientWorldSource> source = nullptr;
 
         uint32_t tickHandler = 0;
 

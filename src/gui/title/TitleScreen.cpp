@@ -276,7 +276,7 @@ void TitleScreen::reshape(unsigned int w, unsigned int h) {
 /**
  * Creates a world render, and replaces the title screen run loop step with it.
  */
-void TitleScreen::openWorld(std::shared_ptr<world::WorldSource> &source) {
+void TitleScreen::openWorld(std::shared_ptr<world::ClientWorldSource> source) {
     // create renderer
     auto rend = std::make_shared<render::WorldRenderer>(this->win, this->gui, source);
 

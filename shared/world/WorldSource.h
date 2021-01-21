@@ -8,6 +8,8 @@
 #ifndef WORLD_WORLDSOURCE_H
 #define WORLD_WORLDSOURCE_H
 
+#include "AbstractWorldSource.h"
+
 #include <memory>
 #include <cstddef>
 #include <atomic>
@@ -30,27 +32,24 @@ struct Chunk;
 class WorldReader;
 class WorldGenerator;
 
-class WorldSource {
+class WorldSource: public AbstractWorldSource {
     public:
         WorldSource(std::shared_ptr<WorldReader> reader,
-                std::shared_ptr<WorldGenerator> generator, const uuids::uuid &playerId,
-                    const size_t numThreads = 0);
+                std::shared_ptr<WorldGenerator> generator, const size_t numThreads = 0);
         virtual ~WorldSource();
 
         /// Gets a chunk from either the file or the world generator.
-        std::future<std::shared_ptr<Chunk>> getChunk(int x, int z) {
+        std::future<std::shared_ptr<Chunk>> getChunk(int x, int z) override {
             return this->work([&, x, z]{
                 return this->workerGetChunk(x, z);
             });
         }
 
-        /// Set the value of a player info key.
-        std::future<void> setPlayerInfo(const std::string &key, const std::vector<char> &value);
-        /// Reads the value of a player info key.
-        std::promise<std::vector<char>> getPlayerInfo(const std::string &key);
+        std::future<void> setPlayerInfo(const uuids::uuid &id, const std::string &key, const std::vector<char> &value) override;
+        std::promise<std::vector<char>> getPlayerInfo(const uuids::uuid &id, const std::string &key) override;
 
         /// Reads the value of a world info key.
-        std::promise<std::vector<char>> getWorldInfo(const std::string &key);
+        std::promise<std::vector<char>> getWorldInfo(const std::string &key) override;
 
         /// Sets whether we ignore the file and generate all data
         void setGenerateOnly(const bool value) {
@@ -58,10 +57,10 @@ class WorldSource {
         }
 
         /// Blocks on writing all dirty blocks out to disk
-        void flushDirtyChunksSync();
+        void flushDirtyChunksSync() override;
 
         /// Start of frame; used for deciding which chunks to write out
-        void startOfFrame();
+        void updateDirtyList();
 
         /// Marks the given chunk as dirty.
         void markChunkDirty(std::shared_ptr<Chunk> &chunk);
@@ -174,9 +173,6 @@ class WorldSource {
 
         /// when set, we don't mess with the dirty chunks list
         std::atomic_bool inhibitDirtyChunkHandling = false;
-
-        /// Player ID (provided in constructor)
-        uuids::uuid playerId;
 };
 }
 

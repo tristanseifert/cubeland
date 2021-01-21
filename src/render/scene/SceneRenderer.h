@@ -19,7 +19,7 @@ class RenderProgram;
 
 namespace world {
 class WorldDebugger;
-class WorldSource;
+class ClientWorldSource;
 struct Chunk;
 }
 namespace physics {
@@ -53,7 +53,7 @@ class SceneRenderer: public RenderStep {
         // ignored
         void reshape(int w, int h) {};
 
-        void setWorldSource(std::shared_ptr<world::WorldSource> &source);
+        void setWorldSource(std::shared_ptr<world::ClientWorldSource> &source);
         void setPhysicsEngine(physics::Engine *engine);
 
         void toggleDebugOverlays();

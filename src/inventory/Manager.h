@@ -20,7 +20,7 @@ class InputManager;
 }
 
 namespace world {
-class WorldSource;
+class ClientWorldSource;
 }
 
 namespace inventory {
@@ -68,7 +68,7 @@ class Manager {
         }
 
         /// Loads inventory data from the given world source
-        void loadInventory(std::shared_ptr<world::WorldSource> &world);
+        void loadInventory(std::shared_ptr<world::ClientWorldSource> &world);
         /// Writes inventory data to the previously opened world source.
         void writeInventory();
 
@@ -115,7 +115,7 @@ class Manager {
         /// when set, the inventory data is dirty and should be written out again
         bool inventoryDirty = false;
         /// world source from which we read inventory data, and to which inventory data is written
-        std::shared_ptr<world::WorldSource> world = nullptr;
+        std::shared_ptr<world::ClientWorldSource> world = nullptr;
 
         /// save tick handler
         uint32_t saveTickHandler = 0;

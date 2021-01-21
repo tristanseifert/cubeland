@@ -15,7 +15,7 @@
 #include <glm/vec2.hpp>
 
 namespace world {
-class WorldSource;
+class ClientWorldSource;
 }
 
 namespace gfx {
@@ -58,7 +58,7 @@ class TitleScreen: public RunLoopStep {
         }
 
     protected:
-        void openWorld(std::shared_ptr<world::WorldSource> &);
+        void openWorld(std::shared_ptr<world::ClientWorldSource>);
 
         void setVignetteParams(const glm::vec2 &params) {
             this->setVignetteParams(params.x, params.y);

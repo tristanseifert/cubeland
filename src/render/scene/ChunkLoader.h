@@ -38,7 +38,7 @@ class Texture2D;
 }
 namespace world {
 struct Chunk;
-class WorldSource;
+class ClientWorldSource;
 }
 namespace render {
 class WorldChunk;
@@ -56,7 +56,7 @@ class ChunkLoader {
         ChunkLoader();
         ~ChunkLoader();
 
-        void setSource(std::shared_ptr<world::WorldSource> source);
+        void setSource(std::shared_ptr<world::ClientWorldSource> source);
 
         void startOfFrame();
         void updateChunks(const glm::vec3 &pos, const glm::vec3 &viewDirection, const glm::mat4 &projView);
@@ -276,7 +276,7 @@ class ChunkLoader {
         size_t cacheReleaseDistance = 4;
 
         /// world source from which we get data
-        std::shared_ptr<world::WorldSource> source;
+        std::shared_ptr<world::ClientWorldSource> source;
 
         /**
          * Order in which chunks should be drawn.

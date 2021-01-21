@@ -1,7 +1,7 @@
 #include "BlockInteractions.h"
 
 #include "inventory/Manager.h"
-#include "world/WorldSource.h"
+#include "world/ClientWorldSource.h"
 #include "world/chunk/Chunk.h"
 #include "world/block/BlockRegistry.h"
 #include "world/block/Block.h"
@@ -26,7 +26,7 @@ using namespace input;
  * Sets up the block interactions controller.
  */
 BlockInteractions::BlockInteractions(std::shared_ptr<render::SceneRenderer> _scn, 
-        std::shared_ptr<world::WorldSource> _src, inventory::Manager *_inv) : scene(_scn), 
+        std::shared_ptr<world::ClientWorldSource> _src, inventory::Manager *_inv) : scene(_scn), 
         inventory(_inv), source(_src) {
     this->tickCb = world::TickHandler::add(std::bind(&BlockInteractions::destroyTickCallback, this));
 }

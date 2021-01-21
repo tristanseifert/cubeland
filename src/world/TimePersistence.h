@@ -6,11 +6,11 @@
 #include <cstddef>
 
 namespace world {
-class WorldSource;
+class ClientWorldSource;
 
 class TimePersistence {
     public:
-        TimePersistence(std::shared_ptr<WorldSource> &source, double *timePtr);
+        TimePersistence(std::shared_ptr<ClientWorldSource> &source, double *timePtr);
         ~TimePersistence();
 
     private:
@@ -45,7 +45,7 @@ class TimePersistence {
         size_t ticksSinceSave = 0;
 
         /// world source into which the time is written
-        std::shared_ptr<WorldSource> source = nullptr;
+        std::shared_ptr<ClientWorldSource> source = nullptr;
         /// time struct to modify
         double *time = nullptr;
 };

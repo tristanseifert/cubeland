@@ -5,7 +5,7 @@
 #include "input/InputManager.h"
 #include "io/Format.h"
 #include "world/tick/TickHandler.h"
-#include "world/WorldSource.h"
+#include "world/ClientWorldSource.h"
 
 #include <Logging.h>
 #include <mutils/time/profiler.h>
@@ -199,7 +199,7 @@ void Manager::removeEmptySlots() {
  * game loop yet when this is called. At worst, we'll freeze the UI for a couple ms; this is worth
  * looking into when network play is introduced though for UX improvement.
  */
-void Manager::loadInventory(std::shared_ptr<world::WorldSource> &world) {
+void Manager::loadInventory(std::shared_ptr<world::ClientWorldSource> &world) {
     using namespace internal;
 
     this->world = world;

@@ -194,7 +194,7 @@ const glm::vec3 SceneRenderer::getCameraPos() const {
  * This should be called once, immediately before we render for the first time, to set the world
  * data. After, it should not be modified or changed; the behavior is undefined if this is done.
  */
-void SceneRenderer::setWorldSource(std::shared_ptr<world::WorldSource> &source) {
+void SceneRenderer::setWorldSource(std::shared_ptr<world::ClientWorldSource> &source) {
     this->chunkLoader->setSource(source);
 }
 
