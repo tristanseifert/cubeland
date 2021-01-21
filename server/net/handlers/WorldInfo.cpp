@@ -17,7 +17,7 @@ using namespace net::handler;
 using namespace net::message;
 
 /**
- * Initializes the authentication handler
+ * Initializes the world info handler
  */
 WorldInfo::WorldInfo(ListenerClient *_client) : PacketHandler(_client) {
 }

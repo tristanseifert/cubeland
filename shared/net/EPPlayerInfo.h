@@ -1,6 +1,7 @@
 #ifndef SHARED_NET_EPPLAYERINFO_H
 #define SHARED_NET_EPPLAYERINFO_H
 
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <vector>
@@ -19,9 +20,9 @@ namespace net::message {
  */
 enum PlayerInfoMsgType: uint8_t {
     /// client -> server; read request of player info
-    kPlayerInfoGet                       = 0x01,
+    kPlayerInfoGet                      = 0x01,
     /// server -> client; player info response
-    kPlayerInfoGetResponse               = 0x02,
+    kPlayerInfoGetResponse              = 0x02,
     /// client -> server; set a player info key
     kPlayerInfoSet                      = 0x03,
 

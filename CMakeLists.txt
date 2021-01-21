@@ -212,6 +212,7 @@ add_executable(cubeland
     src/web/AuthManager.cpp
     src/net/ServerConnection.cpp
     src/net/handlers/Auth.cpp
+    src/net/handlers/Chunk.cpp
     src/net/handlers/PlayerInfo.cpp
     src/net/handlers/WorldInfo.cpp
 # resources and other misc stuff
@@ -240,6 +241,7 @@ add_executable(server
     server/net/Listener.cpp
     server/net/ListenerClient.cpp
     server/net/handlers/Auth.cpp
+    server/net/handlers/Chunk.cpp
     server/net/handlers/PlayerInfo.cpp
     server/net/handlers/WorldInfo.cpp
 # auth support

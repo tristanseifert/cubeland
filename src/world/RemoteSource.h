@@ -33,7 +33,7 @@ class RemoteSource: public ClientWorldSource {
         std::promise<std::vector<char>> getWorldInfo(const std::string &key) override;
 
         /// Start of frame handler
-        void startOfFrame() override {}
+        void startOfFrame() override;
 
         /// Requests writing out of all chunks; for us this just drains the send queue
         void flushDirtyChunksSync() override;

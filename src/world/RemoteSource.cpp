@@ -74,12 +74,11 @@ void RemoteSource::workerMain(size_t i) {
  * we unsubscribe from them, which happens when the chunk is unloaded.
  */
 std::future<std::shared_ptr<Chunk>> RemoteSource::getChunk(int x, int z) {
-    // TODO: implement
-    return this->work([&, x, z] {
-        auto chonk = std::make_shared<Chunk>();
-        chonk->worldPos = glm::ivec2(x, z);
-        return chonk;
-    });
+    // TODO: check cache
+
+    // make request
+    const glm::ivec2 pos(x, z); 
+    return this->server->getChunk(pos);
 }
 
 
@@ -190,3 +189,11 @@ void RemoteSource::forceChunkWriteIfDirtySync(std::shared_ptr<Chunk> &chunk) {
     // TODO: implement
 }
 
+
+
+/**
+ * Start of frame handler
+ */
+void RemoteSource::startOfFrame() {
+    this->valid = this->server->isConnected();
+}

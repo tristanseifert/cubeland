@@ -45,8 +45,14 @@ class ClientWorldSource: public AbstractWorldSource {
         /// whether the world source is single player
         virtual const bool isSinglePlayer() const = 0;
 
+        /// whether the world source is valid
+        virtual const bool isValid() const {
+            return this->valid;
+        }
+
     protected:
         uuids::uuid playerId;
+        bool valid = true;
 };
 }
 

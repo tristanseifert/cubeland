@@ -29,7 +29,7 @@ WorldInfo::WorldInfo(ServerConnection *_server) : PacketHandler(_server) {
 WorldInfo::~WorldInfo() {
     std::lock_guard<std::mutex> lg(this->requestsLock);
     for(auto &[key, promise] : this->requests) {
-        promise.set_value(std::nullopt);
+        promise.set_exception(std::make_exception_ptr(std::runtime_error("WorldInfo deallocating")));
     }
 }
 

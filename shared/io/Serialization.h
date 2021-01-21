@@ -35,8 +35,17 @@ template<class Archive> void serialize(Archive &archive, glm::vec2 &vec) {
     archive(vec.x);
     archive(vec.y);
 }
+template<class Archive> void serialize(Archive &archive, glm::ivec2 &vec) {
+    archive(vec.x);
+    archive(vec.y);
+}
 /// Archives a 3 component vector
 template<class Archive> void serialize(Archive &archive, glm::vec3 &vec) {
+    archive(vec.x);
+    archive(vec.y);
+    archive(vec.z);
+}
+template<class Archive> void serialize(Archive &archive, glm::ivec3 &vec) {
     archive(vec.x);
     archive(vec.y);
     archive(vec.z);

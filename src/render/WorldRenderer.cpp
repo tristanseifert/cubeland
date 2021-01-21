@@ -252,6 +252,14 @@ void WorldRenderer::willBeginFrame() {
 
     // start of frame for render steps
     this->source->startOfFrame();
+    if(!this->source->isValid()) {
+        auto title = std::make_shared<gui::TitleScreen>(this->window, this->gui);
+        this->window->setPrimaryStep(title);
+
+        Logging::error("World source became invalid!");
+        // TODO: figure out how to capture a screenshot and save it
+        return;
+    }
 
     if(this->posSaver) {
         this->posSaver->startOfFrame(this->camera.getCameraPosition());

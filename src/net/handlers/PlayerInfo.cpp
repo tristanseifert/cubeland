@@ -29,7 +29,7 @@ PlayerInfo::PlayerInfo(ServerConnection *_server) : PacketHandler(_server) {
 PlayerInfo::~PlayerInfo() {
     std::lock_guard<std::mutex> lg(this->requestsLock);
     for(auto &[key, promise] : this->requests) {
-        promise.set_value(std::nullopt);
+        promise.set_exception(std::make_exception_ptr(std::runtime_error("PlayerInfo deallocating")));
     }
 }
 

@@ -1,5 +1,6 @@
 #include "ServerConnection.h"
 #include "handlers/Auth.h"
+#include "handlers/Chunk.h"
 #include "handlers/PlayerInfo.h"
 #include "handlers/WorldInfo.h"
 
@@ -99,7 +100,9 @@ ServerConnection::ServerConnection(const std::string &_host) : host(_host) {
     this->auth = new handler::Auth(this);
     this->playerInfo = new handler::PlayerInfo(this);
     this->worldInfo = new handler::WorldInfo(this);
+    this->chonker = new handler::ChunkLoader(this);
 
+    this->handlers.emplace_back(this->chonker);
     this->handlers.emplace_back(this->playerInfo);
     this->handlers.emplace_back(this->worldInfo);
     this->handlers.emplace_back(this->auth);
@@ -354,6 +357,7 @@ beach:;
 
     // close the connection
     Logging::trace("Closing server connection for {}", this->host);
+    this->connected = false;
 
 closeAgain:;
     err = tls_close(this->client);
@@ -569,3 +573,12 @@ void ServerConnection::setPlayerInfo(const std::string &key, const std::vector<s
 std::future<std::optional<std::vector<std::byte>>> ServerConnection::getWorldInfo(const std::string &key) {
     return this->worldInfo->get(key);
 }
+
+/**
+ * Requests full chunk data for the given chunk.
+ */
+std::future<std::shared_ptr<world::Chunk>> ServerConnection::getChunk(const glm::ivec2 &pos) {
+    // make request
+    return this->chonker->get(pos);
+}
+

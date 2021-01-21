@@ -63,6 +63,11 @@ Listener::Listener(world::WorldSource *_reader) : world(_reader) {
     err = ::listen(this->listenFd, backlog);
     XASSERT(!err, "Failed to listen on socket: {}", strerror(errno));
 
+    // set up the chunk serializer thread pool
+    const auto serializerThreads = io::ConfigManager::getUnsigned("world.chunkSerializerThreads", 4);
+    Logging::debug("Chunk serializer threads: {}", serializerThreads);
+    this->serializerPool = new util::ThreadPool<WorkItem>("Chunk Serializer", serializerThreads);
+
     // create the work thread
     this->workerRun = true;
     this->worker = std::make_unique<std::thread>(&Listener::workerMain, this);
@@ -126,6 +131,9 @@ Listener::~Listener() {
 
         this->clients.clear();
     }
+
+    // exit thread pools
+    delete this->serializerPool;
 
     // release SSL resources and listening socket
     tls_close(this->tls);

@@ -12,8 +12,14 @@
 #include <thread>
 #include <vector>
 
+#include <glm/vec2.hpp>
+
 struct tls;
 struct tls_config;
+
+namespace world {
+struct Chunk;
+}
 
 namespace net {
 struct PacketHeader;
@@ -22,6 +28,7 @@ namespace handler {
 class Auth;
 class PlayerInfo;
 class WorldInfo;
+class ChunkLoader;
 }
 
 class ServerConnection {
@@ -55,6 +62,13 @@ class ServerConnection {
 
         /// Reads a world info key
         std::future<std::optional<std::vector<std::byte>>> getWorldInfo(const std::string &key);
+
+        /// Reads a chunk
+        std::future<std::shared_ptr<world::Chunk>> getChunk(const glm::ivec2 &pos);
+
+        const bool isConnected() const {
+            return this->connected;
+        }
 
     private:
         enum class PipeEvent: uint8_t {
@@ -112,6 +126,10 @@ class ServerConnection {
         handler::Auth *auth = nullptr;
         handler::PlayerInfo *playerInfo = nullptr;
         handler::WorldInfo *worldInfo = nullptr;
+        handler::ChunkLoader *chonker = nullptr;
+
+        /// connection flag
+        bool connected = true;
 };
 }
 

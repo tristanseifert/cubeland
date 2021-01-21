@@ -4,6 +4,7 @@
 #include "ListenerClient.h"
 
 #include <algorithm>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -11,6 +12,7 @@
 
 #include <sys/socket.h>
 
+#include <util/ThreadPool.h>
 #include <blockingconcurrentqueue.h>
 
 struct tls;
@@ -29,8 +31,15 @@ class Listener {
     friend class ListenerClient;
 
     public:
+        using WorkItem = std::function<void(void)>;
+
+    public:
         Listener(world::WorldSource *world);
         ~Listener();
+
+        util::ThreadPool<WorkItem> *getSerializerPool() {
+            return this->serializerPool;
+        }
 
     protected:
         /// Marks a client for later destruction
@@ -70,6 +79,9 @@ class Listener {
         moodycamel::BlockingConcurrentQueue<ListenerClient *> clientsToMurder;
         /// murderization thread
         std::unique_ptr<std::thread> murderThread;
+
+        /// thread pool for chunk serialization
+        util::ThreadPool<WorkItem> *serializerPool;
 };
 };
 

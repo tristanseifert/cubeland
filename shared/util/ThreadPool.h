@@ -13,9 +13,11 @@
 
 #include "io/Format.h"
 
+#ifdef CUBE_CLIENT
 namespace MUtils::Profiler {
 extern void FinishThread();
 }
+#endif
 
 namespace util {
     template<class T> class ThreadPool {
@@ -100,9 +102,11 @@ namespace util {
             virtual void workerThreadStarted(const size_t i) {};
             /// Callback invoked when a thread is exiting
             virtual void workerThreadWillEnd(const size_t i) {
+#ifdef CUBE_CLIENT
                 MUtils::Profiler::FinishThread();
+#endif
             };
-        
+
             /**
              * Starts `num` worker threads.
              */
