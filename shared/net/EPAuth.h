@@ -43,12 +43,14 @@ struct AuthRequest {
     /// client ID
     uuids::uuid clientId;
 
-    template <class Archive> void serialize(Archive &ar) {
-        ar(this->clientId);
-    }
-
     AuthRequest() = default;
     AuthRequest(const uuids::uuid &_id) : clientId(_id) {}
+
+    private:
+        friend class cereal::access;
+        template <class Archive> void serialize(Archive &ar) {
+            ar(this->clientId);
+        }
 };
 
 /**
@@ -61,15 +63,17 @@ struct AuthChallenge {
 
     // data to sign for the client
     std::array<std::byte, kChallengeLength> challenge;
-
-    template <class Archive> void serialize(Archive &ar) {
-        ar(this->challenge);
-    }
-
     AuthChallenge() {
         std::fill(this->challenge.begin(), this->challenge.end(), std::byte(0));
     }
     AuthChallenge(const std::array<std::byte, kChallengeLength> &_bytes) : challenge(_bytes) {}
+
+    private:
+        friend class cereal::access;
+        template <class Archive> void serialize(Archive &ar) {
+            ar(this->challenge);
+        }
+
 };
 
 /**
@@ -79,12 +83,14 @@ struct AuthChallengeReply {
     // signature over the challenge data
     std::vector<std::byte> signature;
 
-    template <class Archive> void serialize(Archive &ar) {
-        ar(this->signature);
-    }
-
     AuthChallengeReply() = default;
     AuthChallengeReply(const std::vector<std::byte> &_sig) : signature(_sig) {}
+
+    private:
+        friend class cereal::access;
+        template <class Archive> void serialize(Archive &ar) {
+            ar(this->signature);
+        }
 };
 
 /**
@@ -105,9 +111,11 @@ struct AuthStatus {
         kStatusUnknownError,
     } state = kStatusUnknownError;
 
-    template <class Archive> void serialize(Archive &ar) {
-        ar(this->state);
-    }
+    private:
+        friend class cereal::access;
+        template <class Archive> void serialize(Archive &ar) {
+            ar(this->state);
+        }
 };
 
 }

@@ -24,7 +24,7 @@ using namespace net;
  * Initializes the server listener. We load configuration, create listening socket, then spawn
  * the worker thread.
  */
-Listener::Listener(world::WorldReader *_reader) : world(_reader) {
+Listener::Listener(world::WorldSource *_reader) : world(_reader) {
     int err;
 
     // set up the TLS server

@@ -180,6 +180,7 @@ add_executable(cubeland
     src/render/steps/SSAO.cpp
 # world handling (IO/basic behaviors)
     src/world/TimePersistence.cpp
+    src/world/RemoteSource.cpp
     src/world/debug/WorldDebugger.cpp
     src/world/block/Block.cpp
     src/world/block/BlockRegistry.cpp
@@ -211,6 +212,8 @@ add_executable(cubeland
     src/web/AuthManager.cpp
     src/net/ServerConnection.cpp
     src/net/handlers/Auth.cpp
+    src/net/handlers/PlayerInfo.cpp
+    src/net/handlers/WorldInfo.cpp
 # resources and other misc stuff
     ${version_file}
 )
@@ -237,6 +240,8 @@ add_executable(server
     server/net/Listener.cpp
     server/net/ListenerClient.cpp
     server/net/handlers/Auth.cpp
+    server/net/handlers/PlayerInfo.cpp
+    server/net/handlers/WorldInfo.cpp
 # auth support
     server/auth/KeyCache.cpp
 # resources

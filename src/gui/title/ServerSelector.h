@@ -17,6 +17,10 @@
 
 #include <blockingconcurrentqueue.h>
 
+namespace world {
+class RemoteSource;
+}
+
 namespace gui {
 class TitleScreen;
 }
@@ -28,6 +32,8 @@ class ServerSelector: public gui::GameWindow {
         virtual ~ServerSelector();
 
         void draw(GameUI *) override;
+
+        void startOfFrame();
 
         void clear();
         void loadRecents();
@@ -130,7 +136,7 @@ class ServerSelector: public gui::GameWindow {
         void workerMain();
         void workerRegisterKey();
 
-        void connect(const Server &);
+        void connect(Server &);
 
     private:
         /// title screen that provides our background
@@ -172,6 +178,11 @@ class ServerSelector: public gui::GameWindow {
         float connProgress = 0;
         /// error detail if available
         std::optional<std::string> connError;
+
+        /// the world selected in the picker
+        std::shared_ptr<world::RemoteSource> connectedWorld = nullptr;
+        /// when set, we desire to switch to the connected world
+        std::atomic_bool wantsOpenWorld = false;
 };
 }
 

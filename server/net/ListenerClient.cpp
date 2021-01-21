@@ -2,6 +2,8 @@
 #include "Listener.h"
 
 #include "handlers/Auth.h"
+#include "handlers/WorldInfo.h"
+#include "handlers/PlayerInfo.h"
 
 #include <Logging.h>
 #include <io/Format.h>
@@ -48,7 +50,10 @@ ListenerClient::ListenerClient(Listener *_list, struct tls *_tls, const int _fd,
     XASSERT(err != -1, "Failed to set read pipe flags: {}", strerror(errno));
 
     // initialize packet handlers
-    this->handlers.emplace_back(new handler::Auth(this));
+    this->auth = new handler::Auth(this);
+    this->handlers.emplace_back(new handler::PlayerInfo(this));
+    this->handlers.emplace_back(new handler::WorldInfo(this));
+    this->handlers.emplace_back(this->auth);
 
     // set up the worker
     this->workerRun = true;
@@ -341,4 +346,18 @@ void ListenerClient::handleMessage(const PacketHeader &header) {
 
     Logging::warn("Unhandled packet ({}) {:02x}:{:02x} length {}: payload {}", this->clientAddr,
             header.endpoint, header.type, header.length, hexdump(buffer.begin(), buffer.end()));
+}
+
+/**
+ * Return client auth id
+ */
+std::optional<uuids::uuid> ListenerClient::getClientId() const {
+    return this->auth->getClientId();
+}
+
+/**
+ * Return world pointer
+ */
+world::WorldSource *ListenerClient::getWorld() const {
+    return this->owner->getWorld();
 }

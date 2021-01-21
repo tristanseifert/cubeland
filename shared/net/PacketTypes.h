@@ -24,10 +24,14 @@ enum PacketEndpoint: uint8_t {
     kEndpointChunk                      = 0x04,
     /// Chat messages
     kEndpointChat                       = 0x05,
+    /// World metadata
+    kEndpointWorldInfo                  = 0x06,
     /// Player data updates
-    kEndpointPlayerData                 = 0x06,
+    kEndpointPlayerData                 = 0x07,
     /// Player movement
-    kEndpointPlayerMovement             = 0x07,
+    kEndpointPlayerMovement             = 0x08,
+    /// Per-player metadata
+    kEndpointPlayerInfo                 = 0x09,
 
 };
 

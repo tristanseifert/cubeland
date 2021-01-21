@@ -17,7 +17,7 @@ struct tls;
 struct tls_config;
 
 namespace world {
-class WorldReader;
+class WorldSource;
 }
 
 namespace net {
@@ -29,13 +29,18 @@ class Listener {
     friend class ListenerClient;
 
     public:
-        Listener(world::WorldReader *world);
+        Listener(world::WorldSource *world);
         ~Listener();
 
     protected:
         /// Marks a client for later destruction
         void removeClient(ListenerClient *rawPtr) {
             this->clientsToMurder.enqueue(rawPtr);
+        }
+
+        /// Gets the world source pointer
+        world::WorldSource *getWorld() const {
+            return this->world;
         }
 
     private:
@@ -46,7 +51,7 @@ class Listener {
         void murdererMain();
 
     private:
-        world::WorldReader *world = nullptr;
+        world::WorldSource *world = nullptr;
 
         std::atomic_bool workerRun;
         std::unique_ptr<std::thread> worker;

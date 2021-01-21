@@ -86,6 +86,9 @@ TitleScreen::~TitleScreen() {
     if(this->worldSel) {
         this->gui->removeWindow(this->worldSel);
     }
+    if(this->serverSel) {
+        this->gui->removeWindow(this->serverSel);
+    }
     if(this->prefs) {
         this->gui->removeWindow(this->prefs);
     } 
@@ -131,6 +134,9 @@ void TitleScreen::willBeginFrame() {
 
     if(this->worldSel) {
         this->worldSel->startOfFrame();
+    }
+    if(this->serverSel) {
+        this->serverSel->startOfFrame();
     }
 
     if(this->bgAnim != AnimationType::None) {

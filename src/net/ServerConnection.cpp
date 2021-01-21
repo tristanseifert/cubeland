@@ -1,5 +1,7 @@
 #include "ServerConnection.h"
 #include "handlers/Auth.h"
+#include "handlers/PlayerInfo.h"
+#include "handlers/WorldInfo.h"
 
 #include "web/AuthManager.h"
 
@@ -95,6 +97,11 @@ ServerConnection::ServerConnection(const std::string &_host) : host(_host) {
 
     // create handlers
     this->auth = new handler::Auth(this);
+    this->playerInfo = new handler::PlayerInfo(this);
+    this->worldInfo = new handler::WorldInfo(this);
+
+    this->handlers.emplace_back(this->playerInfo);
+    this->handlers.emplace_back(this->worldInfo);
     this->handlers.emplace_back(this->auth);
 
     // start our worker thread
@@ -529,3 +536,36 @@ again:;
     return tag;
 }
 
+/**
+ * Forces the connection closed.
+ */
+void ServerConnection::close() {
+    this->workerRun = false;
+
+    // TODO: should we tell the server we're quitting?
+
+    // send dummy message
+    PipeData pd(PipeEvent::NoOp);
+    this->sendPipeData(pd);
+}
+
+/**
+ * Pass through the get player info request to the info handler
+ */
+std::future<std::optional<std::vector<std::byte>>> ServerConnection::getPlayerInfo(const std::string &key) {
+    return this->playerInfo->get(key);
+}
+
+/**
+ * Pass through the set player info request to the info handler
+ */
+void ServerConnection::setPlayerInfo(const std::string &key, const std::vector<std::byte> &data) {
+    this->playerInfo->set(key, data);
+}
+
+/**
+ * Pass through the get world info request to the info handler
+ */
+std::future<std::optional<std::vector<std::byte>>> ServerConnection::getWorldInfo(const std::string &key) {
+    return this->worldInfo->get(key);
+}

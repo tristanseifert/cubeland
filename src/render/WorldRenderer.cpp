@@ -110,11 +110,6 @@ WorldRenderer::WorldRenderer(gui::MainWindow *_win, std::shared_ptr<gui::GameUI>
 
     this->debugger = new WorldRendererDebugger(this);
 
-    // load the current world time
-    if(this->source->isSinglePlayer()) {
-        this->timeSaver = new world::TimePersistence(this->source, &this->time);
-    }
-
     // interactions and some game UI
     this->physics = new physics::Engine(scnRnd, &this->camera);
     this->physics->setDebugRenderStep(physDbg);
@@ -130,12 +125,17 @@ WorldRenderer::WorldRenderer(gui::MainWindow *_win, std::shared_ptr<gui::GameUI>
 
     this->blockInt = new input::BlockInteractions(scnRnd, this->source, this->inventory);
 
-    glm::vec3 loadedPos, loadedAngles;
-    this->posSaver = new input::PlayerPosPersistence(this->input, source);
-    if(this->posSaver->loadPosition(loadedPos)) {
-        this->physics->setPlayerPosition(loadedPos);
-    } else {
-        this->physics->setPlayerPosition(glm::vec3(-10, 80, -10));
+    // restore 1P state
+    if(this->source->isSinglePlayer()) {
+        this->timeSaver = new world::TimePersistence(this->source, &this->time);
+
+        glm::vec3 loadedPos, loadedAngles;
+        this->posSaver = new input::PlayerPosPersistence(this->input, source);
+        if(this->posSaver->loadPosition(loadedPos)) {
+            this->physics->setPlayerPosition(loadedPos);
+        } else {
+            this->physics->setPlayerPosition(glm::vec3(-10, 80, -10));
+        }
     }
 
     this->debugItemToken = gui::MenuBarHandler::registerItem("World", "World Renderer Debug", &this->isDebuggerOpen);
@@ -160,6 +160,9 @@ WorldRenderer::~WorldRenderer() {
         this->gui->removeWindow(this->pauseWin);
     }
 
+    if(this->posSaver) {
+        delete this->posSaver;
+    }
     if(this->timeSaver) {
         delete this->timeSaver;
     }
@@ -172,8 +175,6 @@ WorldRenderer::~WorldRenderer() {
     if(this->debugger) {
         delete this->debugger;
     }
-
-    delete this->posSaver;
 
     delete this->blockInt;
 
@@ -251,7 +252,10 @@ void WorldRenderer::willBeginFrame() {
 
     // start of frame for render steps
     this->source->startOfFrame();
-    this->posSaver->startOfFrame(this->camera.getCameraPosition());
+
+    if(this->posSaver) {
+        this->posSaver->startOfFrame(this->camera.getCameraPosition());
+    }
 
     for(auto &step : this->steps) {
         step->startOfFrame();

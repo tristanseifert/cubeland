@@ -4,8 +4,10 @@
 #include "PacketHandler.h"
 
 #include <atomic>
+#include <cstddef>
 #include <future>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -18,6 +20,8 @@ struct PacketHeader;
 
 namespace handler {
 class Auth;
+class PlayerInfo;
+class WorldInfo;
 }
 
 class ServerConnection {
@@ -29,6 +33,7 @@ class ServerConnection {
         ServerConnection(const std::string &host);
         ~ServerConnection();
 
+        void close();
         bool authenticate();
 
         uint16_t writePacket(const uint8_t ep, const uint8_t type, const std::string &payload,
@@ -42,6 +47,14 @@ class ServerConnection {
 
         /// builds a packet by prepending a header to the specified body
         uint16_t writePacket(const uint8_t ep, const uint8_t type, const void *data, const size_t dataLen, const uint16_t tag = 0);
+
+        /// Reads a player info key.
+        std::future<std::optional<std::vector<std::byte>>> getPlayerInfo(const std::string &key);
+        /// Sets a player info key; this returns as soon as the request is sent
+        void setPlayerInfo(const std::string &key, const std::vector<std::byte> &data);
+
+        /// Reads a world info key
+        std::future<std::optional<std::vector<std::byte>>> getWorldInfo(const std::string &key);
 
     private:
         enum class PipeEvent: uint8_t {
@@ -96,8 +109,9 @@ class ServerConnection {
         /// tag value for the next packet
         uint16_t nextTag = 1;
 
-        /// auth handler
         handler::Auth *auth = nullptr;
+        handler::PlayerInfo *playerInfo = nullptr;
+        handler::WorldInfo *worldInfo = nullptr;
 };
 }
 

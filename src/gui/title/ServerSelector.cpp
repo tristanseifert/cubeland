@@ -3,6 +3,7 @@
 #include "gui/GameUI.h"
 #include "gui/Loaders.h"
 
+#include "world/RemoteSource.h"
 #include "web/AuthManager.h"
 #include "util/Thread.h"
 #include "net/ServerConnection.h"
@@ -108,6 +109,18 @@ void ServerSelector::saveRecents() {
 
 
 /**
+ * Perform switching to the loaded world if desired.
+ */
+void ServerSelector::startOfFrame() {
+    if(this->wantsOpenWorld) {
+        this->title->openWorld(this->connectedWorld);
+        this->wantsOpenWorld = false;
+    }
+}
+
+
+
+/**
  * Draws the server selector window.
  *
  * This consists of a list of recently played servers, for each of which we'll try to get some
@@ -162,7 +175,7 @@ void ServerSelector::draw(GameUI *gui) {
         // connect
         ImGui::SameLine();
         if(ImGui::Button("Connect")) {
-            const auto &server = this->recents.servers[this->selectedServer];
+            auto &server = this->recents.servers[this->selectedServer];
             this->connect(server);
         } if(ImGui::IsItemHovered()) {
             ImGui::SetTooltip("Join the selected server");
@@ -247,7 +260,7 @@ void ServerSelector::drawServerList(GameUI *gui) {
 
             // for each server, list it
             size_t i = 0;
-            for(const auto &entry : this->recents.servers) {
+            for(auto &entry : this->recents.servers) {
                 // begin a new row
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
@@ -504,7 +517,7 @@ void ServerSelector::refreshServerStatus() {
 /**
  * Sends a connection request to the worker thread for the given server.
  */
-void ServerSelector::connect(const Server &srv) {
+void ServerSelector::connect(Server &srv) {
     ConnectionReq req(srv.address);
     this->work.enqueue(req);
 
@@ -514,6 +527,12 @@ void ServerSelector::connect(const Server &srv) {
     this->focusLayers++;
 
     ImGui::OpenPopup("Connecting");
+
+    // update the recents list
+    srv.lastConnected = std::chrono::system_clock::now();
+    srv.haveConnected = true;
+
+    this->saveRecents();
 }
 
 /**
@@ -660,13 +679,20 @@ void ServerSelector::workerMain() {
                 auto success = server->authenticate();
                 XASSERT(success, "Failed to authenticate (should not get here...)");
 
+                // create the remote world source
+                const auto numWorkers = io::PrefsManager::getUnsigned("world.sourceWorkThreads", 2);
+                const auto playerId = web::AuthManager::getPlayerId();
+                auto source = std::make_shared<world::RemoteSource>(server, playerId, numWorkers);
+                this->connectedWorld = source;
+
                 // load the basic chunks around us
                 this->connStage = ConnectionStage::LoadingChunks;
                 this->connProgress = 0;
 
-                // done! open title screen
+                // done! open the world
                 this->connStage = ConnectionStage::Connected;
 
+                this->wantsOpenWorld = true;
             } catch(std::exception &e) {
                 Logging::error("Failed to connect to server {}: {}", req.host, e.what());
 

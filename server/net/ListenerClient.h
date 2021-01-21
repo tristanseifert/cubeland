@@ -6,6 +6,7 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <memory>
 #include <string>
 #include <thread>
@@ -13,11 +14,21 @@
 
 #include <sys/socket.h>
 
+#include <uuid.h>
+
 struct tls;
+
+namespace world {
+class WorldSource;
+}
 
 namespace net {
 struct PacketHeader;
 class Listener;
+
+namespace handler {
+class Auth;
+}
 
 class ListenerClient {
     friend class Listener;
@@ -42,6 +53,15 @@ class ListenerClient {
         struct sockaddr_storage getClientAddr() const {
             return this->clientAddr;
         }
+
+        /// UUID of connected client, if authenticated.
+        std::optional<uuids::uuid> getClientId() const;
+        /// listener that owns this client
+        Listener *getListener() const {
+            return this->owner;
+        }
+        /// world source
+        world::WorldSource *getWorld() const;
 
     private:
         enum class PipeEvent: uint8_t {
@@ -74,6 +94,7 @@ class ListenerClient {
 
     private:
         Listener *owner = nullptr;
+        handler::Auth *auth = nullptr;
 
         /// Client TLS connection
         struct tls *tls = nullptr;

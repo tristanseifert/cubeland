@@ -4,20 +4,26 @@
 #include <logging/Logging.h>
 
 #include <world/FileWorldReader.h>
+#include <world/generators/Terrain.h>
+#include <world/WorldSource.h>
+
 #include "auth/KeyCache.h"
 #include "net/Listener.h"
 
 #include <version.h>
 
-#include <iostream>
-#include <string>
 #include <atomic>
-#include <filesystem>
 #include <cstdlib>
+#include <filesystem>
+#include <iostream>
+#include <memory>
+#include <string>
 
 #include <signal.h>
 
 #include <lyra/lyra.hpp>
+
+static world::WorldSource *LoadWorld(const std::string &path);
 
 /// main loop run flag. cleared by the Ctrl+C signal handler
 static std::atomic_bool keepRunning = true;
@@ -131,9 +137,9 @@ int main(int argc, const char **argv) {
 
     // open the world and start up the server
     const auto worldPath = io::ConfigManager::get("world.path", "");
-    auto world = new world::FileWorldReader(worldPath, true);
 
-    auto listener = new net::Listener(world);
+    auto source = LoadWorld(worldPath);
+    auto listener = new net::Listener(source);
 
     // we really, really do not care about SIGPIPE signals
     signal(SIGPIPE, SIG_IGN);
@@ -155,9 +161,39 @@ int main(int argc, const char **argv) {
     Logging::info("Stopping server...");
 
     delete listener;
-    delete world;
+    delete source;
 
     auth::KeyCache::shutdown();
 
     Logging::stop();
+}
+
+/**
+ * Sets up a world source with the server's world and generator.
+ */
+static world::WorldSource *LoadWorld(const std::string &path) {
+    // open world file
+    auto file = std::make_shared<world::FileWorldReader>(path, true);
+
+    // set up the appropriate generator
+    auto seedProm = file->getWorldInfo("generator.seed");
+    auto seedData = seedProm.get_future().get();
+
+    int32_t seed = io::ConfigManager::getUnsigned("world.seed", 420);
+    if(!seedData.empty()) {
+        // seed is stored as a string
+        const std::string seedStr(seedData.begin(), seedData.end());
+        seed = stoi(seedStr);
+    } else {
+        Logging::warn("Failed to load seed for world {}; using config value (world.seed) ${:X}",
+                path, seed);
+    }
+
+    auto gen = std::make_shared<world::Terrain>(seed);
+
+    // create world source
+    const auto numWorkers = io::ConfigManager::getUnsigned("world.sourceWorkThreads", 4);
+    auto source = new world::WorldSource(file, gen, numWorkers);
+
+    return source;
 }
