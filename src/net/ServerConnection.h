@@ -13,6 +13,7 @@
 #include <vector>
 
 #include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
 
 #include <util/ThreadPool.h>
 
@@ -31,6 +32,7 @@ class Auth;
 class PlayerInfo;
 class WorldInfo;
 class ChunkLoader;
+class PlayerMovement;
 }
 
 class ServerConnection {
@@ -67,6 +69,9 @@ class ServerConnection {
 
         /// Reads a chunk
         std::future<std::shared_ptr<world::Chunk>> getChunk(const glm::ivec2 &pos);
+
+        /// Sends a player position update packet
+        void sendPlayerPosUpdate(const glm::vec3 &pos, const glm::vec3 &angle);
 
         const bool isConnected() const {
             return this->connected;
@@ -138,6 +143,7 @@ class ServerConnection {
         handler::PlayerInfo *playerInfo = nullptr;
         handler::WorldInfo *worldInfo = nullptr;
         handler::ChunkLoader *chonker = nullptr;
+        handler::PlayerMovement *movement = nullptr;
 
         /// connection flag
         bool connected = true;

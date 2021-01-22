@@ -28,6 +28,28 @@ inline auto f(Args&&... args) -> decltype(fmt::format(std::forward<Args>(args)..
 // uuids support
 #include <uuid.h>
 
+// optionals
+template <class T>
+struct fmt::formatter<std::optional<T>> {
+    constexpr auto parse(format_parse_context& ctx) {
+        auto it = ctx.begin(), end = ctx.end();
+        if(it != end && *it != '}') {
+            throw format_error("invalid format");
+        }
+        return it;
+    }
+
+    template <typename FormatContext>
+    auto format(const std::optional<T> &opt, FormatContext& ctx) {
+        if(opt) {
+            return format_to(ctx.out(), "Optional({})", *opt);
+        } else {
+            return format_to(ctx.out(), "Optional(null)");
+        }
+    }
+};
+
+// uuids
 template <> 
 struct fmt::formatter<struct uuids::uuid> {
     constexpr auto parse(format_parse_context& ctx) {

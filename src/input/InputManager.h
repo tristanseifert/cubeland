@@ -37,7 +37,18 @@ class InputManager {
         const glm::vec3 getNonpitchEulerAngles() const {
             return this->eulerAnglesNoPitch;
         }
-
+    
+        /// gets regular angles (pitch, yaw, roll) shoved into a vector
+        const glm::vec3 getAngles() const {
+            return glm::vec3(this->pitch, this->yaw, this->roll);
+        }
+        /// sets the regular angles from a vector
+        void setAngles(const glm::vec3 &a) {
+            this->pitch = a.x;
+            this->yaw = a.y;
+            this->roll = a.z;
+        }
+    
         /**
          * Gets the velocity with which the camera should move in each of
          * the three axes.

@@ -2,6 +2,7 @@
 #include "handlers/Auth.h"
 #include "handlers/Chunk.h"
 #include "handlers/PlayerInfo.h"
+#include "handlers/PlayerMovement.h"
 #include "handlers/WorldInfo.h"
 
 #include "web/AuthManager.h"
@@ -101,7 +102,9 @@ ServerConnection::ServerConnection(const std::string &_host) : host(_host) {
     this->playerInfo = new handler::PlayerInfo(this);
     this->worldInfo = new handler::WorldInfo(this);
     this->chonker = new handler::ChunkLoader(this);
+    this->movement = new handler::PlayerMovement(this);
 
+    this->handlers.emplace_back(this->movement);
     this->handlers.emplace_back(this->chonker);
     this->handlers.emplace_back(this->playerInfo);
     this->handlers.emplace_back(this->worldInfo);
@@ -582,3 +585,9 @@ std::future<std::shared_ptr<world::Chunk>> ServerConnection::getChunk(const glm:
     return this->chonker->get(pos);
 }
 
+/**
+ * Sends a player position update.
+ */
+void ServerConnection::sendPlayerPosUpdate(const glm::vec3 &pos, const glm::vec3 &angle) {
+    this->movement->positionChanged(pos, angle);
+}

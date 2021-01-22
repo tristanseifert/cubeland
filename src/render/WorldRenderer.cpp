@@ -261,6 +261,8 @@ void WorldRenderer::willBeginFrame() {
         return;
     }
 
+    this->source->playerMoved(this->camera.getCameraPosition(), this->input->getAngles());
+
     if(this->posSaver) {
         this->posSaver->startOfFrame(this->camera.getCameraPosition());
     }

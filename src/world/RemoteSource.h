@@ -11,6 +11,8 @@
 #include <thread>
 #include <vector>
 
+#include <glm/vec3.hpp>
+
 namespace net {
 class ServerConnection;
 }
@@ -32,6 +34,9 @@ class RemoteSource: public ClientWorldSource {
         std::future<void> setPlayerInfo(const uuids::uuid &id, const std::string &key, const std::vector<char> &value) override;
         std::promise<std::vector<char>> getPlayerInfo(const uuids::uuid &id, const std::string &key) override;
         std::promise<std::vector<char>> getWorldInfo(const std::string &key) override;
+
+        /// sends a position/angle update
+        void playerMoved(const glm::vec3 &pos, const glm::vec3 &angle) override;
 
         /// Start of frame handler
         void startOfFrame() override;
@@ -61,11 +66,20 @@ class RemoteSource: public ClientWorldSource {
     private:
         std::shared_ptr<net::ServerConnection> server = nullptr;
 
-        const size_t numWorkers;
         std::atomic_bool acceptRequests = true;
 
         /// thread pool
         util::ThreadPool<WorkItem> *pool = nullptr;
+
+        /// minimum movement in any axis before na update is sent
+        constexpr static const float kPositionThreshold = .05;
+        /// minimum look at angle change to send (degrees)
+        constexpr static const float kAngleThreshold = 1.5;
+
+        /// last player pos/angles, used for dedupe of packets
+        glm::vec3 lastPos, lastAngle;
+        /// set to force sending player pos
+        bool forcePlayerPosSend = false;
 };
 }
 #endif

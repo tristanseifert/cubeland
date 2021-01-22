@@ -3,6 +3,7 @@
 
 #include <world/AbstractWorldSource.h>
 
+#include <glm/vec3.hpp>
 #include <uuid.h>
 
 namespace world {
@@ -28,8 +29,11 @@ class ClientWorldSource: public AbstractWorldSource {
             return this->getPlayerInfo(this->playerId, key);
         }
 
+        /// player position changed; by default this does nothing
+        virtual void playerMoved(const glm::vec3 &pos, const glm::vec3 &angle) {};
+
         /// Perform some internal housekeeping
-        virtual void startOfFrame() = 0;
+        virtual void startOfFrame() {};
 
         /// Marks the given chunk as dirty.
         virtual void markChunkDirty(std::shared_ptr<Chunk> &chunk) = 0;

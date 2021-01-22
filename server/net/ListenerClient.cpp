@@ -5,6 +5,7 @@
 #include "handlers/Chunk.h"
 #include "handlers/WorldInfo.h"
 #include "handlers/PlayerInfo.h"
+#include "handlers/PlayerMovement.h"
 
 #include <Logging.h>
 #include <io/Format.h>
@@ -52,6 +53,7 @@ ListenerClient::ListenerClient(Listener *_list, struct tls *_tls, const int _fd,
 
     // initialize packet handlers
     this->auth = new handler::Auth(this);
+    this->handlers.emplace_back(new handler::PlayerMovement(this));
     this->handlers.emplace_back(new handler::ChunkLoader(this));
     this->handlers.emplace_back(new handler::PlayerInfo(this));
     this->handlers.emplace_back(new handler::WorldInfo(this));

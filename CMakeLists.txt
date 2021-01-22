@@ -214,6 +214,7 @@ add_executable(cubeland
     src/net/handlers/Auth.cpp
     src/net/handlers/Chunk.cpp
     src/net/handlers/PlayerInfo.cpp
+    src/net/handlers/PlayerMovement.cpp
     src/net/handlers/WorldInfo.cpp
 # resources and other misc stuff
     ${version_file}
@@ -243,6 +244,7 @@ add_executable(server
     server/net/handlers/Auth.cpp
     server/net/handlers/Chunk.cpp
     server/net/handlers/PlayerInfo.cpp
+    server/net/handlers/PlayerMovement.cpp
     server/net/handlers/WorldInfo.cpp
 # auth support
     server/auth/KeyCache.cpp

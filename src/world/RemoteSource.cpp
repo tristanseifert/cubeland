@@ -18,7 +18,7 @@ using namespace world;
  * The worker thread pool is initialized.
  */
 RemoteSource::RemoteSource(std::shared_ptr<net::ServerConnection> _conn, const uuids::uuid &_id,
-        const size_t numThreads) : ClientWorldSource(_id), server(_conn), numWorkers(numThreads) {
+        const size_t numThreads) : ClientWorldSource(_id), server(_conn) {
     // start worker threads
     this->pool = new util::ThreadPool<WorkItem>("RemoteSource", numThreads);
     _conn->setWorkPool(this->pool);
@@ -165,3 +165,37 @@ void RemoteSource::forceChunkWriteIfDirtySync(std::shared_ptr<Chunk> &chunk) {
 void RemoteSource::startOfFrame() {
     this->valid = this->server->isConnected();
 }
+
+/**
+ * Sends the movement through to the server connection to be yeeted to the server. Since this is
+ * called every frame, we'll do some yeetage to ensure we only actually transmit packets when the
+ * values changed significantly
+ */
+void RemoteSource::playerMoved(const glm::vec3 &pos, const glm::vec3 &angle) {
+    // check to see that the position/angles changed enough
+    if(!this->forcePlayerPosSend) {
+        // check position
+        auto delta = pos - this->lastPos;
+        if(!glm::all(glm::epsilonEqual(delta, glm::vec3(0), kPositionThreshold))) {
+            goto changed;
+        }
+
+        // check angles
+        delta = angle - this->lastAngle;
+        if(!glm::all(glm::epsilonEqual(delta, glm::vec3(0), kAngleThreshold))) {
+            goto changed;
+        }
+
+        // if we get here, neither the position nor angle updated significantly enough
+        return;
+    }
+changed:;
+
+    this->lastPos = pos;
+    this->lastAngle = angle;
+    this->forcePlayerPosSend = false;
+
+    // send it
+    this->server->sendPlayerPosUpdate(pos, angle);
+}
+
