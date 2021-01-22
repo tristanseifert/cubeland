@@ -16,6 +16,7 @@
 #ifdef CUBE_CLIENT
 namespace MUtils::Profiler {
 extern void FinishThread();
+extern void NameThread(const char *name);
 }
 #endif
 
@@ -85,7 +86,11 @@ namespace util {
 
         protected:
             virtual void workerMain(size_t i) {
-                Thread::setName(f("{} {}", this->name, i));
+                const auto threadName = f("{} {}", this->name, i);
+                Thread::setName(threadName);
+#if CUBE_CLIENT
+                MUtils::Profiler::NameThread(threadName.c_str());
+#endif
                 this->workerThreadStarted(i);
 
                 // main loop; dequeue work items

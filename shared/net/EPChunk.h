@@ -60,11 +60,19 @@ struct ChunkSliceData {
     /// Y level of the slice
     uint16_t y;
 
+    /// mapping of UUID to integer value stored in here
+    std::unordered_map<uuids::uuid, uint16_t> typeMap;
+
+    /// an LZ4 compressed 256x256 array of 16-bit values, in Z-major order
+    std::vector<std::byte> data;
+
     private:
         friend class cereal::access;
         template <class Archive> void serialize(Archive &ar) {
             ar(this->chunkPos);
             ar(this->y);
+            ar(this->typeMap);
+            ar(this->data);
         }
 };
 

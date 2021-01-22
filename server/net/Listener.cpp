@@ -124,6 +124,9 @@ Listener::~Listener() {
 
     this->removeClient(nullptr);
 
+    // exit thread pools
+    delete this->serializerPool;
+
     // signal clients we're quitting
     {
         std::lock_guard<std::mutex> lg(this->clientLock);
@@ -131,9 +134,6 @@ Listener::~Listener() {
 
         this->clients.clear();
     }
-
-    // exit thread pools
-    delete this->serializerPool;
 
     // release SSL resources and listening socket
     tls_close(this->tls);

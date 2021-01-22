@@ -3,10 +3,12 @@
 #include "net/ListenerClient.h"
 
 #include <world/WorldSource.h>
+#include <world/block/BlockIds.h>
 #include <world/chunk/Chunk.h>
 #include <world/chunk/ChunkSlice.h>
 #include <net/PacketTypes.h>
 #include <net/EPChunk.h>
+#include <util/LZ4.h>
 #include <util/ThreadPool.h>
 
 #include <io/Format.h>
@@ -14,6 +16,7 @@
 
 #include <cereal/archives/portable_binary.hpp>
 
+#include <cstdint>
 #include <cstring>
 #include <sstream>
 #include <stdexcept>
@@ -110,6 +113,7 @@ void ChunkLoader::handleGet(const PacketHeader &header, const void *payload, con
     // we've found the chunk in cache; send the slices in the background
     if(chunk) {
         pool->queueWorkItem([&, chunk] {
+            if(!this->client->isConnected()) return;
             this->sendSlices(chunk);
         });
     }
@@ -118,6 +122,9 @@ void ChunkLoader::handleGet(const PacketHeader &header, const void *payload, con
         auto pos = request.chunkPos;
 
         pool->queueWorkItem([&, pos, world] {
+            // bail if client is disconnected
+            if(!this->client->isConnected()) return;
+
             // get chunk and store in cache
             auto future = world->getChunk(pos.x, pos.y);
             auto chunk = future.get();
@@ -139,18 +146,55 @@ void ChunkLoader::handleGet(const PacketHeader &header, const void *payload, con
  * Worker callback invoked to send data slices for a particular chunk.
  */
 void ChunkLoader::sendSlices(const std::shared_ptr<world::Chunk> &chunk) {
+    if(!this->client || !this->client->getListener() || 
+            !this->client->getListener()->getSerializerPool()) {
+        return;
+    }
+
     auto pool = this->client->getListener()->getSerializerPool();
     std::vector<std::future<void>> sendSliceFutures;
 
     size_t numSlices = 0;
+
+    // build the ID maps
+    uint16_t nextType = 1;
+    Maps maps;
+
+    for(const auto &map : chunk->sliceIdMaps) {
+        std::unordered_map<uint8_t, uint16_t> temp;
+
+        for(size_t i = 0; i < map.idMap.size(); i++) {
+            const auto &id = map.idMap[i];
+
+            // ignore empty slots
+            if(id.is_nil()) continue;
+            // air is always index 0
+            else if(id == world::kAirBlockId) {
+                temp[i] = 0;
+            }
+            // otherwise, get the type ID or allocate anew
+            else {
+                // allocate ID if needed
+                if(!maps.gridUuidMap.contains(id)) {
+                    maps.gridUuidMap[id] = nextType++;
+                }
+
+                temp[i] = maps.gridUuidMap.at(id);
+            }
+        }
+
+        // store the completed map
+        maps.rowToGrid.push_back(temp);
+    }
 
     // process each slice with data
     for(size_t y = 0; y < world::Chunk::kMaxY; y++) {
         auto slice = chunk->slices[y];
         if(!slice) continue;
 
-        sendSliceFutures.emplace_back(pool->queueWorkItem([&, chunk, slice] {
-            this->sendSlice(chunk, slice);
+        sendSliceFutures.emplace_back(pool->queueWorkItem([&, maps, y, chunk, slice] {
+            if(!this->client->isConnected()) return;
+            this->sendSlice(chunk, maps, slice, y);
         }));
 
         numSlices++;
@@ -168,8 +212,60 @@ void ChunkLoader::sendSlices(const std::shared_ptr<world::Chunk> &chunk) {
 /**
  * Serializes all blocks in the given slice and sends it to the client.
  */
-void ChunkLoader::sendSlice(const std::shared_ptr<world::Chunk> &chunk, const world::ChunkSlice *slice) {
-    // TODO: implement
+void ChunkLoader::sendSlice(const std::shared_ptr<world::Chunk> &chunk, const Maps &maps, const world::ChunkSlice *slice, const size_t y) {
+    // set up the output bufer and map
+    std::vector<uint16_t> outBuf;
+    outBuf.resize(256 * 256, 0);
+
+    // iterate over all rows
+    for(size_t z = 0; z < 256; z++) {
+        auto row = slice->rows[z];
+        if(!row) continue;
+
+        const size_t zOff = (z * 256);
+
+        // iterate over all columns in the row
+        // const auto &map = chunk->sliceIdMaps[row->typeMap];
+        const auto &map = maps.rowToGrid[row->typeMap];
+
+        for(size_t x = 0; x < 256; x++) {
+            const auto rawValue = row->at(x);
+            outBuf[zOff + x] = map.at(rawValue);
+        }
+    }
+
+    // TODO: extract block metas
+
+    // set up the per-thread compressor
+    static thread_local std::unique_ptr<util::LZ4> compressor = nullptr;
+    if(!compressor) {
+        compressor = std::make_unique<util::LZ4>();
+    }
+
+    // compress the map
+    std::vector<char> compressed;
+
+    const char *bytes = reinterpret_cast<const char *>(outBuf.data());
+    const size_t numBytes = outBuf.size() * sizeof(uint16_t);
+
+    compressor->compress(bytes, numBytes, compressed);
+
+    // build the output
+    ChunkSliceData out;
+    out.chunkPos = chunk->worldPos;
+    out.y = y;
+    out.typeMap = maps.gridUuidMap;
+
+    out.data.resize(compressed.size());
+    memcpy(out.data.data(), compressed.data(), compressed.size());
+
+    // serialize and send it
+    std::stringstream oStream;
+    cereal::PortableBinaryOutputArchive oArc(oStream);
+
+    oArc(out);
+
+    this->client->writePacket(kEndpointChunk, kChunkSliceData, oStream.str());
 }
 
 

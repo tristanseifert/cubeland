@@ -3,6 +3,7 @@
 
 #include "net/PacketHandler.h"
 
+#include <condition_variable>
 #include <cstddef>
 #include <future>
 #include <mutex>
@@ -16,6 +17,11 @@
 
 namespace world {
 struct Chunk;
+}
+
+namespace net::message {
+struct ChunkSliceData;
+struct ChunkCompletion;
 }
 
 namespace net::handler {
@@ -32,7 +38,11 @@ class ChunkLoader: public PacketHandler {
         std::future<std::shared_ptr<world::Chunk>> get(const glm::ivec2 &pos);
 
     private:
+        void handleSlice(const PacketHeader &, const void *, const size_t);
+        void process(const message::ChunkSliceData &);
+
         void handleCompletion(const PacketHeader &, const void *, const size_t);
+        void process(const message::ChunkCompletion &);
 
     private:
         /// lock over the promises list
@@ -44,6 +54,15 @@ class ChunkLoader: public PacketHandler {
         std::mutex inProgressLock;
         /// in progress chunks
         std::unordered_map<glm::ivec2, std::shared_ptr<world::Chunk>> inProgress;
+
+        /**
+         * Count of slices processed, by chunk position. We've got a lock and condition variable
+         * that's signalled any time this changes. The completion callbacks will block on this to
+         * ensure all slices in the chunk have finished processing.
+         */
+        std::unordered_map<glm::ivec2, size_t> counts;
+        std::condition_variable countsCond;
+        std::mutex countsLock;
 };
 }
 

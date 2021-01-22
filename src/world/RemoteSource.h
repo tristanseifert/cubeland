@@ -3,6 +3,7 @@
 
 #include "ClientWorldSource.h"
 #include <world/WorldSource.h>
+#include <util/ThreadPool.h>
 
 #include <atomic>
 #include <functional>
@@ -57,40 +58,14 @@ class RemoteSource: public ClientWorldSource {
     private:
         using WorkItem = std::function<void(void)>;
 
-        /// executes a function on the work queue, resulting a future holding its return value
-        template<class F, class... Args>
-        auto work(F&& f, Args&&... args) 
-        -> std::future<typename std::invoke_result<F, Args...>::type> {
-            // build a task from the function invocation
-            using return_type = typename std::invoke_result<F, Args...>::type;
-            auto task = std::make_shared< std::packaged_task<return_type()> >(
-                std::bind(std::forward<F>(f), std::forward<Args>(args)...)
-            );
-
-            // get future
-            std::future<return_type> fut = task->get_future();
-
-            // insert to queue
-            if(!this->acceptRequests) {
-                throw std::runtime_error("work queue not accepting requests");
-            }
-            this->workQueue.enqueue([task](){ (*task)(); });
-
-            return fut;
-        }
-        void workerMain(size_t i);
-
     private:
         std::shared_ptr<net::ServerConnection> server = nullptr;
 
         const size_t numWorkers;
-        std::atomic_bool workerRun;
         std::atomic_bool acceptRequests = true;
 
-        /// worker threads
-        std::vector<std::unique_ptr<std::thread>> workers;
-        /// work requests sent to the thread
-        moodycamel::BlockingConcurrentQueue<WorkItem> workQueue;
+        /// thread pool
+        util::ThreadPool<WorkItem> *pool = nullptr;
 };
 }
 #endif

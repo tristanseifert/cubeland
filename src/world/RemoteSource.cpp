@@ -20,13 +20,8 @@ using namespace world;
 RemoteSource::RemoteSource(std::shared_ptr<net::ServerConnection> _conn, const uuids::uuid &_id,
         const size_t numThreads) : ClientWorldSource(_id), server(_conn), numWorkers(numThreads) {
     // start worker threads
-    this->workerRun = true;
-
-    for(size_t i = 0; i < this->numWorkers; i++) {
-        auto worker = std::make_unique<std::thread>(&RemoteSource::workerMain, this, i);
-        this->workers.push_back(std::move(worker));
-    }
-
+    this->pool = new util::ThreadPool<WorkItem>("RemoteSource", numThreads);
+    _conn->setWorkPool(this->pool);
 }
 
 /**
@@ -34,38 +29,11 @@ RemoteSource::RemoteSource(std::shared_ptr<net::ServerConnection> _conn, const u
  */
 RemoteSource::~RemoteSource() {
     // shut down workers
-    this->workerRun = false;
-    for(size_t i = 0; i < this->numWorkers+1; i++) {
-        this->workQueue.enqueue([&] {});
-    }
-    for(auto &thread : this->workers) {
-        thread->join();
-    }
+    delete this->pool;
+
     // close connection
     this->server->close();
 }
-
-
-
-/**
- * Main loop for the world source threads
- */
-void RemoteSource::workerMain(size_t i) {
-    // perform some setup
-    const auto threadName = f("RemoteSource {}", i+1);
-    MUtils::Profiler::NameThread(threadName.c_str());
-    util::Thread::setName(threadName);
-
-    // main loop; dequeue work items
-    WorkItem item;
-    while(this->workerRun) {
-        this->workQueue.wait_dequeue(item);
-        item();
-    }
-
-    MUtils::Profiler::FinishThread();
-}
-
 
 
 /**
@@ -90,7 +58,7 @@ std::promise<std::vector<char>> RemoteSource::getWorldInfo(const std::string &ke
     std::promise<std::vector<char>> prom;
 
     // make the request
-    this->work([&, key] {
+    this->pool->queueWorkItem([&, key] {
         try {
             // try the network request
             auto future = this->server->getWorldInfo(key);
@@ -125,7 +93,7 @@ std::promise<std::vector<char>> RemoteSource::getPlayerInfo(const uuids::uuid &i
     // perform the network request waiting on a worker thread
     std::promise<std::vector<char>> prom;
 
-    this->work([&, key] {
+    this->pool->queueWorkItem([&, key] {
         try {
             // try the network request
             auto future = this->server->getPlayerInfo(key);
@@ -162,7 +130,7 @@ std::future<void> RemoteSource::setPlayerInfo(const uuids::uuid &id, const std::
         memcpy(value.data(), _value.data(), _value.size());
     }
 
-    return this->work([&, key, value] {
+    return this->pool->queueWorkItem([&, key, value] {
         try {
             this->server->setPlayerInfo(key, value);
         } catch(std::exception &e) {

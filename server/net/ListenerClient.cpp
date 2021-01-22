@@ -251,6 +251,7 @@ beach:;
     }
 
     // close connection
+    this->connected = false;
     Logging::debug("Cleaning up client {}", this->clientAddr);
 
 closeAgain:;

@@ -49,6 +49,11 @@ class ListenerClient {
         /// builds a packet by prepending a header to the specified body
         uint16_t writePacket(const uint8_t ep, const uint8_t type, const void *data, const size_t dataLen, const uint16_t tag = 0);
 
+        /// whether the client is still connected
+        const bool isConnected() const {
+            return this->connected;
+        }
+
         /// get the address of the client
         struct sockaddr_storage getClientAddr() const {
             return this->clientAddr;
@@ -114,6 +119,8 @@ class ListenerClient {
 
         /// Tag value to write in the next packet
         uint16_t nextTag = 1;
+        /// whether the client connection is still alive
+        bool connected = true;
 };
 };
 

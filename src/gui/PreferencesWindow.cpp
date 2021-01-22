@@ -263,7 +263,7 @@ void PreferencesWindow::drawPerfPane(GameUI *gui) {
     // world source threads
     if(ImGui::InputInt("World Source Threads", &this->perf.sourceThreads)) dirty = true;
     if(ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("World source threads read world data and generates new chunks.\nHint: You can probably leave this at its default value.");
+        ImGui::SetTooltip("World source threads read world data and generates new chunks.\nHint: Multiplayer worlds may see performance gains from increasing this value.");
     }
 
     ImGui::Dummy(ImVec2(8, 0));

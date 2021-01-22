@@ -143,6 +143,12 @@ struct Chunk {
         std::vector<ChunkRowBlockTypeMap> sliceIdMaps;
 
         /**
+         * Lock to protect the slice ID maps; take this whenever the slice ID maps are being
+         * modified rather than read.
+         */
+        std::mutex sliceIdMapsLock;
+
+        /**
          * Chunk specific metadata
          */
         std::unordered_map<std::string, MetaValue> meta;
@@ -246,6 +252,8 @@ struct Chunk {
              * additional storage block.
              */
             T *alloc() {
+                std::lock_guard<std::mutex> lg(this->allocLock);
+
                 // check the free element
                 if(auto ptr = this->allocFromSegment(this->nextFree)) {
                     return ptr;
@@ -271,6 +279,9 @@ struct Chunk {
             }
 
         private:
+            /// Lock required for allocation
+            std::mutex allocLock;
+
             /**
              * Attempts to allocate an object from the given storage element. If there is no more
              * space available, nullptr is returned.

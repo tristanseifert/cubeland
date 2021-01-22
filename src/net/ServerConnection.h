@@ -14,6 +14,8 @@
 
 #include <glm/vec2.hpp>
 
+#include <util/ThreadPool.h>
+
 struct tls;
 struct tls_config;
 
@@ -68,6 +70,15 @@ class ServerConnection {
 
         const bool isConnected() const {
             return this->connected;
+        }
+
+        /// gets a reference to the work pool to be used by client handlers
+        util::ThreadPool<std::function<void(void)>> *getWorkPool() {
+            return this->pool;
+        }
+        /// sets the reference to the work pool
+        void setWorkPool(util::ThreadPool<std::function<void(void)>> *newPool) {
+            this->pool = newPool;
         }
 
     private:
@@ -130,6 +141,9 @@ class ServerConnection {
 
         /// connection flag
         bool connected = true;
+
+        /// thread work pool
+        util::ThreadPool<std::function<void(void)>> *pool = nullptr;
 };
 }
 

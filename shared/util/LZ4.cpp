@@ -138,15 +138,16 @@ bool LZ4::decompress(const std::vector<char> &in, std::vector<char> &out) {
  *
  * @TODO: This should probably be refactored so we can share decompress code with the vector one
  */
-size_t LZ4::decompress(const std::vector<char> &in, void *out, const size_t outLen) {
+size_t LZ4::decompress(const void *in, const size_t inLen, void *out, const size_t outLen) {
    size_t err, consumedSrc = 0, consumedDst = 0;
     LZ4F_frameInfo_t info;
     memset(&info, 0, sizeof(info));
 
-    char *outPtr = reinterpret_cast<char *>(out);
+    auto inPtr = reinterpret_cast<const char *>(in);
+    auto outPtr = reinterpret_cast<char *>(out);
 
     // bail if input is empty
-    if(in.empty()) {
+    if(!inLen) {
         return 0;
     }
 
@@ -154,12 +155,12 @@ size_t LZ4::decompress(const std::vector<char> &in, void *out, const size_t outL
     LZ4F_resetDecompressionContext(this->dctx);
 
     // try to read the frame parameters (get uncompressed size)
-    if(in.size() < LZ4F_HEADER_SIZE_MAX) {
+    if(inLen < LZ4F_HEADER_SIZE_MAX) {
         throw std::runtime_error("Insufficient space for LZ4 header");
     }
 
-    consumedSrc = in.size();
-    err = LZ4F_getFrameInfo(this->dctx, &info, in.data(), &consumedSrc);
+    consumedSrc = inLen;
+    err = LZ4F_getFrameInfo(this->dctx, &info, in, &consumedSrc);
     if(LZ4F_isError(err)) {
         throw std::runtime_error(f("LZ4F_getFrameInfo() failed: {} ({:x})", 
                     LZ4F_getErrorName(err), err));
@@ -171,14 +172,14 @@ size_t LZ4::decompress(const std::vector<char> &in, void *out, const size_t outL
     // decode until done
     do {
         // bytes remaining in input and output
-        size_t srcSize = in.size() - consumedSrc;
+        size_t srcSize = inLen - consumedSrc;
         size_t dstSize = outLen - consumedDst;
 
         err = LZ4F_decompress(this->dctx, outPtr + consumedDst, &dstSize, 
-                in.data() + consumedSrc, &srcSize, nullptr);
+                inPtr + consumedSrc, &srcSize, nullptr);
         if(LZ4F_isError(err)) {
-            throw std::runtime_error(f("LZ4F_decompress() failed: {} ({:x})", 
-                        LZ4F_getErrorName(err), err));
+            throw std::runtime_error(f("LZ4F_decompress() failed: {} ({:x}, srcSize {} dstSize {} srcConsumed {} dstConsumed {}, inLen {} outLen {})", 
+                        LZ4F_getErrorName(err), err, srcSize, dstSize, consumedSrc, consumedDst, inLen, outLen));
         }
 
         consumedSrc += srcSize;

@@ -30,7 +30,10 @@ class LZ4 {
         void compress(const void *in, const size_t inLen, std::vector<char> &out);
 
         bool decompress(const std::vector<char> &in, std::vector<char> &out);
-        size_t decompress(const std::vector<char> &in, void *out, const size_t outLen);
+        size_t decompress(const std::vector<char> &in, void *out, const size_t outLen) {
+            return this->decompress(in.data(), in.size(), out, outLen);
+        }
+        size_t decompress(const void *in, const size_t inLen, void *out, const size_t outLen);
 
     private:
         // decompression context
