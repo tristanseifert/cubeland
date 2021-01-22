@@ -7,9 +7,15 @@
 
 #include <glm/vec3.hpp>
 
+namespace world {
+class RemoteSource;
+}
+
 namespace net::handler {
 
 class PlayerMovement: public PacketHandler {
+    friend class world::RemoteSource;
+
     public:
         PlayerMovement(ServerConnection *_server) : PacketHandler(_server) {};
         virtual ~PlayerMovement() = default;
@@ -22,8 +28,14 @@ class PlayerMovement: public PacketHandler {
 
     private:
         void otherPlayerMoved(const PacketHeader &, const void *, const size_t);
+        void handleInitialPos(const PacketHeader &, const void *, const size_t);
 
     private:
+        /// we've received the initial position message
+        bool hasInitialPos = false;
+        /// most recent position and angles (only set by initial message frame atm)
+        glm::vec3 position, angles;
+
         /// epoch value to insert into outgoing position update packets; increments by one
         uint32_t epoch = 1;
 };

@@ -20,6 +20,16 @@ class PacketHandler {
         virtual bool canHandlePacket(const PacketHeader &header) = 0;
         virtual void handlePacket(const PacketHeader &header, const void *payload, const size_t payloadLen) = 0;
 
+        /// authentication state of the connection changed
+        virtual void authStateChanged() {};
+
+        /// whether we need data to be saved
+        virtual const bool isDirty() const {
+            return false;
+        }
+        /// periodic tick to save data
+        virtual void saveData() {};
+
     protected:
         ListenerClient *client = nullptr;
 };

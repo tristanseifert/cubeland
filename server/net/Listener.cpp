@@ -14,6 +14,7 @@
 
 #include <tls.h>
 
+#include <chrono>
 #include <cstdint>
 
 using namespace net;
@@ -73,6 +74,7 @@ Listener::Listener(world::WorldSource *_reader) : world(_reader) {
     this->worker = std::make_unique<std::thread>(&Listener::workerMain, this);
 
     this->murderThread = std::make_unique<std::thread>(&Listener::murdererMain, this);
+    this->saverThread = std::make_unique<std::thread>(&Listener::saverMain, this);
 }
 
 /**
@@ -121,6 +123,8 @@ void Listener::buildTlsConfig(struct tls_config *cfg) {
 Listener::~Listener() {
     // stop accepting new requests
     this->workerRun = false;
+
+    this->saverThread->join();
 
     this->removeClient(nullptr);
 
@@ -213,5 +217,29 @@ void Listener::murdererMain() {
         [clientPtr](auto &client) {
             return (client.get() == clientPtr);
         }), this->clients.end());
+    }
+}
+
+/**
+ * Main loop for the saving thread
+ *
+ * We sleep for a fixed amount on each loop iteration, and invoke the save method of all clients.
+ */
+void Listener::saverMain() {
+    util::Thread::setName("Client Saver");
+
+    while(this->workerRun) {
+        // invoke clients save methods
+        try {
+            std::lock_guard<std::mutex> lg(this->clientLock);
+            for(auto &client : this->clients) {
+                client->save();
+            }
+        } catch(std::exception &e) {
+            Logging::error("Failed to save client data: {}", e.what());
+        }
+
+        // yeet
+        std::this_thread::sleep_for(std::chrono::seconds(2));
     }
 }

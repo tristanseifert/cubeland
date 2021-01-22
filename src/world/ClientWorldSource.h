@@ -3,6 +3,10 @@
 
 #include <world/AbstractWorldSource.h>
 
+#include <future>
+#include <optional>
+#include <utility>
+
 #include <glm/vec3.hpp>
 #include <uuid.h>
 
@@ -28,6 +32,11 @@ class ClientWorldSource: public AbstractWorldSource {
         std::promise<std::vector<char>> getPlayerInfo(const std::string &key) {
             return this->getPlayerInfo(this->playerId, key);
         }
+
+        /// returns the position and view angles the player should load into the level at
+        virtual std::promise<std::pair<glm::vec3, glm::vec3>> getInitialPosition() = 0;
+        /// get the spawn position of the player, e.g. where they appear after dying
+        virtual std::promise<std::pair<glm::vec3, glm::vec3>> getSpawnPosition() = 0;
 
         /// player position changed; by default this does nothing
         virtual void playerMoved(const glm::vec3 &pos, const glm::vec3 &angle) {};

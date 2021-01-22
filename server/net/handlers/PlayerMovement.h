@@ -5,8 +5,10 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 #include <glm/vec3.hpp>
+#include <cereal/access.hpp>
 
 
 namespace net::handler {
@@ -22,8 +24,35 @@ class PlayerMovement: public PacketHandler {
         void handlePacket(const PacketHeader &header, const void *payload,
                 const size_t payloadLen) override;
 
+        void authStateChanged() override;
+
+        const bool isDirty() const override {
+            return this->dirty;
+        }
+        void saveData() override {
+            this->savePosition();
+        }
+
     private:
         void clientPosChanged(const PacketHeader &, const void *, const size_t);
+
+        void savePosition();
+
+    private:
+        /// name of the player position saved in the world file
+        static const std::string kPositionInfoKey;
+
+        /// world position, saved
+        struct SavePos {
+            glm::vec3 position, angles;
+
+        private:
+            friend class cereal::access;
+            template <class Archive> void serialize(Archive &ar) {
+                ar(this->position);
+                ar(this->angles);
+            }
+        };
 
     private:
         /// max allowable difference between epochs and still consider the value valid
@@ -35,6 +64,8 @@ class PlayerMovement: public PacketHandler {
         glm::vec3 position, angles;
         /// whether the position/angles have changed and need to be saved
         bool dirty = false;
+        /// whether the initial position has been loaded
+        bool loadedInitialPos = false;
 };
 }
 

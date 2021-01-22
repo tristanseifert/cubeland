@@ -125,6 +125,10 @@ WorldRenderer::WorldRenderer(gui::MainWindow *_win, std::shared_ptr<gui::GameUI>
 
     this->blockInt = new input::BlockInteractions(scnRnd, this->source, this->inventory);
 
+    // get the world load position and spawn positions
+    auto spawnProm = this->source->getSpawnPosition();
+    const auto spawn = spawnProm.get_future().get();
+
     // restore 1P state
     if(this->source->isSinglePlayer()) {
         this->timeSaver = new world::TimePersistence(this->source, &this->time);
@@ -134,8 +138,16 @@ WorldRenderer::WorldRenderer(gui::MainWindow *_win, std::shared_ptr<gui::GameUI>
         if(this->posSaver->loadPosition(loadedPos)) {
             this->physics->setPlayerPosition(loadedPos);
         } else {
-            this->physics->setPlayerPosition(glm::vec3(-10, 80, -10));
+            this->physics->setPlayerPosition(spawn.first);
         }
+    }
+    // for multiplayer worlds, ask the server for our starting position
+    else {
+        auto prom = this->source->getInitialPosition();
+        auto pair = prom.get_future().get();
+
+        this->physics->setPlayerPosition(pair.first);
+        this->input->setAngles(pair.second);
     }
 
     this->debugItemToken = gui::MenuBarHandler::registerItem("World", "World Renderer Debug", &this->isDebuggerOpen);

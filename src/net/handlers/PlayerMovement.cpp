@@ -38,6 +38,10 @@ void PlayerMovement::handlePacket(const PacketHeader &header, const void *payloa
             this->otherPlayerMoved(header, payload, payloadLen);
             break;
 
+        case kPlayerPositionInitial:
+            this->handleInitialPos(header, payload, payloadLen);
+            break;
+
         default:
             throw std::runtime_error(f("Invalid player movement packet type: ${:02x}", header.type));
     }
@@ -77,3 +81,21 @@ void PlayerMovement::positionChanged(const glm::vec3 &pos, const glm::vec3 &angl
     this->server->writePacket(kEndpointPlayerMovement, kPlayerPositionChanged, oStream.str());
 }
 
+/**
+ * Handles a received initial position packet. We'll simply store the position and angles for
+ * later.
+ */
+void PlayerMovement::handleInitialPos(const PacketHeader &, const void *payload, const size_t payloadLen) {
+    // deserialize message
+    std::stringstream stream(std::string(reinterpret_cast<const char *>(payload), payloadLen));
+    cereal::PortableBinaryInputArchive iArc(stream);
+
+    PlayerPositionInitial initial;
+    iArc(initial);
+
+    // lastly, set the state so the world source can pick up this position
+    this->position = initial.position;
+    this->angles = initial.angles;
+
+    this->hasInitialPos = true;
+}

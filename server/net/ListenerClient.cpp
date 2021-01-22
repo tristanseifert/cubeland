@@ -70,6 +70,9 @@ ListenerClient::ListenerClient(Listener *_list, struct tls *_tls, const int _fd,
 ListenerClient::~ListenerClient() {
     int err;
 
+    // yeet the handlers
+    this->handlers.clear();
+
     // request the worker thread shuts down
     this->workerRun = false;
 
@@ -365,4 +368,23 @@ std::optional<uuids::uuid> ListenerClient::getClientId() const {
  */
 world::WorldSource *ListenerClient::getWorld() const {
     return this->owner->getWorld();
+}
+
+/**
+ * Invoke all auth callbacks
+ */
+void ListenerClient::authStateChanged() {
+    for(auto &handler : this->handlers) {
+        handler->authStateChanged();
+    }
+}
+
+/**
+ * Saves all handlers that need it.
+ */
+void ListenerClient::save() {
+    for(auto &handler : this->handlers) {
+        if(!handler->isDirty()) continue;
+        handler->saveData();
+    }
 }

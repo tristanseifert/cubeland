@@ -68,6 +68,11 @@ class ListenerClient {
         /// world source
         world::WorldSource *getWorld() const;
 
+        /// invokes the auth state callbacks of all clients
+        void authStateChanged();
+        /// invokes save method of all dirty handlers
+        void save();
+
     private:
         enum class PipeEvent: uint8_t {
             // do nothing

@@ -22,6 +22,7 @@ struct tls_config;
 
 namespace world {
 struct Chunk;
+class RemoteSource;
 }
 
 namespace net {
@@ -36,6 +37,8 @@ class PlayerMovement;
 }
 
 class ServerConnection {
+    friend class world::RemoteSource;
+
     public:
         /// Default server port
         constexpr static uint16_t kDefaultPort = 47420;

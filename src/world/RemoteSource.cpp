@@ -1,6 +1,7 @@
 #include "RemoteSource.h"
 
 #include "net/ServerConnection.h"
+#include "net/handlers/PlayerMovement.h"
 
 #include <io/Format.h>
 #include <Logging.h>
@@ -197,5 +198,29 @@ changed:;
 
     // send it
     this->server->sendPlayerPosUpdate(pos, angle);
+}
+
+/**
+ * Returns the cached initial position, if the server sent one. Otherwise, we'll make a request
+ * for the spawn position.
+ *
+ * Note that since we expect to have received the unsolicited initial position packet from the
+ * server by the time this is called during construction of the world renderer. This shouldn't be
+ * a problem since it's the first packet sent after authentication succeeds, and we'll be pre-
+ * loading a few chunks anyways which takes longer.
+ */
+std::promise<std::pair<glm::vec3, glm::vec3>> RemoteSource::getInitialPosition() {
+    auto move = this->server->movement;
+
+    // return cached position, if available
+    if(move->hasInitialPos) {
+        std::promise<std::pair<glm::vec3, glm::vec3>> prom;
+        prom.set_value(std::make_pair(move->position, move->angles));
+
+        return prom;
+    }
+
+    // get spawn point
+    return this->getSpawnPosition();
 }
 

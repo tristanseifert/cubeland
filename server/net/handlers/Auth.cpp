@@ -153,4 +153,7 @@ void Auth::handleAuthChallengeReply(const PacketHeader &header, const void *payl
     oArc(status);
 
     this->client->writePacket(kEndpointAuthentication, kAuthStatus, oStream.str(), header.tag);
+
+    // invoke handlers
+    this->client->authStateChanged();
 }

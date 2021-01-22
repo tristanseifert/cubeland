@@ -59,6 +59,8 @@ class Listener {
 
         void murdererMain();
 
+        void saverMain();
+
     private:
         world::WorldSource *world = nullptr;
 
@@ -82,6 +84,9 @@ class Listener {
 
         /// thread pool for chunk serialization
         util::ThreadPool<WorkItem> *serializerPool;
+
+        /// this thread periodically invokes the save method on connected clients
+        std::unique_ptr<std::thread> saverThread;
 };
 };
 

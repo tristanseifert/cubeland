@@ -35,6 +35,14 @@ class RemoteSource: public ClientWorldSource {
         std::promise<std::vector<char>> getPlayerInfo(const uuids::uuid &id, const std::string &key) override;
         std::promise<std::vector<char>> getWorldInfo(const std::string &key) override;
 
+        std::promise<std::pair<glm::vec3, glm::vec3>> getInitialPosition() override;
+        /// TODO: implement properly
+        std::promise<std::pair<glm::vec3, glm::vec3>> getSpawnPosition() override {
+            std::promise<std::pair<glm::vec3, glm::vec3>> prom;
+            prom.set_value(std::make_pair(glm::vec3(64), glm::vec3(0)));
+            return prom;
+        }
+
         /// sends a position/angle update
         void playerMoved(const glm::vec3 &pos, const glm::vec3 &angle) override;
 

@@ -19,6 +19,8 @@ enum PlayerMovementMsgType: uint8_t {
     kPlayerPositionChanged              = 0x01,
     /// server -> client; player position broacast
     kPlayerPositionBroadcast            = 0x02,
+    /// server -> client; unsolicited initial position message
+    kPlayerPositionInitial              = 0x03,
 
     kPlayerPositionTypeMax,
 };
@@ -40,6 +42,24 @@ struct PlayerPositionChanged {
         friend class cereal::access;
         template <class Archive> void serialize(Archive &ar) {
             ar(this->epoch);
+            ar(this->position);
+            ar(this->angles);
+        }
+};
+
+
+/**
+ * Initial position message; this is sent unsolicited after successful authentication.
+ */
+struct PlayerPositionInitial {
+    /// origin of the player bounding volume
+    glm::vec3 position;
+    /// camera angles currently used
+    glm::vec3 angles;
+
+    private:
+        friend class cereal::access;
+        template <class Archive> void serialize(Archive &ar) {
             ar(this->position);
             ar(this->angles);
         }

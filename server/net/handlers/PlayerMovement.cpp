@@ -17,6 +17,8 @@
 using namespace net::handler;
 using namespace net::message;
 
+const std::string PlayerMovement::kPositionInfoKey = "server.player.position";
+
 /**
  * Handle player movement packets.
  */
@@ -78,7 +80,75 @@ void PlayerMovement::clientPosChanged(const PacketHeader &, const void *payload,
     this->angles = request.angles;
     this->dirty = true;
 
-    Logging::trace("New position for {}: {} {}", this->client->getClientId(), request.position, request.angles);
-
     // TODO: broadcast to other clients
+}
+
+
+
+/**
+ * Serializes the current position and angle to the world file.
+ */
+void PlayerMovement::savePosition() {
+    auto world = this->client->getWorld();
+    auto id = *this->client->getClientId();
+
+    // build the info struct
+    SavePos p;
+    p.position = this->position;
+    p.angles = this->angles;
+
+    // serialize and write out
+    std::stringstream oStream;
+    cereal::PortableBinaryOutputArchive oArc(oStream);
+
+    oArc(p);
+
+    const auto &str = oStream.str();
+    std::vector<char> bytes(str.begin(), str.end());
+
+    auto fut = world->setPlayerInfo(id, kPositionInfoKey, bytes);
+    fut.get();
+
+    // clear dirty flag
+    this->dirty = false;
+}
+
+/**
+ * Auth state callback; we'll load the position from the world file at this time.
+ */
+void PlayerMovement::authStateChanged() {
+    if(this->loadedInitialPos) return;
+    if(!this->client->getClientId()) return;
+
+    auto id = *this->client->getClientId();
+
+    // try to load the meeper
+    auto world = this->client->getWorld();
+    auto prom = world->getPlayerInfo(id, kPositionInfoKey);
+    auto value = prom.get_future().get();
+
+    if(value.empty()) {
+        return;
+    }
+
+    // deserialize
+    std::stringstream stream(std::string(value.begin(), value.end()));
+    cereal::PortableBinaryInputArchive arc(stream);
+
+    SavePos data;
+    arc(data);
+
+    this->position = data.position;
+    this->angles = data.angles;
+
+    // send message to client
+    PlayerPositionInitial initial;
+    initial.position = data.position;
+    initial.angles = data.angles;
+
+    std::stringstream oStream;
+    cereal::PortableBinaryOutputArchive oArc(oStream);
+    oArc(initial);
+
+    this->client->writePacket(kEndpointPlayerMovement, kPlayerPositionInitial, oStream.str());
 }

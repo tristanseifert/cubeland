@@ -32,6 +32,19 @@ class LocalSource: public ClientWorldSource, public WorldSource {
             return WorldSource::getWorldInfo(key);
         }
 
+        /// TODO: implement properly
+        std::promise<std::pair<glm::vec3, glm::vec3>> getInitialPosition() override {
+            std::promise<std::pair<glm::vec3, glm::vec3>> prom;
+            prom.set_exception(std::make_exception_ptr(std::runtime_error("unimplemented")));
+            return prom;
+        }
+        /// TODO: implement properly
+        std::promise<std::pair<glm::vec3, glm::vec3>> getSpawnPosition() override {
+            std::promise<std::pair<glm::vec3, glm::vec3>> prom;
+            prom.set_value(std::make_pair(glm::vec3(64), glm::vec3(0)));
+            return prom;
+        }
+
         /// Updates the dirty chunks list every frame
         void startOfFrame() override {
             this->updateDirtyList();

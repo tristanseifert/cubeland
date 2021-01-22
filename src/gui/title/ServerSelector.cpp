@@ -692,6 +692,8 @@ void ServerSelector::workerMain() {
                 // done! open the world
                 this->connStage = ConnectionStage::Connected;
 
+                // allow pending packets to yeet
+                std::this_thread::sleep_for(std::chrono::milliseconds(333));
                 this->wantsOpenWorld = true;
             } catch(std::exception &e) {
                 Logging::error("Failed to connect to server {}: {}", req.host, e.what());
