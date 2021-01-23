@@ -26,6 +26,7 @@ class InGamePrefsWindow: public GameWindow {
     private:
         render::WorldRenderer *renderer = nullptr;
 
+        float gamma;
         float fov;
         int renderDist;
         bool vsync;

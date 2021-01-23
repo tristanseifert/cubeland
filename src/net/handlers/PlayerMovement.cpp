@@ -56,6 +56,11 @@ void PlayerMovement::handlePacket(const PacketHeader &header, const void *payloa
 void PlayerMovement::otherPlayerMoved(const PacketHeader &, const void *payload,
         const size_t payloadLen) {
     // try to deserialize the message
+    std::stringstream stream(std::string(reinterpret_cast<const char *>(payload), payloadLen));
+    cereal::PortableBinaryInputArchive iArc(stream);
+
+    PlayerPositionBroadcast b;
+    iArc(b);
 
     // deal with it
 

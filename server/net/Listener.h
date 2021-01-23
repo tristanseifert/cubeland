@@ -4,6 +4,7 @@
 #include "ListenerClient.h"
 
 #include <algorithm>
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -14,6 +15,8 @@
 
 #include <util/ThreadPool.h>
 #include <blockingconcurrentqueue.h>
+
+#include <cpptime.h>
 
 struct tls;
 struct tls_config;
@@ -45,6 +48,23 @@ class Listener {
         world::Clock *getClock() {
             return this->clock;
         }
+
+        /// Registers a broadcast timer (these are repeating)
+        template <class Rep, class Period>
+        CppTime::timer_id addRepeatingTimer(const std::chrono::duration<Rep, Period> &when,
+                const std::function<void(void)> &handler) {
+            return this->timer.add(when, [=](auto) {
+                handler();
+            }, when);
+        }
+        /// unregisters a timer
+        void removeTimer(const CppTime::timer_id id) {
+            std::lock_guard<std::mutex> lg(this->timerLock);
+            this->timer.remove(id);
+        }
+
+        /// runs a function for each client
+        void forEach(const std::function<void(std::unique_ptr<ListenerClient> &)> &cb);
 
     protected:
         /// Marks a client for later destruction
@@ -95,6 +115,11 @@ class Listener {
 
         /// time updating
         world::Clock *clock = nullptr;
+
+        /// shared broadcasting thymer
+        CppTime::Timer timer;
+        /// lock protecting the thymer (for add/remove)
+        std::mutex timerLock;
 };
 };
 

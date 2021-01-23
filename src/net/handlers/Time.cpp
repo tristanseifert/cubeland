@@ -1,5 +1,6 @@
 #include "Time.h"
 #include "net/ServerConnection.h"
+#include "world/RemoteSource.h"
 
 #include <net/PacketTypes.h>
 #include <net/EPTime.h>
@@ -56,6 +57,8 @@ void Time::handlePacket(const PacketHeader &header, const void *payload, const s
  * the world renderer.
  */
 void Time::configTime(const PacketHeader &, const void *payload, const size_t payloadLen) {
+    auto world = this->server->getSource();
+
     // deserialize the payload
     std::stringstream stream(std::string(reinterpret_cast<const char *>(payload), payloadLen));
     cereal::PortableBinaryInputArchive iArc(stream);
@@ -65,8 +68,12 @@ void Time::configTime(const PacketHeader &, const void *payload, const size_t pa
 
     // configure time
     this->timeFactor = init.tickFactor;
+    this->lastSyncTime = init.currentTime;
 
-    Logging::trace("Current time: {}, step {}", init.currentTime, init.tickFactor);
+    if(world) {
+        world->setTime(init.currentTime);
+        world->setTimeFactor(init.tickFactor);
+    }
 }
 
 
@@ -74,6 +81,8 @@ void Time::configTime(const PacketHeader &, const void *payload, const size_t pa
  * Resynchronizes local time with the server's time.
  */
 void Time::resyncTime(const PacketHeader &, const void *payload, const size_t payloadLen) {
+    auto world = this->server->getSource();
+
     // deserialize the payload
     std::stringstream stream(std::string(reinterpret_cast<const char *>(payload), payloadLen));
     cereal::PortableBinaryInputArchive iArc(stream);
@@ -82,6 +91,9 @@ void Time::resyncTime(const PacketHeader &, const void *payload, const size_t pa
     iArc(update);
 
     // update time
-    Logging::trace("Resync time: server = {}", update.currentTime);
+//    auto diff = world->getTime() - update.currentTime;
+    world->setTime(update.currentTime);
+//    Logging::trace("Resync time: server = {}, delta = {}", update.currentTime, diff);
 }
+
 

@@ -17,6 +17,7 @@ void InGamePrefsWindow::load() {
     this->renderDist = PrefsManager::getUnsigned("world.render.distance", 2);
     this->inventoryHoriz = PrefsManager::getBool("ui.inventory.isHorizontal", true);
     this->vsync = PrefsManager::getBool("window.vsync", true);
+    this->gamma = PrefsManager::getFloat("gfx.fxaa.gamma", 2.2);
 }
 
 /**
@@ -27,6 +28,7 @@ void InGamePrefsWindow::save() {
     PrefsManager::setUnsigned("world.render.distance", std::max(1, this->renderDist));
     PrefsManager::setBool("ui.inventory.isHorizontal", this->inventoryHoriz);
     PrefsManager::setBool("window.vsync", this->vsync);
+    PrefsManager::setFloat("gfx.fxaa.gamma", this->gamma);
 
     // update world renderer
     this->renderer->requestPrefsLoad();
@@ -62,6 +64,8 @@ void InGamePrefsWindow::draw(GameUI *gui) {
     // general UI
     ImGui::Dummy(ImVec2(0,2));
     if(ImGui::Checkbox("Enable VSync", &this->vsync)) dirty = true;
+
+    if(ImGui::SliderFloat("Gamma", &this->gamma, .5, 5., "%.1f", ImGuiSliderFlags_AlwaysClamp)) dirty = true;
 
     // inventory
     ImGui::Dummy(ImVec2(0,2));

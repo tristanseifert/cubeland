@@ -8,6 +8,8 @@
 namespace net::handler {
 
 class Time: public PacketHandler {
+    friend class net::ServerConnection;
+
     public:
         Time(ServerConnection *_server) : PacketHandler(_server) {};
         virtual ~Time() = default;
@@ -23,6 +25,8 @@ class Time: public PacketHandler {
     private:
         /// time factor (the speed at which the world time changes)
         double timeFactor = 0.;
+        /// last synced time
+        double lastSyncTime = 0;
 };
 }
 

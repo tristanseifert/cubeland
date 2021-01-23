@@ -5,6 +5,7 @@
 #include <world/WorldSource.h>
 #include <net/PacketTypes.h>
 #include <net/EPPlayerMovement.h>
+#include <io/ConfigManager.h>
 
 #include <io/Format.h>
 #include <Logging.h>
@@ -18,6 +19,26 @@ using namespace net::handler;
 using namespace net::message;
 
 const std::string PlayerMovement::kPositionInfoKey = "server.player.position";
+
+/**
+ * Register the broadcast timer.
+ */
+PlayerMovement::PlayerMovement(ListenerClient *_client) : PacketHandler(_client) {
+    const auto updateFreq = io::ConfigManager::getUnsigned("proto.positionBroadcastInterval", 74);
+    const auto interval = std::chrono::milliseconds(updateFreq);
+
+    this->broadcastTimerId = this->client->getListener()->addRepeatingTimer(interval, [&]() {
+        this->broadcastPosition();
+    });
+}
+
+
+/**
+ * Removes the registered broadcast timer.
+ */
+PlayerMovement::~PlayerMovement() {
+    this->client->getListener()->removeTimer(this->broadcastTimerId);
+}
 
 /**
  * Handle player movement packets.
@@ -80,7 +101,8 @@ void PlayerMovement::clientPosChanged(const PacketHeader &, const void *payload,
     this->angles = request.angles;
     this->dirty = true;
 
-    // TODO: broadcast to other clients
+    // set broadcast flag
+    this->needsBroadcast = true;
 }
 
 
@@ -151,4 +173,42 @@ void PlayerMovement::authStateChanged() {
     oArc(initial);
 
     this->client->writePacket(kEndpointPlayerMovement, kPlayerPositionInitial, oStream.str());
+}
+
+/**
+ * Sends our position to all players, except ourselves.
+ */
+void PlayerMovement::broadcastPosition() {
+    if(!this->needsBroadcast) return;
+
+    // get our ID
+    const auto ourId = this->client->getClientId();
+    if(!ourId) return;
+
+    // build the position update message
+    PlayerPositionBroadcast b;
+
+    b.position = this->position;
+    b.angles = this->angles;
+    b.playerId = *ourId;
+
+    std::stringstream oStream;
+    cereal::PortableBinaryOutputArchive oArc(oStream);
+    oArc(b);
+
+    const auto str = oStream.str();
+
+    // iterate over all clients
+    this->client->getListener()->forEach([&, ourId, str](auto &client) {
+        // ignore unauthenticated clients, or this client
+        auto clientId = client->getClientId();
+        if(!clientId) return;
+        else if(*clientId == *ourId) return;
+
+        // send packet
+        client->writePacket(kEndpointPlayerMovement, kPlayerPositionBroadcast, str);
+    });
+
+    // clean flags
+    this->needsBroadcast = false;
 }

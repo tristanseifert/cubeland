@@ -3,13 +3,14 @@
 
 #include "net/PacketHandler.h"
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <string>
 
 #include <glm/vec3.hpp>
 #include <cereal/access.hpp>
-
+#include <cpptime.h>
 
 namespace net::handler {
 /**
@@ -17,8 +18,8 @@ namespace net::handler {
  */
 class PlayerMovement: public PacketHandler {
     public:
-        PlayerMovement(ListenerClient *_client) : PacketHandler(_client) {};
-        virtual ~PlayerMovement() = default;
+        PlayerMovement(ListenerClient *_client);
+        virtual ~PlayerMovement();
 
         bool canHandlePacket(const PacketHeader &header) override;
         void handlePacket(const PacketHeader &header, const void *payload,
@@ -37,6 +38,7 @@ class PlayerMovement: public PacketHandler {
         void clientPosChanged(const PacketHeader &, const void *, const size_t);
 
         void savePosition();
+        void broadcastPosition();
 
     private:
         /// name of the player position saved in the world file
@@ -66,6 +68,11 @@ class PlayerMovement: public PacketHandler {
         bool dirty = false;
         /// whether the initial position has been loaded
         bool loadedInitialPos = false;
+
+        /// when set, we need to broadcast data to clientes
+        std::atomic_bool needsBroadcast = false;
+        /// broadcasting thymer
+        CppTime::timer_id broadcastTimerId;
 };
 }
 

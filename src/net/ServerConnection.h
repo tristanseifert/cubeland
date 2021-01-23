@@ -90,6 +90,13 @@ class ServerConnection {
             this->pool = newPool;
         }
 
+        /// set the world source that this source is using
+        void setSource(world::RemoteSource *source);
+        /// get world source
+        world::RemoteSource *getSource() {
+            return this->source;
+        }
+
     private:
         enum class PipeEvent: uint8_t {
             // do nothing
@@ -155,6 +162,8 @@ class ServerConnection {
 
         /// thread work pool
         util::ThreadPool<std::function<void(void)>> *pool = nullptr;
+        /// world source  that this connection is yeeted to
+        world::RemoteSource *source = nullptr;
 };
 }
 

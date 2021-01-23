@@ -124,6 +124,7 @@ void PreferencesWindow::loadGfxPaneState() {
     this->gfx.fancySky = io::PrefsManager::getBool("gfx.fancySky", true);
     this->gfx.dirShadows = io::PrefsManager::getBool("gfx.sunShadow");
     this->gfx.ssao = io::PrefsManager::getBool("gfx.ssao", true);
+    this->gfx.gamma = io::PrefsManager::getFloat("gfx.fxaa.gamma", 2.2);
     this->gfx.fov = io::PrefsManager::getFloat("gfx.fov", 74.);
     this->gfx.horizontalInventory = io::PrefsManager::getBool("ui.inventory.isHorizontal", true);
 }
@@ -134,6 +135,7 @@ void PreferencesWindow::saveGfxPaneState() {
     io::PrefsManager::setBool("gfx.fancySky", this->gfx.fancySky);
     io::PrefsManager::setBool("gfx.sunShadow", this->gfx.dirShadows);
     io::PrefsManager::setBool("gfx.ssao", this->gfx.ssao);
+    io::PrefsManager::setFloat("gfx.fxaa.gamma", this->gfx.gamma);
     io::PrefsManager::setFloat("gfx.fov", this->gfx.fov);
     io::PrefsManager::setBool("ui.inventory.isHorizontal", this->gfx.horizontalInventory);
 }
@@ -207,7 +209,14 @@ void PreferencesWindow::drawGfxPane(GameUI *ui) {
             ImGui::SetTooltip("Adjusts how much of the environment is visible.");
         }
 
+        // gamma
+        if(ImGui::SliderFloat("Gamma", &this->gfx.gamma, .5, 5., "%.1f", ImGuiSliderFlags_AlwaysClamp)) dirty = true;
+        if(ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Controls the brightness of the game content.\nStandard values range from 1.8 - 2.2.");
+        }
+
         // inventory orientation
+        ImGui::Dummy(ImVec2(0, 2));
         if(ImGui::Checkbox("Horizontal Inventory Bar", &this->gfx.horizontalInventory)) dirty = true;
         if(ImGui::IsItemHovered()) {
             ImGui::SetTooltip("The inventory bar displays the first ten items in your inventory.\nThese are the items you can place/use without opening the full inventory.");
@@ -238,8 +247,8 @@ void PreferencesWindow::loadPerfPaneState() {
  * Saves preferences for the performance pane.
  */
 void PreferencesWindow::savePerfPaneState() {
-    io::PrefsManager::setUnsigned("chunk.drawWorkThreads", std::max(1, this->perf.drawThreads));
-    io::PrefsManager::setUnsigned("world.sourceWorkThreads", std::max(1, this->perf.sourceThreads));
+    io::PrefsManager::setUnsigned("chunk.drawWorkThreads", std::max(2, this->perf.drawThreads));
+    io::PrefsManager::setUnsigned("world.sourceWorkThreads", std::max(2, this->perf.sourceThreads));
     io::PrefsManager::setUnsigned("world.render.distance", std::max(1, this->perf.renderDist));
     io::PrefsManager::setUnsigned("world.render.cacheRange", std::max(1, this->perf.renderCacheBuffer));
 }

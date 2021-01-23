@@ -45,6 +45,8 @@ class FXAA : public RenderStep {
 
         void reshape(int w, int h);
 
+        void loadPrefs();
+
     protected:
         std::shared_ptr<gfx::FrameBuffer> getFXAABuffer() const {
             return this->inFBO;
@@ -64,15 +66,15 @@ class FXAA : public RenderStep {
         float fxaaEdgeSharpness = 8.0f;
 
     private:
-        std::shared_ptr<gfx::ShaderProgram> program = nullptr;
+        gfx::ShaderProgram *program = nullptr;
 
         std::shared_ptr<gfx::FrameBuffer> inFBO = nullptr;
         std::shared_ptr<gfx::Texture2D> inColor = nullptr;
 
     // VBO to render a full-screen quad
     private:
-        std::shared_ptr<gfx::VertexArray> quadVAO = nullptr;
-        std::shared_ptr<gfx::Buffer> quadVBO = nullptr;
+        gfx::VertexArray *quadVAO = nullptr;
+        gfx::Buffer *quadVBO = nullptr;
 
     private:
         void drawDebugWindow();

@@ -3,6 +3,7 @@
 
 #include "gui/RunLoopStep.h"
 #include "gui/GameWindow.h"
+#include "world/ClientWorldSource.h"
 #include "Camera.h"
 
 #include <glm/vec2.hpp>
@@ -88,7 +89,7 @@ class WorldRenderer: public gui::RunLoopStep {
         }
         /// returns the current world time
         const double getTime() const {
-            return this->time;
+            return this->source->getTime();
         }
 
         void loadPrefs();
@@ -170,16 +171,6 @@ class WorldRenderer: public gui::RunLoopStep {
         /// set when we're going to quit soon
         bool isQuitting = false;
 
-        /**
-         * World time value; this monotonically increases for every frame.
-         *
-         * The time is in units of days; the range [0, 1) represents one complete day, where 0.5 is
-         * noon, and 0 is midnight at the start of the day.
-         */
-        double time = 0;
-        /// when set, time does NOT advance every frame
-        bool paused = false;
-
         // near and far clipping planes
         float zNear = 0.1f;
         float zFar = 1250.f;
@@ -226,9 +217,6 @@ class WorldRenderer: public gui::RunLoopStep {
         std::byte *screenshot = nullptr;
         // force prefs to load at the end of next frame
         bool needsPrefsLoad = false;
-
-        // time of last frame (for accurate world timestepping)
-        std::chrono::steady_clock::time_point lastFrame;
 };
 }
 

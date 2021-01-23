@@ -1,6 +1,7 @@
 #include "WorldRendererDebugger.h"
 #include "WorldRenderer.h"
 #include "render/RenderStep.h"
+#include "world/ClientWorldSource.h"
 
 #include <imgui.h>
 
@@ -26,11 +27,11 @@ void WorldRendererDebugger::draw() {
     ImGui::SameLine();
     ImGui::Text("%g", this->renderer->getTime());
 
-    ImGui::Checkbox("Paused", &this->renderer->paused);
-    if(this->renderer->paused) {
-        float time = this->renderer->time;
+    ImGui::Checkbox("Paused", &this->renderer->source->paused);
+    if(this->renderer->source->paused) {
+        float time = this->renderer->source->currentTime;
         if(ImGui::DragFloat("Time", &time, 0.001, 0)) {
-            this->renderer->time = time;
+            this->renderer->source->currentTime = time;
         }
     }
 

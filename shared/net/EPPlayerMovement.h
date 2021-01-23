@@ -47,6 +47,25 @@ struct PlayerPositionChanged {
         }
 };
 
+/**
+ * Player position broadcast
+ */
+struct PlayerPositionBroadcast {
+    /// player ID that moved
+    uuids::uuid playerId;
+    /// origin of the player bounding volume
+    glm::vec3 position;
+    /// camera angles currently used
+    glm::vec3 angles;
+
+    private:
+        friend class cereal::access;
+        template <class Archive> void serialize(Archive &ar) {
+            ar(this->playerId);
+            ar(this->position);
+            ar(this->angles);
+        }
+};
 
 /**
  * Initial position message; this is sent unsolicited after successful authentication.

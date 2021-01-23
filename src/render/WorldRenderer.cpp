@@ -131,7 +131,7 @@ WorldRenderer::WorldRenderer(gui::MainWindow *_win, std::shared_ptr<gui::GameUI>
 
     // restore 1P state
     if(this->source->isSinglePlayer()) {
-        this->timeSaver = new world::TimePersistence(this->source, &this->time);
+        this->timeSaver = new world::TimePersistence(this->source, &this->source->currentTime);
 
         glm::vec3 loadedPos, loadedAngles;
         this->posSaver = new input::PlayerPosPersistence(this->input, source);
@@ -157,7 +157,6 @@ WorldRenderer::WorldRenderer(gui::MainWindow *_win, std::shared_ptr<gui::GameUI>
     this->worker = std::make_unique<std::thread>(std::bind(&WorldRenderer::workerMain, this));
 
     this->loadPrefs();
-    this->lastFrame = std::chrono::steady_clock::now();
 }
 /**
  * Releases all of our render resources.
@@ -236,6 +235,9 @@ void WorldRenderer::loadPrefs() {
     if(gSceneRenderer) {
         gSceneRenderer->loadPrefs();
     }
+    if(this->fxaa) {
+        this->fxaa->loadPrefs();
+    }
 
     this->inventoryUi->loadPrefs();
     this->window->loadPrefs();
@@ -274,7 +276,6 @@ void WorldRenderer::willBeginFrame() {
     }
 
     this->source->playerMoved(this->camera.getCameraPosition(), this->input->getAngles());
-
     if(this->posSaver) {
         this->posSaver->startOfFrame(this->camera.getCameraPosition());
     }
@@ -287,13 +288,6 @@ void WorldRenderer::willBeginFrame() {
     if(this->debugger && this->isDebuggerOpen) {
         this->debugger->draw();
     }
-
-    // increment time
-    if(!this->paused) {
-        const auto diffUs = duration_cast<microseconds>(steady_clock::now() - this->lastFrame).count();
-        this->time += (((float) diffUs) / 1000. / 1000.) / (60. * 24.);
-    }
-    this->lastFrame = steady_clock::now();
 
     // pause menu stuff
     this->animatePauseMenu();
@@ -629,7 +623,7 @@ void WorldRenderer::animatePauseMenu() {
 void WorldRenderer::openPauseMenu() {
     // open pause menu
     this->isPauseMenuOpen = true;
-    this->paused = true;
+    this->source->setPaused(true);
 
     if(!this->pauseWin) {
         this->pauseWin = std::make_shared<PauseWindow>(this);
@@ -655,7 +649,7 @@ void WorldRenderer::closePauseMenu() {
     // close pause menu
     this->isPauseMenuOpen = false;
     this->isPauseMenuAnimating = false;
-    this->paused = false;
+    this->source->setPaused(false);
 
     this->pauseWin->setVisible(false);
 

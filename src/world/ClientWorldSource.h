@@ -3,6 +3,7 @@
 
 #include <world/AbstractWorldSource.h>
 
+#include <chrono>
 #include <future>
 #include <optional>
 #include <utility>
@@ -10,14 +11,22 @@
 #include <glm/vec3.hpp>
 #include <uuid.h>
 
+namespace render {
+class WorldRenderer;
+class WorldRendererDebugger;
+}
+
 namespace world {
 /**
  * Helpers for world sources operating on the client app.
  */
 class ClientWorldSource: public AbstractWorldSource {
+    friend class render::WorldRendererDebugger;
+    friend class render::WorldRenderer;
+
     public:
         ClientWorldSource(const uuids::uuid &_playerId) : playerId(_playerId) {
-
+            this->lastFrame = std::chrono::steady_clock::now();
         }
         virtual ~ClientWorldSource() = default;
 
@@ -41,8 +50,36 @@ class ClientWorldSource: public AbstractWorldSource {
         /// player position changed; by default this does nothing
         virtual void playerMoved(const glm::vec3 &pos, const glm::vec3 &angle) {};
 
-        /// Perform some internal housekeeping
-        virtual void startOfFrame() {};
+        /// sets the pause flag (when set, we don't update the thyme)
+        virtual void setPaused(const bool paused) {
+            this->paused = paused;
+            if(!paused) {
+                this->lastFrame = std::chrono::steady_clock::now();
+            }
+        }
+        /// gets the current time
+        virtual const double getTime() const {
+            return this->currentTime;
+        }
+        /// sets the current time
+        virtual const void setTime(const double newTime) {
+            this->currentTime = newTime;
+        }
+        /// set the time scale factor
+        virtual void setTimeFactor(const double newFactor) {
+            this->timeFactor = newFactor;
+        }
+
+        /// updates the world time
+        virtual void startOfFrame() {
+            using namespace std::chrono;
+
+            if(!this->paused) {
+                const auto diffUs = duration_cast<microseconds>(steady_clock::now() - this->lastFrame).count();
+                this->currentTime += (((double) diffUs) / 1000. / 1000.) * this->timeFactor;
+            }
+            this->lastFrame = steady_clock::now();
+        };
 
         /// Marks the given chunk as dirty.
         virtual void markChunkDirty(std::shared_ptr<Chunk> &chunk) = 0;
@@ -66,6 +103,13 @@ class ClientWorldSource: public AbstractWorldSource {
     protected:
         uuids::uuid playerId;
         bool valid = true;
+
+        /// pause flag; inhibits the incrementing of time
+        bool paused = false;
+        /// conversion from wall clock seconds to world thyme
+        double timeFactor = 1. / (60. * 24.);
+        double currentTime = 0;
+        std::chrono::steady_clock::time_point lastFrame;
 };
 }
 

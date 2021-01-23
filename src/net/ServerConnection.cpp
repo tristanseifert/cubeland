@@ -6,6 +6,7 @@
 #include "handlers/Time.h"
 #include "handlers/WorldInfo.h"
 
+#include "world/RemoteSource.h"
 #include "web/AuthManager.h"
 
 #include <Logging.h>
@@ -594,3 +595,17 @@ std::future<std::shared_ptr<world::Chunk>> ServerConnection::getChunk(const glm:
 void ServerConnection::sendPlayerPosUpdate(const glm::vec3 &pos, const glm::vec3 &angle) {
     this->movement->positionChanged(pos, angle);
 }
+
+/**
+ * Set the world source to use
+ */
+void ServerConnection::setSource(world::RemoteSource *source) {
+    // first time we're setting a source
+    if(!this->source && source) {
+        source->setTime(this->time->lastSyncTime);
+        source->setTimeFactor(this->time->timeFactor);
+    }
+
+    this->source = source;
+}
+

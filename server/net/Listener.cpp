@@ -251,3 +251,14 @@ void Listener::saverMain() {
         std::this_thread::sleep_for(std::chrono::seconds(2));
     }
 }
+
+/**
+ * Iterate over all clients.
+ */
+void Listener::forEach(const std::function<void(std::unique_ptr<ListenerClient> &)> &cb) {
+    std::lock_guard<std::mutex> lg(this->clientLock);
+
+    for(auto &client : this->clients) {
+        cb(client);
+    }
+}

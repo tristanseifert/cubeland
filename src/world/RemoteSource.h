@@ -46,6 +46,9 @@ class RemoteSource: public ClientWorldSource {
         /// sends a position/angle update
         void playerMoved(const glm::vec3 &pos, const glm::vec3 &angle) override;
 
+        // ignore requests to pause
+        void setPaused(const bool paused) override {}
+
         /// Start of frame handler
         void startOfFrame() override;
 

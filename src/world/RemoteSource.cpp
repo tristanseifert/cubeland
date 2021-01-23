@@ -23,6 +23,7 @@ RemoteSource::RemoteSource(std::shared_ptr<net::ServerConnection> _conn, const u
     // start worker threads
     this->pool = new util::ThreadPool<WorkItem>("RemoteSource", numThreads);
     _conn->setWorkPool(this->pool);
+    _conn->setSource(this);
 }
 
 /**
@@ -165,6 +166,7 @@ void RemoteSource::forceChunkWriteIfDirtySync(std::shared_ptr<Chunk> &chunk) {
  * Start of frame handler
  */
 void RemoteSource::startOfFrame() {
+    ClientWorldSource::startOfFrame();
     this->valid = this->server->isConnected();
 }
 

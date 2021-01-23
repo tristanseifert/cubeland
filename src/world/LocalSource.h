@@ -47,6 +47,7 @@ class LocalSource: public ClientWorldSource, public WorldSource {
 
         /// Updates the dirty chunks list every frame
         void startOfFrame() override {
+            ClientWorldSource::startOfFrame();
             this->updateDirtyList();
         }
 

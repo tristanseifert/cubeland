@@ -87,6 +87,7 @@ class PreferencesWindow: public GameWindow {
             bool dirShadows;
             bool ssao;
 
+            float gamma;
             // field of view (degrees)
             float fov;
             // horizontal inventory-ness

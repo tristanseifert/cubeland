@@ -7,6 +7,8 @@
 #include "gfx/gl/buffer/VertexArray.h"
 #include "gfx/gl/texture/Texture2D.h"
 
+#include "io/PrefsManager.h"
+
 #include <Logging.h>
 
 #include <mutils/time/profiler.h>
@@ -33,8 +35,8 @@ static const gl::GLfloat vertices[] = {
  */
 FXAA::FXAA() : RenderStep("Render Debug", "FXAA") {
     // set up a VAO and VBO for the full-screen quad
-    this->quadVAO = std::make_shared<gfx::VertexArray>();
-    this->quadVBO = std::make_shared<gfx::Buffer>(gfx::Buffer::Array, gfx::Buffer::StaticDraw);
+    this->quadVAO = new gfx::VertexArray();
+    this->quadVBO = new gfx::Buffer(gfx::Buffer::Array, gfx::Buffer::StaticDraw);
 
     this->quadVAO->bind();
     this->quadVBO->bind();
@@ -48,7 +50,7 @@ FXAA::FXAA() : RenderStep("Render Debug", "FXAA") {
     gfx::VertexArray::unbind();
 
     // load shader
-    this->program = std::make_shared<gfx::ShaderProgram>("output/fxaa.vert", "output/fxaa.frag");
+    this->program = new gfx::ShaderProgram("output/fxaa.vert", "output/fxaa.frag");
     this->program->link();
     this->program->bind();
 
@@ -73,13 +75,17 @@ FXAA::FXAA() : RenderStep("Render Debug", "FXAA") {
     // Ensure completeness of the buffer.
     XASSERT(gfx::FrameBuffer::isComplete(), "FXAA input FBO incomplete");
     gfx::FrameBuffer::unbindRW();
+
+    this->loadPrefs();
 }
 
 /**
  * Releases FXAA sources.
  */
 FXAA::~FXAA() {
-
+    delete this->quadVAO;
+    delete this->quadVBO;
+    delete this->program;
 }
 
 /**
@@ -183,4 +189,13 @@ void FXAA::drawDebugWindow() {
     ImGui::PopItemWidth();
 done:;
     ImGui::End();
+}
+
+
+
+/**
+ * Loads the FXAA renderer prefs. This is really just the output gamma setting.
+ */
+void FXAA::loadPrefs() {
+    this->gamma = io::PrefsManager::getFloat("gfx.fxaa.gamma", 2.2);
 }
