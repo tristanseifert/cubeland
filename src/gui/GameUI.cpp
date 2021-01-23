@@ -188,6 +188,14 @@ void GameUI::removeWindow(std::shared_ptr<GameWindow> window) {
     this->requests.push(req);
 }
 
+void GameUI::removeWindow(GameWindow *window) {
+    UpdateRequest req(window);
+    req.type = UpdateRequest::REMOVE;
+
+    this->requests.push(req);
+}
+
+
 /**
  * On display size update, propagate this to the UI layer.
  */
@@ -289,7 +297,7 @@ void GameUI::willBeginFrame() {
         const auto req = this->requests.front();
         this->requests.pop();
 
-        XASSERT(req.window, "Null window request");
+        XASSERT(req.window || req.rawWindow, "Null window request");
 
         // handle it by type
         switch(req.type) {
@@ -301,8 +309,16 @@ void GameUI::willBeginFrame() {
 
             // remove the window
             case UpdateRequest::REMOVE:
+                if(req.window) {
                 this->windows.erase(std::remove(std::begin(this->windows), std::end(this->windows),
                             req.window), std::end(this->windows));
+                } else if(req.rawWindow) {
+                    const auto rawWin = req.rawWindow;
+                    this->windows.erase(std::remove_if(std::begin(this->windows), std::end(this->windows),
+                        [&, rawWin](const auto &in) {
+                        return (in.get() == rawWin);
+                    }), std::end(this->windows));
+                }
                 break;
         }
     }

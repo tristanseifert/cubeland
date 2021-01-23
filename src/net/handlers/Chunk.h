@@ -3,6 +3,7 @@
 
 #include "net/PacketHandler.h"
 
+#include <atomic>
 #include <condition_variable>
 #include <cstddef>
 #include <future>
@@ -37,6 +38,8 @@ class ChunkLoader: public PacketHandler {
 
         std::future<std::shared_ptr<world::Chunk>> get(const glm::ivec2 &pos);
 
+        void abortAll();
+
     private:
         void handleSlice(const PacketHeader &, const void *, const size_t);
         void process(const message::ChunkSliceData &);
@@ -63,6 +66,8 @@ class ChunkLoader: public PacketHandler {
         std::unordered_map<glm::ivec2, size_t> counts;
         std::condition_variable countsCond;
         std::mutex countsLock;
+
+        std::atomic_bool acceptGets = true;
 };
 }
 

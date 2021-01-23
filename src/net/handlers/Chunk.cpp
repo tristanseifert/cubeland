@@ -47,13 +47,21 @@ ChunkLoader::~ChunkLoader() {
         this->countsCond.notify_all();
     }
 
-    // abort all requests
-    std::lock_guard<std::mutex> lg(this->requestsLock);
-    for(auto &[key, promise] : this->requests) {
-        promise.set_value(nullptr);
-    }
+    this->abortAll();
 }
 
+/**
+ * Aborts all outstanding chunk requests.
+ */
+void ChunkLoader::abortAll() {
+    this->acceptGets = false;
+
+    std::lock_guard<std::mutex> lg(this->requestsLock);
+    for(auto &[key, promise] : this->requests) {
+        promise.set_exception(std::make_exception_ptr(std::runtime_error("Request aborted")));
+    }
+    this->requests.clear();
+}
 
 
 /**
@@ -97,6 +105,11 @@ std::future<std::shared_ptr<world::Chunk>> ChunkLoader::get(const glm::ivec2 &po
     // set up the promise
     std::promise<std::shared_ptr<world::Chunk>> prom;
     auto future = prom.get_future();
+
+    if(!this->acceptGets) {
+        prom.set_exception(std::make_exception_ptr(std::runtime_error("Not accepting requests")));
+        return future;
+    }
 
     {
         std::lock_guard<std::mutex> lg(this->requestsLock);

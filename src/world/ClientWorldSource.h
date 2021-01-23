@@ -7,6 +7,7 @@
 #include <future>
 #include <optional>
 #include <utility>
+#include <string>
 
 #include <glm/vec3.hpp>
 #include <uuid.h>
@@ -29,6 +30,9 @@ class ClientWorldSource: public AbstractWorldSource {
             this->lastFrame = std::chrono::steady_clock::now();
         }
         virtual ~ClientWorldSource() = default;
+
+        /// cancels any remaining work that's outstanding
+        virtual void shutDown() {};
 
         using AbstractWorldSource::setPlayerInfo;
         /// Set the value of a player info key.
@@ -98,6 +102,10 @@ class ClientWorldSource: public AbstractWorldSource {
         /// whether the world source is valid
         virtual const bool isValid() const {
             return this->valid;
+        }
+        /// error to display when world source becomes invalid
+        virtual std::optional<std::string> getErrorStr() const {
+            return std::nullopt;
         }
 
     protected:

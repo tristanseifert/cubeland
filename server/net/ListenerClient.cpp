@@ -76,9 +76,6 @@ ListenerClient::ListenerClient(Listener *_list, struct tls *_tls, const int _fd,
 ListenerClient::~ListenerClient() {
     int err;
 
-    // yeet the handlers
-    this->handlers.clear();
-
     // request the worker thread shuts down
     this->workerRun = false;
 
@@ -92,6 +89,9 @@ ListenerClient::~ListenerClient() {
     }
 
     this->worker->join();
+
+    // yeet the handlers
+    this->handlers.clear();
 
     // close socket, wait for it to terminate, then close pipes
     err = ::close(this->fd);

@@ -110,6 +110,11 @@ class ServerConnection {
         /// Notifies server we've unloaded a chunk
         void didUnloadChunk(const std::shared_ptr<world::Chunk> &);
 
+        /// Returns more detailed error information, if available
+        std::optional<std::string> getErrorDetail() {
+            return this->connectionError;
+        }
+
     private:
         enum class PipeEvent: uint8_t {
             // do nothing
@@ -178,6 +183,9 @@ class ServerConnection {
         util::ThreadPool<std::function<void(void)>> *pool = nullptr;
         /// world source  that this connection is yeeted to
         world::RemoteSource *source = nullptr;
+
+        /// most recent connection error
+        std::optional<std::string> connectionError;
 };
 }
 

@@ -28,6 +28,8 @@ class RemoteSource: public ClientWorldSource {
                 const size_t numThreads);
         virtual ~RemoteSource();
 
+        void shutDown() override;
+
         /// Gets a chunk
         std::future<std::shared_ptr<Chunk>> getChunk(int x, int z) override;
 
@@ -70,6 +72,8 @@ class RemoteSource: public ClientWorldSource {
         const bool isSinglePlayer() const override {
             return false;
         }
+
+        std::optional<std::string> getErrorStr() const override;
 
     private:
         using WorkItem = std::function<void(void)>;

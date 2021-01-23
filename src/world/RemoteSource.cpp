@@ -1,6 +1,7 @@
 #include "RemoteSource.h"
 
 #include "net/ServerConnection.h"
+#include "net/handlers/Chunk.h"
 #include "net/handlers/PlayerMovement.h"
 
 #include <io/Format.h>
@@ -227,3 +228,16 @@ std::promise<std::pair<glm::vec3, glm::vec3>> RemoteSource::getInitialPosition()
     return this->getSpawnPosition();
 }
 
+/**
+ * Returns the server error string.
+ */
+std::optional<std::string> RemoteSource::getErrorStr() const {
+    return this->server->getErrorDetail();
+}
+
+/**
+ * When shutting down, cancel any outstanding chunk requests.
+ */
+void RemoteSource::shutDown() {
+    this->server->chonker->abortAll();
+}

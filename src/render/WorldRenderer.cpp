@@ -11,6 +11,7 @@
 #include "gui/MainWindow.h"
 #include "gui/Loaders.h"
 #include "gui/InGamePrefsWindow.h"
+#include "gui/DisconnectedError.h"
 #include "gui/title/TitleScreen.h"
 
 #include "render/chunk/VertexGenerator.h"
@@ -179,6 +180,7 @@ WorldRenderer::~WorldRenderer() {
     }
 
     this->source->flushDirtyChunksSync();
+    this->source->shutDown();
 
     if(this->debugItemToken) {
         gui::MenuBarHandler::unregisterItem(this->debugItemToken);
@@ -204,12 +206,13 @@ WorldRenderer::~WorldRenderer() {
 
     gParticleRenderer = nullptr;
     gSceneRenderer = nullptr;
-    this->steps.clear();
 
     render::chunk::VertexGenerator::shutdown();
 
     delete this->input;
     this->source = nullptr;
+
+    this->steps.clear();
 
     // release the pause screenshot data
     if(this->screenshot) {
@@ -270,8 +273,14 @@ void WorldRenderer::willBeginFrame() {
         auto title = std::make_shared<gui::TitleScreen>(this->window, this->gui);
         this->window->setPrimaryStep(title);
 
-        Logging::error("World source became invalid!");
-        // TODO: figure out how to capture a screenshot and save it
+        const auto desc = this->source->getErrorStr();
+
+        Logging::error("World source became invalid: {}", desc);
+
+        // pop up an error
+        auto err = std::make_shared<gui::DisconnectedError>(desc);
+        err->setSelf(err);
+        this->gui->addWindow(err);
         return;
     }
 

@@ -15,6 +15,8 @@
 #include <filesystem>
 #include <cstdlib>
 
+#include <signal.h>
+
 #include <lyra/lyra.hpp>
 
 #include <SDL.h>
@@ -105,6 +107,9 @@ int main(int argc, const char **argv) {
     } else if(err > 0) {
         return 0;
     }
+
+    // ignore SIGPIPE (can cause net code to explode if on lmao)
+    signal(SIGPIPE, SIG_IGN);
 
     // set up platform specifics, read config and prefs, then begin logger
     io::PathHelper::init();

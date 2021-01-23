@@ -362,6 +362,7 @@ beach:;
         }
     } catch(std::exception &e) {
         Logging::error("Server {} connection error: {}", this->host, e.what());
+        this->connectionError = e.what();
         // TODO: notify whatever handlers we've got
     }
 

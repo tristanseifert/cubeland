@@ -41,6 +41,7 @@ class GameUI: public RunLoopStep {
 
         void addWindow(std::shared_ptr<GameWindow> window);
         void removeWindow(std::shared_ptr<GameWindow> window);
+        void removeWindow(GameWindow *window);
 
     public:
         static const std::string kRegularFontName;
@@ -84,9 +85,11 @@ class GameUI: public RunLoopStep {
             } type;
 
             std::shared_ptr<GameWindow> window = nullptr;
+            GameWindow *rawWindow = nullptr;
 
             UpdateRequest() = default;
             UpdateRequest(std::shared_ptr<GameWindow> &_window) : window(_window) {}
+            UpdateRequest(GameWindow *_window) : rawWindow(_window) {}
         };
 
     private:
