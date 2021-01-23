@@ -63,6 +63,8 @@ class ListenerClient {
 
         /// UUID of connected client, if authenticated.
         std::optional<uuids::uuid> getClientId() const;
+        /// name of the connected client, if authenticated
+        std::optional<std::string> getClientDisplayName() const;
         /// listener that owns this client
         Listener *getListener() const {
             return this->owner;

@@ -370,6 +370,13 @@ std::optional<uuids::uuid> ListenerClient::getClientId() const {
 }
 
 /**
+ * Returns the client display name.
+ */
+std::optional<std::string> ListenerClient::getClientDisplayName() const {
+    return this->auth->getDisplayName();
+}
+
+/**
  * Return world pointer
  */
 world::WorldSource *ListenerClient::getWorld() const {

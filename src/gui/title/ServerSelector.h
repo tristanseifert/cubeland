@@ -129,7 +129,7 @@ class ServerSelector: public gui::GameWindow {
         void drawAccountBar(GameUI *);
         void drawServerList(GameUI *);
         void drawAddServerModal(GameUI *);
-
+        void drawManageAccountModal(GameUI *);
         void drawKeypairGenaratorModal(GameUI *);
         void drawConnectingModal(GameUI *);
 
@@ -157,6 +157,11 @@ class ServerSelector: public gui::GameWindow {
         std::atomic_int closeRegisterModal = 0;
         /// detail to show in the registration error dialog
         std::optional<std::string> registerErrorDetail;
+        /// display name buffer (for registration or account manage dialog)
+        std::array<char, 256> displayNameBuf;
+
+        /// when set, the account management modal is shown
+        bool showManageAccount = false;
 
         /// list of connected servers (and some other info)
         Recents recents;

@@ -11,10 +11,14 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
+#include <string>
 #include <vector>
 
 #include <cereal/access.hpp>
 #include <cereal/types/array.hpp>
+#include <cereal/types/optional.hpp>
+#include <cereal/types/string.hpp>
 #include <cereal/types/vector.hpp>
 
 namespace net::message {
@@ -32,6 +36,11 @@ enum AuthMsgType: uint8_t {
     /// server -> client; auth status
     kAuthStatus                         = 0x04,
 
+    /// client -> server; get list of connected users
+    kAuthGetConnected                   = 0x05,
+    /// server -> client; returns list of connected users
+    kAuthGetConnectedReply              = 0x06,
+
     kAuthTypeMax,
 };
 
@@ -42,6 +51,8 @@ enum AuthMsgType: uint8_t {
 struct AuthRequest {
     /// client ID
     uuids::uuid clientId;
+    /// the display name we'll use
+    std::string displayName;
 
     AuthRequest() = default;
     AuthRequest(const uuids::uuid &_id) : clientId(_id) {}
@@ -50,6 +61,7 @@ struct AuthRequest {
         friend class cereal::access;
         template <class Archive> void serialize(Archive &ar) {
             ar(this->clientId);
+            ar(this->displayName);
         }
 };
 
@@ -115,6 +127,61 @@ struct AuthStatus {
         friend class cereal::access;
         template <class Archive> void serialize(Archive &ar) {
             ar(this->state);
+        }
+};
+
+
+
+/**
+ * Request for listing all connected users
+ */
+struct AuthGetUsersRequest {
+    /// whether the client addresses should be included. server is not required to honor this
+    bool includeAddress = false;
+
+    private:
+        friend class cereal::access;
+        template <class Archive> void serialize(Archive &ar) {
+            ar(this->includeAddress);
+        }
+};
+
+/**
+ * Info on a single connected user
+ */
+struct AuthUserInfo {
+    /// user's global ID
+    uuids::uuid userId;
+    /// display name for user
+    std::string displayName;
+
+    /// if requested (and allowed,) stringified player connecting address
+    std::optional<std::string> remoteAddr;
+
+    private:
+        friend class cereal::access;
+        template <class Archive> void serialize(Archive &ar) {
+            ar(this->userId);
+            ar(this->displayName);
+            ar(this->remoteAddr);
+        }
+};
+
+/**
+ * Reply to a request for all connected users.
+ */
+struct AuthGetUsersReply {
+    /// number of connections that haven't authenticated yet
+    uint32_t numUnauthenticated = 0;
+
+    /// all authenticated users
+    std::vector<AuthUserInfo> users;
+
+    private:
+        friend class cereal::access;
+        template <class Archive> void serialize(Archive &ar) {
+            ar(this->numUnauthenticated);
+            ar(this->users);
         }
 };
 

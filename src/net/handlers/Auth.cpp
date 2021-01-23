@@ -2,6 +2,7 @@
 #include "net/ServerConnection.h"
 
 #include "web/AuthManager.h"
+#include "io/PrefsManager.h"
 
 #include <net/PacketTypes.h>
 #include <net/EPAuth.h>
@@ -30,10 +31,14 @@ Auth::Auth(ServerConnection *_server) : PacketHandler(_server) {
  * If anyone is still waiting on auth when we're deallocing, release them.
  */
 Auth::~Auth() {
-    std::lock_guard<std::mutex> lg(this->stateLock);
+    std::lock_guard<std::mutex> lg(this->stateLock), lg2(this->requestsLock);
 
     this->state = State::Failed;
     this->stateCond.notify_all();
+
+    for(auto &[key, promise] : this->requests) {
+        promise.set_exception(std::make_exception_ptr(std::runtime_error("Auth handler going away")));
+    }
 }
 
 
@@ -80,8 +85,18 @@ void Auth::handlePacket(const PacketHeader &header, const void *payload, const s
 
         // all other packets
         default:
-            throw std::runtime_error(f("Unhandled auth state: {}", this->state));
+            switch(header.type) {
+                case kAuthGetConnectedReply:
+                    this->connectedReply(header, payload, payloadLen);
+                    break;
+
+                default:
+                    throw std::runtime_error(f("Unhandled auth state: {}", this->state));
+                    break;
+            }
+
             break;
+
     }
 }
 
@@ -181,6 +196,9 @@ void Auth::beginAuth() {
 
     // build the auth request packet
     net::message::AuthRequest req(web::AuthManager::getPlayerId());
+
+    req.displayName = io::PrefsManager::getString("auth.displayName", "Mystery Player");
+
     cereal::PortableBinaryOutputArchive arc(stream);
     arc(req);
 
@@ -202,3 +220,69 @@ bool Auth::waitForAuth() {
 
     return (this->state == State::Successful);
 }
+
+
+
+/**
+ * Requests from the server a list of all connected players.
+ */
+std::future<std::vector<Auth::Player>> Auth::getConnectedPlayers(const bool wantClientAddr) {
+    std::promise<std::vector<Player>> prom;
+    auto future = prom.get_future();
+
+    // build request packet
+    AuthGetUsersRequest req;
+
+    req.includeAddress = wantClientAddr;
+
+    std::stringstream stream;
+    cereal::PortableBinaryOutputArchive arc(stream);
+    arc(req);
+
+    // send it and save the promise
+    std::lock_guard<std::mutex> lg(this->requestsLock);
+    const auto tag = this->server->writePacket(kEndpointAuthentication, kAuthGetConnected,
+            stream.str());
+    this->requests[tag] = std::move(prom);
+
+    return future;
+}
+
+/**
+ * Handles a response to the player listing request.
+ */
+void Auth::connectedReply(const PacketHeader &hdr, const void *payload, const size_t payloadLen) {
+    try {
+        // deserialize message
+        std::stringstream stream(std::string(reinterpret_cast<const char *>(payload), payloadLen));
+        cereal::PortableBinaryInputArchive iArc(stream);
+
+        AuthGetUsersReply reply;
+        iArc(reply);
+
+        // convert the returned objects
+        std::vector<Player> list;
+
+        for(const auto &in : reply.users) {
+            Player p;
+
+            p.id = in.userId;
+            p.displayName = in.displayName;
+            p.remoteAddr = in.remoteAddr;
+
+            list.push_back(p);
+        }
+
+        // invoke promise
+        std::lock_guard<std::mutex> lg(this->requestsLock);
+        this->requests.at(hdr.tag).set_value(list);
+        this->requests.erase(hdr.tag);
+    } catch(std::exception &e) {
+        Logging::error("Failed to process auth user list: {}", e.what());
+
+        std::lock_guard<std::mutex> lg(this->requestsLock);
+        this->requests.at(hdr.tag).set_exception(std::current_exception());
+        this->requests.erase(hdr.tag);
+    }
+}
+

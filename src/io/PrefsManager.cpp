@@ -275,7 +275,7 @@ const std::string PrefsManager::getString(const std::string &key, const std::str
     // prepare the query
     std::lock_guard<std::mutex> guard(shared->lock);
 
-    SQLite::prepare(shared->db, "SELECT value FROM prefs_text_v1 WHERE key = ?;", &stmt);
+    SQLite::prepare(shared->db, "SELECT value FROM prefs_string_v1 WHERE key = ?;", &stmt);
     SQLite::bindColumn(stmt, 1, key);
 
     int err = sqlite3_step(stmt);
@@ -305,7 +305,7 @@ void PrefsManager::setString(const std::string &key, const std::string &value) {
 
     std::lock_guard<std::mutex> lg(shared->lock);
 
-    SQLite::prepare(shared->db, "INSERT INTO prefs_text_v1 (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, modified=CURRENT_TIMESTAMP;", &stmt);
+    SQLite::prepare(shared->db, "INSERT INTO prefs_string_v1 (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, modified=CURRENT_TIMESTAMP;", &stmt);
     SQLite::bindColumn(stmt, 1, key);
     SQLite::bindColumn(stmt, 2, value);
 

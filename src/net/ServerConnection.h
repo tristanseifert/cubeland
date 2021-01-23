@@ -2,6 +2,7 @@
 #define NET_SERVERCONNECTION_H
 
 #include "PacketHandler.h"
+#include "handlers/Auth.h"
 
 #include <atomic>
 #include <cstddef>
@@ -78,6 +79,12 @@ class ServerConnection {
         /// Sends a player position update packet
         void sendPlayerPosUpdate(const glm::vec3 &pos, const glm::vec3 &angle);
 
+        /// Returns a list of all connected players
+        std::future<std::vector<handler::Auth::Player>> getConnectedPlayers(const bool wantClientAddr = false) {
+            return this->auth->getConnectedPlayers(wantClientAddr);
+        }
+
+        /// whether the connection is still actively connected or nah
         const bool isConnected() const {
             return this->connected;
         }

@@ -6,8 +6,12 @@
 #include <array>
 #include <condition_variable>
 #include <cstddef>
+#include <cstdint>
 #include <future>
 #include <mutex>
+#include <optional>
+#include <unordered_map>
+#include <vector>
 
 #include <uuid.h>
 
@@ -23,6 +27,14 @@ class Auth: public PacketHandler {
             UnknownId,
             InvalidSignature,
             TemporaryError,
+        };
+
+        /// info on a connected player
+        struct Player {
+            uuids::uuid id;
+            std::string displayName;
+
+            std::optional<std::string> remoteAddr;
         };
 
     public:
@@ -42,6 +54,9 @@ class Auth: public PacketHandler {
             return this->failureReason;
         }
 
+        /// requests from the server a list of all connected clients
+        std::future<std::vector<Player>> getConnectedPlayers(const bool wantClientAddr = false);
+
     private:
         enum class State {
             /// Currently unauthorized; can accept auth request
@@ -59,6 +74,7 @@ class Auth: public PacketHandler {
     private:
         void handleAuthChallenge(const PacketHeader &, const void *, const size_t);
         void handleAuthStatus(const PacketHeader &, const void *, const size_t);
+        void connectedReply(const PacketHeader &, const void *, const size_t);
 
         void setState(const State);
 
@@ -74,6 +90,11 @@ class Auth: public PacketHandler {
         AuthFailureReason failureReason;
         /// tag of the message we expect to receive next
         uint16_t expectedTag;
+
+        /// lock over the promises list
+        std::mutex requestsLock;
+        /// outstanding requests
+        std::unordered_map<uint16_t, std::promise<std::vector<Player>>> requests;
 };
 }
 

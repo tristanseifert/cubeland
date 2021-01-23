@@ -1,4 +1,5 @@
 #include "Auth.h"
+#include "net/Listener.h"
 #include "net/ListenerClient.h"
 
 #include "auth/KeyCache.h"
@@ -59,12 +60,73 @@ void Auth::handlePacket(const PacketHeader &header, const void *payload, const s
             this->handleAuthChallengeReply(header, payload, payloadLen);
             break;
 
+        // handle some other messages when authenticated
+        case State::Successful:
+            switch(header.type) {
+                case kAuthGetConnected:
+                    this->getConnectedUsers(header, payload, payloadLen);
+                    break;
+
+                default:
+                    throw std::runtime_error(f("Unhandled auth packet type: ${:02x}", header.type));
+                    break;
+            }
+            break;
+
         // all other states
         default:
             throw std::runtime_error(f("Unhandled auth state: {}", this->state));
             break;
     }
 }
+
+
+
+/**
+ * Produces a list of all connected users.
+ */
+void Auth::getConnectedUsers(const PacketHeader &header, const void *payload, const size_t payloadLen) {
+    // deserialize the request
+    std::stringstream stream(std::string(reinterpret_cast<const char *>(payload), payloadLen));
+    cereal::PortableBinaryInputArchive iArc(stream);
+
+    AuthGetUsersRequest request;
+    iArc(request);
+
+    // for each connected client, add an entry to the users list
+    const bool includeAddr = request.includeAddress;
+    AuthGetUsersReply reply;
+
+    this->client->getListener()->forEach([&, includeAddr](auto &client) {
+        // skip if user isn't authenticated
+        const auto userId = client->getClientId();
+        if(!userId) {
+            reply.numUnauthenticated++;
+            return;
+        }
+
+        AuthUserInfo info;
+
+        info.userId = *userId;
+        info.displayName = *client->getClientDisplayName();
+
+        if(includeAddr) {
+            info.remoteAddr = f("{}", client->getClientAddr());
+        }
+
+        reply.users.push_back(info);
+    });
+
+    // send response
+    std::stringstream oStream;
+    cereal::PortableBinaryOutputArchive oArc(oStream);
+
+    oArc(reply);
+
+    this->client->writePacket(kEndpointAuthentication, kAuthGetConnectedReply, oStream.str(),
+            header.tag);
+}
+
 
 
 
@@ -80,6 +142,7 @@ void Auth::handleAuthReq(const PacketHeader &header, const void *payload, const 
     iArc(request);
 
     this->clientId = request.clientId;
+    this->displayName = request.displayName;
 
     // generate data for the challenge (using arc4random_buf or LibreSSL)
     std::array<std::byte, AuthChallenge::kChallengeLength> random;
@@ -138,14 +201,13 @@ void Auth::handleAuthChallengeReply(const PacketHeader &header, const void *payl
     if(valid) {
         status.state = AuthStatus::kStatusSuccess;
         this->state = State::Successful;
-
-        Logging::trace("Client {} auth state: {}", this->client->getClientAddr(), "success");
     } else {
         status.state = AuthStatus::kStatusInvalidSignature;
         this->state = State::Failed;
-
-        Logging::trace("Client {} auth state: {}", this->client->getClientAddr(), "failure");
     }
+
+    Logging::trace("Client {} (name '{}') auth state: {}", this->client->getClientAddr(), 
+            this->displayName, valid ?  "success" : "failure");
 
     // send the response
     std::stringstream oStream;

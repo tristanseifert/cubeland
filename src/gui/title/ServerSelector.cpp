@@ -31,6 +31,9 @@ ServerSelector::ServerSelector(TitleScreen *_title) : title(_title) {
     // set up worker thread
     this->workerRun = true;
     this->worker = std::make_unique<std::thread>(std::bind(&ServerSelector::workerMain, this));
+
+    std::fill(this->displayNameBuf.begin(), this->displayNameBuf.end(), '\0');
+    std::fill(this->addServerUrl.begin(), this->addServerUrl.end(), '\0');
 }
 
 /**
@@ -55,6 +58,10 @@ void ServerSelector::clear() {
 
     // check if keypair must be generated
     if(!AuthManager::areKeysAvailable()) {
+        // load the display name
+        const auto displayName = io::PrefsManager::getString("auth.displayName", "");
+        strncpy(this->displayNameBuf.data(), displayName.c_str(), this->displayNameBuf.size());
+
         this->needsKeypairGen = true;
         this->focusLayers++;
     } else {
@@ -198,6 +205,9 @@ void ServerSelector::draw(GameUI *gui) {
         ImGui::OpenPopup("Generate Keypair");
         this->drawKeypairGenaratorModal(gui);
     }
+    if(this->showManageAccount) {
+        this->drawManageAccountModal(gui);
+    }
     if(this->showAddServer) {
         this->drawAddServerModal(gui);
     }
@@ -214,7 +224,14 @@ void ServerSelector::draw(GameUI *gui) {
  */
 void ServerSelector::drawAccountBar(GameUI *gui) {
     if(ImGui::Button("Manage Account")) {
+        // load account state
+        const auto displayName = io::PrefsManager::getString("auth.displayName", "");
+        strncpy(this->displayNameBuf.data(), displayName.c_str(), this->displayNameBuf.size());
+
         // TODO: show account details
+        ImGui::OpenPopup("Manage Account");
+        this->showManageAccount = true;
+        this->focusLayers++;
     }
 
     // loading indicator
@@ -303,6 +320,70 @@ void ServerSelector::drawServerList(GameUI *gui) {
 
 
 /**
+ * Draws the account management modal
+ */
+void ServerSelector::drawManageAccountModal(GameUI *gui) {
+    bool save = false;
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 windowPos = ImVec2(io.DisplaySize.x / 2., io.DisplaySize.y / 2.);
+    ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always, ImVec2(.5, .5));
+    ImGui::SetNextWindowSize(ImVec2(555, 350));
+
+    if(!ImGui::BeginPopupModal("Manage Account", nullptr, ImGuiWindowFlags_AlwaysAutoResize | 
+            ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
+        return;
+    }
+
+    // Descriptive text
+    ImGui::TextWrapped("You can change various settings of your online account here. These "
+            "settings will only apply to multiplayer games.");
+
+    ImGui::Dummy(ImVec2(0, 2));
+
+    // Display name
+    ImGui::InputText("Display Name", this->displayNameBuf.data(), this->displayNameBuf.size());
+    if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("This is the name other players will see when you connect to a server.");
+    }
+
+    // buttons
+    const float spaceV = ImGui::GetContentRegionAvail().y;
+    ImGui::Dummy(ImVec2(0, spaceV - 22 - 8 - 6));
+
+    ImGui::Separator();
+
+    if(ImGui::Button("Close")) {
+        ImGui::CloseCurrentPopup();
+        this->showManageAccount = false;
+        this->focusLayers--;
+    }
+    if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Closes this window and discards any changes you've made.");
+    }
+    ImGui::SameLine();
+    if(ImGui::Button("Save Changes")) {
+        save = true;
+        ImGui::CloseCurrentPopup();
+        this->showManageAccount = false;
+        this->focusLayers--;
+    }
+
+    ImGui::EndPopup();
+
+    // save prefs if needed
+    if(save) {
+        // display name
+        const size_t len = strnlen(this->displayNameBuf.data(), this->displayNameBuf.size());
+        const std::string displayName(this->displayNameBuf.data(), len);
+
+        io::PrefsManager::setString("auth.displayName", displayName);
+    }
+}
+
+
+
+/**
  * Draws a modal indicating that we need to generate a keypair, and register it with the web
  * service.
  *
@@ -310,6 +391,8 @@ void ServerSelector::drawServerList(GameUI *gui) {
  * registered keypair is mandatory for network play.
  */
 void ServerSelector::drawKeypairGenaratorModal(GameUI *gui) {
+    bool clearKeys = true;
+
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 windowPos = ImVec2(io.DisplaySize.x / 2., io.DisplaySize.y / 2.);
     ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always, ImVec2(.5, .5));
@@ -344,6 +427,14 @@ void ServerSelector::drawKeypairGenaratorModal(GameUI *gui) {
         ImGui::PopFont();
     }
 
+    // inputs
+    ImGui::Dummy(ImVec2(0, 2));
+    ImGui::InputText("Display Name", this->displayNameBuf.data(), this->displayNameBuf.size());
+    if(ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("This is the name other players will see when you connect to a server.");
+    }
+    ImGui::Dummy(ImVec2(0, 2));
+
     // buttons
     const float spaceV = ImGui::GetContentRegionAvail().y;
     ImGui::Dummy(ImVec2(0, spaceV - 22 - 8 - 6));
@@ -371,6 +462,20 @@ void ServerSelector::drawKeypairGenaratorModal(GameUI *gui) {
 
     ImGui::SameLine();
     if(ImGui::Button("Generate Keys")) {
+        // error if display name is empty
+        if(strnlen(this->displayNameBuf.data(), this->displayNameBuf.size()) == 0) {
+            this->closeRegisterModal = 2;
+            clearKeys = false;
+            this->registerErrorDetail = "You must enter a display name.";
+            goto yeet;
+        }
+
+        // save display name
+        const size_t len = strnlen(this->displayNameBuf.data(), this->displayNameBuf.size());
+        const std::string displayName(this->displayNameBuf.data(), len);
+
+        io::PrefsManager::setString("auth.displayName", displayName);
+
         // generate the keys, then enqueue submission to web service
         AuthManager::generateAuthKeys(false);
         this->work.enqueue(PlainRequest::RegisterKey);
@@ -379,6 +484,7 @@ void ServerSelector::drawKeypairGenaratorModal(GameUI *gui) {
         this->showLoader = true;
     }
 
+yeet:;
     // success dialog
    ImGui::SetNextWindowSizeConstraints(ImVec2(420, 0), ImVec2(420, 300));
     if(this->closeRegisterModal == 1) {
@@ -409,7 +515,9 @@ void ServerSelector::drawKeypairGenaratorModal(GameUI *gui) {
         ImGui::OpenPopup("Registration Error");
         this->showLoader = false;
         this->closeRegisterModal = 0;
-        AuthManager::clearAuthKeys(false);
+        if(clearKeys) {
+            AuthManager::clearAuthKeys(false);
+        }
     }
     if(ImGui::BeginPopupModal("Registration Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::PushFont(gui->getFont(GameUI::kGameFontBold));

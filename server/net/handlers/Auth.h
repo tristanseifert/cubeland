@@ -30,6 +30,13 @@ class Auth: public PacketHandler {
             }
             return std::nullopt;
         }
+        /// if authenticated, the client's display name
+        const std::optional<std::string> getDisplayName() const {
+            if(this->isAuthenticated()) {
+                return this->displayName;
+            }
+            return std::nullopt;
+        }
 
     private:
         enum class State {
@@ -47,12 +54,16 @@ class Auth: public PacketHandler {
         void handleAuthReq(const PacketHeader &, const void *, const size_t);
         void handleAuthChallengeReply(const PacketHeader &, const void *, const size_t);
 
+        void getConnectedUsers(const PacketHeader &, const void *, const size_t);
+
     private:
         /// current auth state machine state
         State state = State::Idle;
 
         /// ID of the client (from first auth request packet)
         uuids::uuid clientId;
+        /// display name (from auth request)
+        std::string displayName;
         /// random data generated for client auth challenge
         std::array<std::byte, 32> challengeData;
 };
