@@ -58,8 +58,6 @@ void WorldInfo::handlePacket(const PacketHeader &header, const void *payload,
  * Handles reading the world info key.
  */
 void WorldInfo::handleGet(const PacketHeader &hdr, const void *payload, const size_t payloadLen) {
-    auto world = this->client->getWorld();
-
     // deserialize the request
     std::stringstream stream(std::string(reinterpret_cast<const char *>(payload), payloadLen));
     cereal::PortableBinaryInputArchive iArc(stream);
@@ -67,14 +65,25 @@ void WorldInfo::handleGet(const PacketHeader &hdr, const void *payload, const si
     WorldInfoGet request;
     iArc(request);
 
-    // do it
-    auto info = world->getWorldInfo(request.key);
+    // send the key
+    this->sendKey(request.key, hdr.tag);
+}
+
+/**
+ * Sends the value of a key to the client. This is used both to push keys to the client's cache,
+ * and to handle client-initiated gets.
+ */
+void WorldInfo::sendKey(const std::string &key, const uint16_t tag) {
+    auto world = this->client->getWorld();
+
+    // read the key
+    auto info = world->getWorldInfo(key);
     auto value = info.get_future().get();
 
     // build response
     WorldInfoGetReply reply;
 
-    reply.key = request.key;
+    reply.key = key;
     reply.found = !value.empty();
     if(reply.found) {
         // XXX: this sucks. we should refactor world source to use std::byte
@@ -91,6 +100,15 @@ void WorldInfo::handleGet(const PacketHeader &hdr, const void *payload, const si
 
     oArc(reply);
 
-    this->client->writePacket(kEndpointWorldInfo, kWorldInfoGetResponse, oStream.str(), hdr.tag);
+    this->client->writePacket(kEndpointWorldInfo, kWorldInfoGetResponse, oStream.str(), tag);
 }
 
+/**
+ * When we become authorized, push to the client the world id.
+ */
+void WorldInfo::authStateChanged() {
+    if(!this->client->getClientId()) return;
+
+    // list of keys to push to the client
+    this->sendKey("world.id");
+}

@@ -6,6 +6,7 @@
 #include "handlers/WorldInfo.h"
 #include "handlers/PlayerInfo.h"
 #include "handlers/PlayerMovement.h"
+#include "handlers/Time.h"
 
 #include <Logging.h>
 #include <io/Format.h>
@@ -58,6 +59,7 @@ ListenerClient::ListenerClient(Listener *_list, struct tls *_tls, const int _fd,
     this->handlers.emplace_back(new handler::PlayerInfo(this));
     this->handlers.emplace_back(new handler::WorldInfo(this));
     this->handlers.emplace_back(this->auth);
+    this->handlers.emplace_back(new handler::Time(this));
 
     // set up the worker
     this->workerRun = true;

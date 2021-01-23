@@ -12,6 +12,7 @@
 #include <Logging.h>
 #include <io/Format.h>
 
+#include <mutils/time/profiler.h>
 #include <cereal/archives/portable_binary.hpp>
 
 #include <algorithm>
@@ -21,6 +22,9 @@
 
 using namespace net::handler;
 using namespace net::message;
+
+// uncomment to enable logging of chunk requests
+// #define LOG_CHUNK_REQUESTS
 
 /**
  * Initializes the chunk loading packet handler.
@@ -69,6 +73,8 @@ bool ChunkLoader::canHandlePacket(const PacketHeader &header) {
  * Handles world info packets.
  */
 void ChunkLoader::handlePacket(const PacketHeader &header, const void *payload, const size_t payloadLen) {
+    PROFILE_SCOPE(ChunkLoader);
+
     switch(header.type) {
         case kChunkSliceData:
             this->handleSlice(header, payload, payloadLen);
@@ -113,7 +119,9 @@ std::future<std::shared_ptr<world::Chunk>> ChunkLoader::get(const glm::ivec2 &po
     ChunkGet request;
     request.chunkPos = pos;
 
+#if LOG_CHUNK_REQUESTS
     Logging::trace("Sending request for chunk {}", pos);
+#endif
 
     std::stringstream oStream;
     cereal::PortableBinaryOutputArchive oArc(oStream);
@@ -151,6 +159,8 @@ void ChunkLoader::handleSlice(const PacketHeader &header, const void *payload, c
  * Worker thread callback for processing a single slice worth of data
  */
 void ChunkLoader::process(const ChunkSliceData &data) {
+    PROFILE_SCOPE(ProcessSlice);
+
     // get the chunk
     this->inProgressLock.lock();
     auto chunk = this->inProgress[data.chunkPos];
@@ -294,6 +304,8 @@ void ChunkLoader::handleCompletion(const PacketHeader &header, const void *paylo
 }
 
 void ChunkLoader::process(const ChunkCompletion &comp) {
+    PROFILE_SCOPE(FinishChunk);
+
     // wait on outstanding work
     std::unique_lock<std::mutex> lk(this->countsLock);
     this->countsCond.wait(lk, [&]{
@@ -304,7 +316,9 @@ void ChunkLoader::process(const ChunkCompletion &comp) {
         return (this->counts[comp.chunkPos] >= comp.numSlices);
     });
 
+#if LOG_CHUNK_REQUESTS
     Logging::trace("Completed chunk {}! Total {} slices", comp.chunkPos, this->counts[comp.chunkPos]);
+#endif
     this->counts.erase(comp.chunkPos);
 
     // get the chunk out of the in progress map

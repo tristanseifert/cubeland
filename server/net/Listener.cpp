@@ -1,6 +1,8 @@
 #include "Listener.h"
 #include "ListenerClient.h"
 
+#include "world/time/Clock.h"
+
 #include <util/Thread.h>
 #include <io/Format.h>
 #include <io/ConfigManager.h>
@@ -63,6 +65,9 @@ Listener::Listener(world::WorldSource *_reader) : world(_reader) {
 
     err = ::listen(this->listenFd, backlog);
     XASSERT(!err, "Failed to listen on socket: {}", strerror(errno));
+
+    // set up some other parts of the game logic
+    this->clock = new world::Clock(this->world);
 
     // set up the chunk serializer thread pool
     const auto serializerThreads = io::ConfigManager::getUnsigned("world.chunkSerializerThreads", 4);
@@ -148,6 +153,9 @@ Listener::~Listener() {
     // finally, shut down the work thread
     this->worker->join();
     this->murderThread->join();
+
+    // delete any other resources
+    delete this->clock;
 }
 
 

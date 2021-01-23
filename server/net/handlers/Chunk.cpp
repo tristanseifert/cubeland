@@ -21,6 +21,11 @@
 #include <sstream>
 #include <stdexcept>
 
+// uncomment to enable logging of the received and sent packets
+// #define LOG_PACKETS
+// uncomment to enable logging of chunk loading
+// #define LOG_LOAD
+
 using namespace net::handler;
 using namespace net::message;
 
@@ -81,7 +86,9 @@ void ChunkLoader::handleGet(const PacketHeader &header, const void *payload, con
     ChunkGet request;
     iArc(request);
 
+#ifdef LOG_PACKETS
     Logging::trace("Request chunk: {}", request.chunkPos);
+#endif
 
     // ignore if duplicate request
     {
@@ -129,7 +136,9 @@ void ChunkLoader::handleGet(const PacketHeader &header, const void *payload, con
             auto future = world->getChunk(pos.x, pos.y);
             auto chunk = future.get();
 
+#ifdef LOG_LOAD
             Logging::trace("Loaded chunk: {}", (void *) chunk.get());
+#endif
 
             {
                 std::lock_guard<std::mutex> lg(cacheLock);
@@ -286,7 +295,9 @@ void ChunkLoader::sendCompletion(const std::shared_ptr<world::Chunk> &chunk, con
 
     oArc(comp);
 
+#if LOG_PACKETS
     Logging::trace("Sent completion for {}: {} slices", chunk->worldPos, numSlices);
+#endif
     this->client->writePacket(kEndpointChunk, kChunkCompletion, oStream.str());
 
     // TODO: register for chunk change notifications (via block change request handler)

@@ -171,6 +171,12 @@ std::promise<std::vector<char>> WorldSource::getWorldInfo(const std::string &key
     return this->reader->getWorldInfo(key);
 }
 
+/**
+ * Sets a world info key.
+ */
+std::promise<void> WorldSource::setWorldInfo(const std::string &key, const std::vector<char> &value) {
+    return this->reader->setWorldInfo(key, value);
+}
 
 
 /**

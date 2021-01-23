@@ -3,6 +3,7 @@
 #include "handlers/Chunk.h"
 #include "handlers/PlayerInfo.h"
 #include "handlers/PlayerMovement.h"
+#include "handlers/Time.h"
 #include "handlers/WorldInfo.h"
 
 #include "web/AuthManager.h"
@@ -103,12 +104,14 @@ ServerConnection::ServerConnection(const std::string &_host) : host(_host) {
     this->worldInfo = new handler::WorldInfo(this);
     this->chonker = new handler::ChunkLoader(this);
     this->movement = new handler::PlayerMovement(this);
+    this->time = new handler::Time(this);
 
     this->handlers.emplace_back(this->movement);
     this->handlers.emplace_back(this->chonker);
     this->handlers.emplace_back(this->playerInfo);
     this->handlers.emplace_back(this->worldInfo);
     this->handlers.emplace_back(this->auth);
+    this->handlers.emplace_back(this->time);
 
     // start our worker thread
     this->workerRun = true;

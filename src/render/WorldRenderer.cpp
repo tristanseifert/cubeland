@@ -759,7 +759,17 @@ void WorldRenderer::workerSaveScreenshot(const SaveScreenshot &save) {
 
     // prepare the input data
     auto idProm = this->source->getWorldInfo("world.id");
-    const auto worldIdBytes = idProm.get_future().get();
+    auto idFuture = idProm.get_future();
+    const auto waitStatus = idFuture.wait_for(std::chrono::seconds(2));
+
+    if(waitStatus == std::future_status::timeout) {
+        Logging::error("Gave up getting world id to save screenshot: {}", waitStatus);
+
+        delete[] save.data;
+        return;
+    }
+
+    const auto worldIdBytes = idFuture.get();
     const std::string worldId(worldIdBytes.begin(), worldIdBytes.end());
 
     std::filesystem::path path(io::PathHelper::cacheDir());

@@ -7,6 +7,7 @@
 #include <Logging.h>
 #include <io/Format.h>
 
+#include <mutils/time/profiler.h>
 #include <cereal/archives/portable_binary.hpp>
 
 #include <cstdlib>
@@ -53,6 +54,8 @@ bool PlayerInfo::canHandlePacket(const PacketHeader &header) {
  * acks for writes.
  */
 void PlayerInfo::handlePacket(const PacketHeader &header, const void *payload, const size_t payloadLen) {
+    PROFILE_SCOPE(PlayerInfo);
+
     switch(header.type) {
         case kPlayerInfoGetResponse:
             this->receivedKey(header, payload, payloadLen);
@@ -69,6 +72,8 @@ void PlayerInfo::handlePacket(const PacketHeader &header, const void *payload, c
  * Sends a request to the server to get a particular player info key.
  */
 std::future<std::optional<std::vector<std::byte>>> PlayerInfo::get(const std::string &key) {
+    PROFILE_SCOPE(PlayerInfoGet);
+
     // set up the promise and save it
     std::promise<std::optional<std::vector<std::byte>>> prom;
     auto future = prom.get_future();

@@ -30,6 +30,7 @@ RemoteSource::RemoteSource(std::shared_ptr<net::ServerConnection> _conn, const u
  */
 RemoteSource::~RemoteSource() {
     // shut down workers
+    this->pool->cleanup();
     delete this->pool;
 
     // close connection

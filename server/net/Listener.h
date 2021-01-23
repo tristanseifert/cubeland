@@ -20,6 +20,7 @@ struct tls_config;
 
 namespace world {
 class WorldSource;
+class Clock;
 }
 
 namespace net {
@@ -39,6 +40,10 @@ class Listener {
 
         util::ThreadPool<WorkItem> *getSerializerPool() {
             return this->serializerPool;
+        }
+
+        world::Clock *getClock() {
+            return this->clock;
         }
 
     protected:
@@ -87,6 +92,9 @@ class Listener {
 
         /// this thread periodically invokes the save method on connected clients
         std::unique_ptr<std::thread> saverThread;
+
+        /// time updating
+        world::Clock *clock = nullptr;
 };
 };
 

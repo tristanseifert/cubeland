@@ -50,7 +50,9 @@ class WorldSource: public AbstractWorldSource {
 
         /// Reads the value of a world info key.
         std::promise<std::vector<char>> getWorldInfo(const std::string &key) override;
-
+        /// sets a world info key
+        std::promise<void> setWorldInfo(const std::string &key, const std::vector<char> &value);
+    
         /// Sets whether we ignore the file and generate all data
         void setGenerateOnly(const bool value) {
             this->generateOnly = value;

@@ -7,6 +7,7 @@
 #include <Logging.h>
 #include <io/Format.h>
 
+#include <mutils/time/profiler.h>
 #include <cereal/archives/portable_binary.hpp>
 
 #include <sstream>
@@ -33,6 +34,8 @@ bool PlayerMovement::canHandlePacket(const PacketHeader &header) {
  */
 void PlayerMovement::handlePacket(const PacketHeader &header, const void *payload,
         const size_t payloadLen) {
+    PROFILE_SCOPE(PlayerMovement);
+
     switch(header.type) {
         case kPlayerPositionBroadcast:
             this->otherPlayerMoved(header, payload, payloadLen);

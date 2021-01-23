@@ -18,8 +18,11 @@ class WorldInfo: public PacketHandler {
         void handlePacket(const PacketHeader &header, const void *payload,
                 const size_t payloadLen) override;
 
+        void authStateChanged() override;
+
     private:
         void handleGet(const PacketHeader &, const void *, const size_t);
+        void sendKey(const std::string &, const uint16_t = 0);
 };
 }
 

@@ -73,3 +73,6 @@
 [submodule "libs/jwt-cpp"]
 	path = libs/jwt-cpp
 	url = git@github.com:Thalhammer/jwt-cpp.git
+[submodule "libs/cpptime"]
+	path = libs/cpptime
+	url = git@github.com:eglimi/cpptime.git

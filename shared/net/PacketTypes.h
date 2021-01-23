@@ -32,6 +32,8 @@ enum PacketEndpoint: uint8_t {
     kEndpointPlayerMovement             = 0x08,
     /// Per-player metadata
     kEndpointPlayerInfo                 = 0x09,
+    /// Time updates
+    kEndpointTime                       = 0x0A,
 
 };
 

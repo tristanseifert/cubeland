@@ -7,6 +7,7 @@
 #include <Logging.h>
 #include <io/Format.h>
 
+#include <mutils/time/profiler.h>
 #include <cereal/archives/portable_binary.hpp>
 
 #include <cstdlib>
@@ -52,6 +53,8 @@ bool WorldInfo::canHandlePacket(const PacketHeader &header) {
  * Handles world info packets.
  */
 void WorldInfo::handlePacket(const PacketHeader &header, const void *payload, const size_t payloadLen) {
+    PROFILE_SCOPE(WorldInfo);
+
     switch(header.type) {
         case kWorldInfoGetResponse:
             this->receivedKey(header, payload, payloadLen);
@@ -120,22 +123,24 @@ void WorldInfo::receivedKey(const PacketHeader &hdr, const void *payload, const 
         this->cache[response.key] = *response.data;
     }
 
-    // complete the appropriate promise
+    // complete the appropriate promise (if it exists; if not, we got a key pushed to our cache)
     std::lock_guard<std::mutex> lg(this->requestsLock);
 
-    auto &prom = this->requests.at(response.key);
+    if(this->requests.contains(response.key)) {
+        auto &prom = this->requests.at(response.key);
 
-    try {
-        if(!response.found) {
-            prom.set_value(std::nullopt);
-        } else {
-            prom.set_value(*response.data);
+        try {
+            if(!response.found) {
+                prom.set_value(std::nullopt);
+            } else {
+                prom.set_value(*response.data);
+            }
+        } catch(std::exception &e) {
+            Logging::error("Failed to handle received world info key: {}", e.what());
+            prom.set_exception(std::current_exception());
         }
-    } catch(std::exception &e) {
-        Logging::error("Failed to handle received world info key: {}", e.what());
-        prom.set_exception(std::current_exception());
-    }
 
-    // remove from list
-    this->requests.erase(response.key);
+        // remove from list
+        this->requests.erase(response.key);
+    }
 }

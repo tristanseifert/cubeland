@@ -34,6 +34,7 @@ class PlayerInfo;
 class WorldInfo;
 class ChunkLoader;
 class PlayerMovement;
+class Time;
 }
 
 class ServerConnection {
@@ -147,6 +148,7 @@ class ServerConnection {
         handler::WorldInfo *worldInfo = nullptr;
         handler::ChunkLoader *chonker = nullptr;
         handler::PlayerMovement *movement = nullptr;
+        handler::Time *time = nullptr;
 
         /// connection flag
         bool connected = true;

@@ -215,6 +215,7 @@ add_executable(cubeland
     src/net/handlers/Chunk.cpp
     src/net/handlers/PlayerInfo.cpp
     src/net/handlers/PlayerMovement.cpp
+    src/net/handlers/Time.cpp
     src/net/handlers/WorldInfo.cpp
 # resources and other misc stuff
     ${version_file}
@@ -238,6 +239,7 @@ target_include_directories(cubeland PUBLIC src)
 #### source for server
 add_executable(server
     server/main.cpp
+    server/world/time/Clock.cpp
 # network communication
     server/net/Listener.cpp
     server/net/ListenerClient.cpp
@@ -245,6 +247,7 @@ add_executable(server
     server/net/handlers/Chunk.cpp
     server/net/handlers/PlayerInfo.cpp
     server/net/handlers/PlayerMovement.cpp
+    server/net/handlers/Time.cpp
     server/net/handlers/WorldInfo.cpp
 # auth support
     server/auth/KeyCache.cpp
@@ -273,6 +276,7 @@ target_include_directories(server PRIVATE libs/libconfig/lib)
 target_include_directories(server SYSTEM BEFORE PRIVATE libs/stduuid/include)
 target_include_directories(server PRIVATE libs/stduuid/gsl)
 target_include_directories(server PRIVATE libs/glm)
+target_include_directories(server PRIVATE libs/cpptime)
 
 # concurrent queue
 target_include_directories(server PRIVATE libs/concurrentqueue)
