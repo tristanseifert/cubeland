@@ -1,5 +1,6 @@
 #include "ServerConnection.h"
 #include "handlers/Auth.h"
+#include "handlers/BlockChange.h"
 #include "handlers/Chunk.h"
 #include "handlers/PlayerInfo.h"
 #include "handlers/PlayerMovement.h"
@@ -106,8 +107,10 @@ ServerConnection::ServerConnection(const std::string &_host) : host(_host) {
     this->chonker = new handler::ChunkLoader(this);
     this->movement = new handler::PlayerMovement(this);
     this->time = new handler::Time(this);
+    this->block = new handler::BlockChange(this);
 
     this->handlers.emplace_back(this->movement);
+    this->handlers.emplace_back(this->block);
     this->handlers.emplace_back(this->chonker);
     this->handlers.emplace_back(this->playerInfo);
     this->handlers.emplace_back(this->worldInfo);
@@ -607,5 +610,20 @@ void ServerConnection::setSource(world::RemoteSource *source) {
     }
 
     this->source = source;
+}
+
+/**
+ * Prepares a freshly loaded chunk. The chunk change observer (which sends changed blocks to the
+ * server) is installed.
+ */
+void ServerConnection::didLoadChunk(const std::shared_ptr<world::Chunk> &chunk) {
+    this->block->startChunkNotifications(chunk);
+}
+
+/**
+ * Notify the server we're unloading a chunk.
+ */
+void ServerConnection::didUnloadChunk(const std::shared_ptr<world::Chunk> &chunk) {
+    this->block->stopChunkNotifications(chunk);
 }
 

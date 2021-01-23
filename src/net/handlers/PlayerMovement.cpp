@@ -63,6 +63,7 @@ void PlayerMovement::otherPlayerMoved(const PacketHeader &, const void *payload,
     iArc(b);
 
     // deal with it
+    Logging::trace("Player {} moved: pos {} angles {}", b.playerId, b.position, b.angles);
 
     // idk fam
 }

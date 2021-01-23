@@ -11,12 +11,13 @@
 #ifndef WORLD_CHUNK_CHUNKSLICE_H
 #define WORLD_CHUNK_CHUNKSLICE_H
 
-#include <cstdint>
-#include <array>
-#include <unordered_map>
-#include <stdexcept>
-#include <cstdlib>
 #include <algorithm>
+#include <array>
+#include <cstdint>
+#include <cstdlib>
+#include <mutex>
+#include <stdexcept>
+#include <unordered_map>
 
 #include <uuid.h>
 
@@ -197,10 +198,22 @@ struct ChunkSlice {
     std::array<ChunkSliceRow *, 256> rows;
 
     /**
+     * Lock to protect this slice to ensure only one client modifies it at a time
+     */
+    std::mutex mutex;
+
+    /**
      * Ensure the chunk slice is initialized to a null state.
      */
     ChunkSlice() {
         std::fill(std::begin(this->rows), std::end(this->rows), nullptr);
+    }
+
+    void lock() {
+        this->mutex.lock();
+    }
+    void unlock() {
+        this->mutex.unlock();
     }
 };
 

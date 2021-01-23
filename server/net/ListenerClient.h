@@ -19,6 +19,7 @@
 struct tls;
 
 namespace world {
+struct Chunk;
 class WorldSource;
 }
 
@@ -28,6 +29,7 @@ class Listener;
 
 namespace handler {
 class Auth;
+class BlockChange;
 }
 
 class ListenerClient {
@@ -68,6 +70,9 @@ class ListenerClient {
         /// world source
         world::WorldSource *getWorld() const;
 
+        /// adds an observer on the given chonk
+        void addChunkObserver(const std::shared_ptr<world::Chunk> &);
+
         /// invokes the auth state callbacks of all clients
         void authStateChanged();
         /// invokes save method of all dirty handlers
@@ -105,6 +110,7 @@ class ListenerClient {
     private:
         Listener *owner = nullptr;
         handler::Auth *auth = nullptr;
+        handler::BlockChange *block = nullptr;
 
         /// Client TLS connection
         struct tls *tls = nullptr;

@@ -157,6 +157,8 @@ int main(int argc, const char **argv) {
         pause();
     }
 
+    source->flushDirtyChunksSync();
+
     // clean up
     Logging::info("Stopping server...");
 

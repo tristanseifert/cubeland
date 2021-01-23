@@ -2,6 +2,7 @@
 #include "Listener.h"
 
 #include "handlers/Auth.h"
+#include "handlers/BlockChange.h"
 #include "handlers/Chunk.h"
 #include "handlers/WorldInfo.h"
 #include "handlers/PlayerInfo.h"
@@ -54,6 +55,9 @@ ListenerClient::ListenerClient(Listener *_list, struct tls *_tls, const int _fd,
 
     // initialize packet handlers
     this->auth = new handler::Auth(this);
+    this->block = new handler::BlockChange(this);
+
+    this->handlers.emplace_back(this->block);
     this->handlers.emplace_back(new handler::PlayerMovement(this));
     this->handlers.emplace_back(new handler::ChunkLoader(this));
     this->handlers.emplace_back(new handler::PlayerInfo(this));
@@ -390,3 +394,11 @@ void ListenerClient::save() {
         handler->saveData();
     }
 }
+
+/**
+ * Adds a chunk observer
+ */
+void ListenerClient::addChunkObserver(const std::shared_ptr<world::Chunk> &chunk) {
+    this->block->addObserver(chunk);
+}
+

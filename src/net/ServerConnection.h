@@ -35,6 +35,7 @@ class WorldInfo;
 class ChunkLoader;
 class PlayerMovement;
 class Time;
+class BlockChange;
 }
 
 class ServerConnection {
@@ -97,6 +98,11 @@ class ServerConnection {
             return this->source;
         }
 
+        /// Sets up a newly loaded chunk for change notifications
+        void didLoadChunk(const std::shared_ptr<world::Chunk> &);
+        /// Notifies server we've unloaded a chunk
+        void didUnloadChunk(const std::shared_ptr<world::Chunk> &);
+
     private:
         enum class PipeEvent: uint8_t {
             // do nothing
@@ -151,6 +157,7 @@ class ServerConnection {
         uint16_t nextTag = 1;
 
         handler::Auth *auth = nullptr;
+        handler::BlockChange *block = nullptr;
         handler::PlayerInfo *playerInfo = nullptr;
         handler::WorldInfo *worldInfo = nullptr;
         handler::ChunkLoader *chonker = nullptr;

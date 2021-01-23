@@ -14,7 +14,8 @@
 
 namespace net::handler {
 /**
- * Handles sending chunks as a whole
+ * Serves as a sort of "bent pipe" for player position updates, so they're propagated to all other
+ * players. It also makes sure the player's position is saved/restored correctly.
  */
 class PlayerMovement: public PacketHandler {
     public:

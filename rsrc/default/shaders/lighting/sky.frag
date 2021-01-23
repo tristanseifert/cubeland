@@ -47,7 +47,10 @@ float noise(vec3 p){
     return o4.y * d.y + o4.x * (1.0 - d.y);
 }
 
+
 float fbm(vec3 x) {
+    x = mod(x, vec3(1024));
+
     float v = 0.0;
     float a = 0.5;
     vec3 shift = vec3(100);
@@ -59,9 +62,94 @@ float fbm(vec3 x) {
     return v;
 }
 
+/*
+const mat2 m2 = mat2(0.8,-0.6,0.6,0.8);
+float fbm(vec3 x) {
+//float fbm( in vec2 p ){
+    vec2 p = vec2(x.x - (x.z / 2), x.y + (x.z / 2));
+    float f = 0.0;
+    f += 0.5000*noise( p ); p = m2*p*2.02;
+    f += 0.2500*noise( p ); p = m2*p*2.03;
+    f += 0.1250*noise( p ); p = m2*p*2.01;
+    f += 0.0625*noise( p );
+
+    return f/0.9375;
+}*/
+float rand(float n){return fract(sin(n) * 43758.5453123);}
+
+float noise(float p){
+    float fl = floor(p);
+  float fc = fract(p);
+    return mix(rand(fl), rand(fl + 1.0), fc);
+}
+	
+/*float noise(vec2 n) {
+    const vec2 d = vec2(0.0, 1.0);
+  vec2 b = floor(n), f = smoothstep(vec2(0.0), vec2(1.0), fract(n));
+    return mix(mix(rand(b), rand(b + d.yx), f.x), mix(rand(b + d.xy), rand(b + d.yy), f.x), f.y);
+}*/
+
+/*
+float rand(vec2 n) { 
+	return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
+}
+
+float noise(vec2 p){
+	vec2 ip = floor(p);
+	vec2 u = fract(p);
+	u = u*u*(3.0-2.0*u);
+	
+	float res = mix(
+		mix(rand(ip),rand(ip+vec2(1.0,0.0)),u.x),
+		mix(rand(ip+vec2(0.0,1.0)),rand(ip+vec2(1.0,1.0)),u.x),u.y);
+	return res*res;
+}
+
+#define NUM_OCTAVES 5
+
+float fbm(float x) {
+    float v = 0.0;
+    float a = 0.5;
+    float shift = float(100);
+    for (int i = 0; i < NUM_OCTAVES; ++i) {
+        v += a * noise(x);
+        x = x * 2.0 + shift;
+        a *= 0.5;
+    }
+    return v;
+}
+
+
+float fbm(vec2 x) {
+    float v = 0.0;
+    float a = 0.5;
+    vec2 shift = vec2(100);
+    // Rotate to reduce axial bias
+    mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.50));
+    for (int i = 0; i < NUM_OCTAVES; ++i) {
+        v += a * noise(x);
+        x = rot * x * 2.0 + shift;
+        a *= 0.5;
+    }
+    return v;
+}
+
+
+float fbm(vec3 x) {
+    float v = 0.0;
+    float a = 0.5;
+    vec3 shift = vec3(100);
+    for (int i = 0; i < NUM_OCTAVES; ++i) {
+        v += a * noise(x);
+        x = x * 2.0 + shift;
+        a *= 0.5;
+    }
+    return v;
+}*/
+
 // just sample our noise texture
 float fbmTex(vec3 pos) {
-    return texture(noiseTex, pos.xz).r;
+    return texture(noiseTex, pos.xz / vec2(18 * pos.z)).r;
 }
 
 

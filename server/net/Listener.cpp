@@ -1,8 +1,11 @@
 #include "Listener.h"
 #include "ListenerClient.h"
 
+#include "net/handlers/BlockChange.h"
+
 #include "world/time/Clock.h"
 
+#include <world/WorldSource.h>
 #include <util/Thread.h>
 #include <io/Format.h>
 #include <io/ConfigManager.h>
@@ -74,12 +77,20 @@ Listener::Listener(world::WorldSource *_reader) : world(_reader) {
     Logging::debug("Chunk serializer threads: {}", serializerThreads);
     this->serializerPool = new util::ThreadPool<WorkItem>("Chunk Serializer", serializerThreads);
 
-    // create the work thread
+    // create the work threads
     this->workerRun = true;
     this->worker = std::make_unique<std::thread>(&Listener::workerMain, this);
 
     this->murderThread = std::make_unique<std::thread>(&Listener::murdererMain, this);
     this->saverThread = std::make_unique<std::thread>(&Listener::saverMain, this);
+
+    handler::BlockChange::startBroadcaster(this);
+
+    // add a repeating timer for actually saving chunks
+    const auto interval = std::chrono::milliseconds(100);
+    this->timer.add(interval, [&](auto){
+        this->world->updateDirtyList();
+    }, interval);
 }
 
 /**
@@ -143,6 +154,8 @@ Listener::~Listener() {
 
         this->clients.clear();
     }
+
+    handler::BlockChange::stopBroadcaster();
 
     // release SSL resources and listening socket
     tls_close(this->tls);

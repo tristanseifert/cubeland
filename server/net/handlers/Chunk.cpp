@@ -1,4 +1,5 @@
 #include "Chunk.h"
+#include "BlockChange.h"
 #include "net/Listener.h"
 #include "net/ListenerClient.h"
 
@@ -300,7 +301,8 @@ void ChunkLoader::sendCompletion(const std::shared_ptr<world::Chunk> &chunk, con
 #endif
     this->client->writePacket(kEndpointChunk, kChunkCompletion, oStream.str());
 
-    // TODO: register for chunk change notifications (via block change request handler)
+    // register for chunk change notifications (via block change request handler)
+    this->client->addChunkObserver(chunk);
 
     // remove from the pending queue
     std::lock_guard<std::mutex> lg(this->dupesLock);

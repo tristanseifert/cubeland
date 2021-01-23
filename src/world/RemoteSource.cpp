@@ -157,7 +157,7 @@ void RemoteSource::flushDirtyChunksSync() {
  * and is used to unsubscribe from block notifications in that chunk.
  */
 void RemoteSource::forceChunkWriteIfDirtySync(std::shared_ptr<Chunk> &chunk) {
-    // TODO: implement
+    this->server->didUnloadChunk(chunk);
 }
 
 

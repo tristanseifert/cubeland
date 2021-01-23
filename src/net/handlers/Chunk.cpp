@@ -330,6 +330,9 @@ void ChunkLoader::process(const ChunkCompletion &comp) {
         this->inProgress.erase(comp.chunkPos);
     }
 
+    // add an observeyboi for changes
+    this->server->didLoadChunk(chunk);
+
     // copy metadata and then satisfy the promise
     chunk->meta = comp.meta;
 
