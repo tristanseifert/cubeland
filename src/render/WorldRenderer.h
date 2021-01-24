@@ -19,6 +19,10 @@
 
 #include <blockingconcurrentqueue.h>
 
+namespace chat {
+class Manager;
+}
+
 namespace gui {
 class MainWindow;
 class GameUI;
@@ -163,6 +167,9 @@ class WorldRenderer: public gui::RunLoopStep {
         std::shared_ptr<PauseWindow> pauseWin = nullptr;
         // in game preferences
         std::shared_ptr<gui::InGamePrefsWindow> prefsWin = nullptr;
+
+        // chat interface for multiplayer games
+        chat::Manager *chat = nullptr;
 
     private:
         /// Duration in the pause fade-out, in seconds

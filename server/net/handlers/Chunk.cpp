@@ -34,10 +34,16 @@ std::mutex ChunkLoader::cacheLock;
 std::unordered_map<glm::ivec2, std::weak_ptr<world::Chunk>> ChunkLoader::cache;
 
 /**
- * Initializes the chunk handler
+ * Waits for all pending completions.
  */
-ChunkLoader::ChunkLoader(ListenerClient *_client) : PacketHandler(_client) {
+ChunkLoader::~ChunkLoader() {
+    std::lock_guard<std::mutex> lg(this->completionsLock);
+    for(auto &[pos, future] : this->completions) {
+        future.get();
+    }
 }
+
+
 
 /**
  * We handle all chunk endpoint packets.
@@ -120,16 +126,19 @@ void ChunkLoader::handleGet(const PacketHeader &header, const void *payload, con
 
     // we've found the chunk in cache; send the slices in the background
     if(chunk) {
-        pool->queueWorkItem([&, chunk] {
+        auto fut = pool->queueWorkItem([&, chunk] {
             if(!this->client->isConnected()) return;
             this->sendSlices(chunk);
         });
+
+        std::lock_guard<std::mutex> lg(this->completionsLock);
+        this->completions[chunk->worldPos] = std::move(fut);
     }
     // otherwise, read it from the world source
     else {
         auto pos = request.chunkPos;
 
-        pool->queueWorkItem([&, pos, world] {
+        auto fut = pool->queueWorkItem([&, pos, world] {
             // bail if client is disconnected
             if(!this->client->isConnected()) return;
 
@@ -147,8 +156,12 @@ void ChunkLoader::handleGet(const PacketHeader &header, const void *payload, con
             }
 
             // then process as normal
+            if(!this->client->isConnected()) return;
             this->sendSlices(chunk);
         });
+
+        std::lock_guard<std::mutex> lg(this->completionsLock);
+        this->completions[pos] = std::move(fut);
     }
 }
 
@@ -216,7 +229,12 @@ void ChunkLoader::sendSlices(const std::shared_ptr<world::Chunk> &chunk) {
     }
 
     // send the chunk completion message
+    if(!this->client || !this->client->isConnected()) return;
     this->sendCompletion(chunk, numSlices);
+
+    // remove future
+    std::lock_guard<std::mutex> lg(this->completionsLock);
+    this->completions.erase(chunk->worldPos);
 }
 
 /**

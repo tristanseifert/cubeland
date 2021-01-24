@@ -75,6 +75,9 @@ class Chat: public PacketHandler {
         static void broadcast(net::Listener *, const std::string &, const uint8_t);
 
     private:
+        void playerMessage(const PacketHeader &, const void *, const size_t);
+
+    private:
         static std::unique_ptr<std::thread> broadcastThread;
         static std::atomic_bool broadcastRun;
         static moodycamel::BlockingConcurrentQueue<BroadcastItem> broadcastQueue;

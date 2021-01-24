@@ -42,11 +42,34 @@ void Chat::handlePacket(const PacketHeader &header, const void *payload, const s
     }
 
     switch(header.type) {
+        // message sent by player
+        case kChatPlayerMessage:
+            this->playerMessage(header, payload, payloadLen);
+            break;
+
         default:
             throw std::runtime_error(f("Invalid chat packet type: ${:02x}", header.type));
     }
 }
 
+/**
+ * Handles a player message packet.
+ */
+void Chat::playerMessage(const PacketHeader &, const void *payload, const size_t payloadLen) {
+    // deserialize message
+    std::stringstream stream(std::string(reinterpret_cast<const char *>(payload), payloadLen));
+    cereal::PortableBinaryInputArchive iArc(stream);
+
+    ChatPlayerMessage msg;
+    iArc(msg);
+
+    // build and send broadcast packet
+    Message b;
+    b.from = *this->client->getClientId();
+    b.content = msg.message;
+
+    broadcastQueue.enqueue(std::move(b));
+}
 
 
 /**

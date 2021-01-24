@@ -26,6 +26,10 @@ struct Chunk;
 class RemoteSource;
 }
 
+namespace chat {
+class Manager;
+}
+
 namespace net {
 struct PacketHeader;
 
@@ -42,6 +46,7 @@ class Chat;
 
 class ServerConnection {
     friend class world::RemoteSource;
+    friend class chat::Manager;
 
     public:
         /// Default server port

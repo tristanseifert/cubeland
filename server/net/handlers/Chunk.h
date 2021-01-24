@@ -30,8 +30,8 @@ namespace net::handler {
  */
 class ChunkLoader: public PacketHandler {
     public:
-        ChunkLoader(ListenerClient *_client);
-        virtual ~ChunkLoader() = default;
+        ChunkLoader(ListenerClient *_client) : PacketHandler(_client) {};
+        virtual ~ChunkLoader();
 
         bool canHandlePacket(const PacketHeader &header) override;
         void handlePacket(const PacketHeader &header, const void *payload,
@@ -68,6 +68,10 @@ class ChunkLoader: public PacketHandler {
         std::mutex dupesLock;
         /// set containing chunk positions we're currently working on
         std::unordered_set<glm::ivec2> dupes;
+
+        std::mutex completionsLock;
+        /// mapping of chunk pos -> completion future
+        std::unordered_map<glm::ivec2, std::future<void>> completions;
 };
 }
 

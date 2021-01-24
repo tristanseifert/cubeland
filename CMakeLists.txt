@@ -219,6 +219,9 @@ add_executable(cubeland
     src/net/handlers/PlayerMovement.cpp
     src/net/handlers/Time.cpp
     src/net/handlers/WorldInfo.cpp
+# chat UI
+    src/chat/Manager.cpp
+    src/chat/Window.cpp
 # resources and other misc stuff
     ${version_file}
 )

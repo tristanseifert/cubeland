@@ -13,7 +13,7 @@
 #include "gui/InGamePrefsWindow.h"
 #include "gui/DisconnectedError.h"
 #include "gui/title/TitleScreen.h"
-
+#include "chat/Manager.h"
 #include "render/chunk/VertexGenerator.h"
 #include "world/FileWorldReader.h"
 #include "world/ClientWorldSource.h"
@@ -151,6 +151,11 @@ WorldRenderer::WorldRenderer(gui::MainWindow *_win, std::shared_ptr<gui::GameUI>
         this->input->setAngles(pair.second);
     }
 
+    // set up 2P specific UI
+    if(!this->source->isSinglePlayer()) {
+        this->chat = new chat::Manager(this->input, this->gui, this->source);
+    }
+
     this->debugItemToken = gui::MenuBarHandler::registerItem("World", "World Renderer Debug", &this->isDebuggerOpen);
 
     // load preferences and work queue
@@ -172,15 +177,13 @@ WorldRenderer::~WorldRenderer() {
         this->gui->removeWindow(this->pauseWin);
     }
 
-    if(this->posSaver) {
-        delete this->posSaver;
-    }
-    if(this->timeSaver) {
-        delete this->timeSaver;
-    }
+    if(this->posSaver) delete this->posSaver;
+    if(this->timeSaver) delete this->timeSaver;
 
     this->source->flushDirtyChunksSync();
     this->source->shutDown();
+
+    if(this->chat) delete chat;
 
     if(this->debugItemToken) {
         gui::MenuBarHandler::unregisterItem(this->debugItemToken);
@@ -458,6 +461,8 @@ bool WorldRenderer::handleEvent(const SDL_Event &event) {
 
     // various UIs
     if(this->inventory->handleEvent(event)) {
+        return true;
+    } else if(this->chat && this->chat->handleEvent(event)) {
         return true;
     }
 

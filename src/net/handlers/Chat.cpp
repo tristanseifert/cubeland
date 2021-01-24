@@ -68,8 +68,15 @@ void Chat::playerJoined(const PacketHeader &header, const void *payload, const s
     ChatPlayerJoined joined;
     iArc(joined);
 
-    // TODO: implement
-    Logging::debug("Player joined: {} (name '{}')", joined.playerId, joined.displayName);
+    // run callbacks
+    PlayerJoined m;
+    m.id = joined.playerId;
+    m.name = joined.displayName;
+
+    std::lock_guard<std::mutex> lg(this->callbacksLock);
+    for(auto &[token, cb] : this->callbacks) {
+        cb(m);
+    }
 }
 
 /**
@@ -83,8 +90,14 @@ void Chat::playerLeft(const PacketHeader &header, const void *payload, const siz
     ChatPlayerLeft left;
     iArc(left);
 
-    // TODO: implement
-    Logging::debug("Player left: {} (reason {})", left.playerId, left.reason);
+    // run callbacks
+    PlayerLeft m;
+    m.id = left.playerId;
+
+    std::lock_guard<std::mutex> lg(this->callbacksLock);
+    for(auto &[token, cb] : this->callbacks) {
+        cb(m);
+    }
 }
 
 
@@ -100,6 +113,26 @@ void Chat::message(const PacketHeader &header, const void *payload, const size_t
     ChatMessage msg;
     iArc(msg);
 
-    // TODO: implement
-    Logging::debug("Message: from {}: {}", msg.sender, msg.message);
+    // run callbacks
+    Message m;
+    m.from = msg.sender;
+    m.message = msg.message;
+
+    std::lock_guard<std::mutex> lg(this->callbacksLock);
+    for(auto &[token, cb] : this->callbacks) {
+        cb(m);
+    }
+}
+
+/**
+ * Sends a message to all other players.
+ */
+void Chat::sendMessage(const std::string &msg) {
+    ChatPlayerMessage message(msg);
+
+    std::stringstream oStream;
+    cereal::PortableBinaryOutputArchive oArc(oStream);
+    oArc(message);
+
+    this->server->writePacket(kEndpointChat, kChatPlayerMessage, oStream.str());
 }

@@ -30,6 +30,11 @@ class RemoteSource: public ClientWorldSource {
 
         void shutDown() override;
 
+        /// gets the server connection
+        std::shared_ptr<net::ServerConnection> getServer() const {
+            return this->server;
+        }
+
         /// Gets a chunk
         std::future<std::shared_ptr<Chunk>> getChunk(int x, int z) override;
 

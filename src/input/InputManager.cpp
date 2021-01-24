@@ -159,12 +159,12 @@ void InputManager::handleKey(int scancode, unsigned int modifiers, bool isDown) 
     // these keys are always handled
   switch(scancode) {
         // pressing "P" will save all the textures
-        case SDL_SCANCODE_P:
+        /*case SDL_SCANCODE_P:
             if(isDown) {
                 gfx::TextureDumper::sharedDumper()->dump();
             }
             break;
-
+*/
         default:
             break;
     }

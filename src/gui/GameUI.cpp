@@ -92,6 +92,11 @@ const std::vector<GameUI::FontInfo> GameUI::kDefaultFonts = {
         .name = "Body (Regular)",
         .scalesWithUi = true,
     },
+    {
+        .path = "fonts/SourceSansPro-Italic.ttf",
+        .name = "Body (Italic)",
+        .scalesWithUi = true,
+    },
 
     {
         .path = "fonts/SpaceMono-Regular.ttf",
@@ -114,7 +119,7 @@ const std::string GameUI::kGameFontHeading2 = "Overpass (Heading 2)";
 const std::string GameUI::kGameFontHeading3 = "Overpass (Heading 3)";
 
 const std::string GameUI::kGameFontBodyRegular = "Body (Regular)";
-const std::string GameUI::kGameFontBodyItalic = "Body (Regular)";
+const std::string GameUI::kGameFontBodyItalic = "Body (Italic)";
 const std::string GameUI::kGameFontBodyBold = "Body (Bold)";
 
 const std::string GameUI::kGameFontMonospaced = "Monospaced (Regular)";
