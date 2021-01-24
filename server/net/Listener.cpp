@@ -2,6 +2,7 @@
 #include "ListenerClient.h"
 
 #include "net/handlers/BlockChange.h"
+#include "net/handlers/Chat.h"
 
 #include "world/time/Clock.h"
 
@@ -85,6 +86,7 @@ Listener::Listener(world::WorldSource *_reader) : world(_reader) {
     this->saverThread = std::make_unique<std::thread>(&Listener::saverMain, this);
 
     handler::BlockChange::startBroadcaster(this);
+    handler::Chat::startBroadcaster(this);
 
     // add a repeating timer for actually saving chunks
     const auto interval = std::chrono::milliseconds(100);
@@ -156,6 +158,7 @@ Listener::~Listener() {
     }
 
     handler::BlockChange::stopBroadcaster();
+    handler::Chat::stopBroadcaster();
 
     // release SSL resources and listening socket
     tls_close(this->tls);

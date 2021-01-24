@@ -213,6 +213,7 @@ add_executable(cubeland
     src/net/ServerConnection.cpp
     src/net/handlers/Auth.cpp
     src/net/handlers/BlockChange.cpp
+    src/net/handlers/Chat.cpp
     src/net/handlers/Chunk.cpp
     src/net/handlers/PlayerInfo.cpp
     src/net/handlers/PlayerMovement.cpp
@@ -246,6 +247,7 @@ add_executable(server
     server/net/ListenerClient.cpp
     server/net/handlers/Auth.cpp
     server/net/handlers/BlockChange.cpp
+    server/net/handlers/Chat.cpp
     server/net/handlers/Chunk.cpp
     server/net/handlers/PlayerInfo.cpp
     server/net/handlers/PlayerMovement.cpp

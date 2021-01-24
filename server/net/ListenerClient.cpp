@@ -3,6 +3,7 @@
 
 #include "handlers/Auth.h"
 #include "handlers/BlockChange.h"
+#include "handlers/Chat.h"
 #include "handlers/Chunk.h"
 #include "handlers/WorldInfo.h"
 #include "handlers/PlayerInfo.h"
@@ -59,6 +60,7 @@ ListenerClient::ListenerClient(Listener *_list, struct tls *_tls, const int _fd,
 
     this->handlers.emplace_back(this->block);
     this->handlers.emplace_back(new handler::PlayerMovement(this));
+    this->handlers.emplace_back(new handler::Chat(this));
     this->handlers.emplace_back(new handler::ChunkLoader(this));
     this->handlers.emplace_back(new handler::PlayerInfo(this));
     this->handlers.emplace_back(new handler::WorldInfo(this));
@@ -259,6 +261,11 @@ readAgain:;
 beach:;
     } catch(std::exception &e) {
         Logging::error("Client {} error: {}", this->clientAddr, e.what());
+    }
+
+    // notify other clients this one is gonezo
+    if(this->getClientId()) {
+        handler::Chat::playerLeft(*this->getClientId());
     }
 
     // close connection

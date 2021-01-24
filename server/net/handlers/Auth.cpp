@@ -1,4 +1,5 @@
 #include "Auth.h"
+#include "Chat.h"
 #include "net/Listener.h"
 #include "net/ListenerClient.h"
 
@@ -218,4 +219,7 @@ void Auth::handleAuthChallengeReply(const PacketHeader &header, const void *payl
 
     // invoke handlers
     this->client->authStateChanged();
+
+    // only if the player was successfully authenticated, send a message indicating they've joined
+    Chat::playerJoined(this->clientId, this->displayName);
 }

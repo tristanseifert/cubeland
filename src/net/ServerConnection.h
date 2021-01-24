@@ -37,6 +37,7 @@ class ChunkLoader;
 class PlayerMovement;
 class Time;
 class BlockChange;
+class Chat;
 }
 
 class ServerConnection {
@@ -175,6 +176,7 @@ class ServerConnection {
         handler::ChunkLoader *chonker = nullptr;
         handler::PlayerMovement *movement = nullptr;
         handler::Time *time = nullptr;
+        handler::Chat *chat = nullptr;
 
         /// connection flag
         bool connected = true;

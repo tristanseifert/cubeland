@@ -1,6 +1,7 @@
 #include "ServerConnection.h"
 #include "handlers/Auth.h"
 #include "handlers/BlockChange.h"
+#include "handlers/Chat.h"
 #include "handlers/Chunk.h"
 #include "handlers/PlayerInfo.h"
 #include "handlers/PlayerMovement.h"
@@ -108,9 +109,11 @@ ServerConnection::ServerConnection(const std::string &_host) : host(_host) {
     this->movement = new handler::PlayerMovement(this);
     this->time = new handler::Time(this);
     this->block = new handler::BlockChange(this);
+    this->chat = new handler::Chat(this);
 
     this->handlers.emplace_back(this->movement);
     this->handlers.emplace_back(this->block);
+    this->handlers.emplace_back(this->chat);
     this->handlers.emplace_back(this->chonker);
     this->handlers.emplace_back(this->playerInfo);
     this->handlers.emplace_back(this->worldInfo);
