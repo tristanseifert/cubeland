@@ -17,6 +17,7 @@
 #include <net/PacketTypes.h>
 
 #include <unistd.h>
+#include <fcntl.h>
 #include <poll.h>
 
 #include <cstring>

@@ -19,6 +19,7 @@
 #include <memory>
 #include <string>
 
+#include <unistd.h>
 #include <signal.h>
 
 #include <lyra/lyra.hpp>
