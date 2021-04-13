@@ -1,5 +1,7 @@
 # cubeland
-some sort of game with cubes and shit
+some sort of game with cubes (a shameless Minecraft clone)
+
+![Demo screenshot](https://tseifert.me/public/gh-screenshots/hotlink-ok/cubeland-sphere.png)
 
 ## Requirements
 - **sqlite3**: World storage format
@@ -26,4 +28,10 @@ The build scripts for this library do not support building fat binaries; you can
 
 ## Resources
 All images (as well as other resources) are stored in resource libraries. These can be generated with the `build_rsrc` tool. To generate the default resources library, run `cd tools && ./build_rsrc.py ../rsrc/textures ../build/default.rsrc`
+
+## License
+Cubeland is released under a 2-clause BSD license. See `LICENSE.md` for more.
+
+## More Info
+I wrote [a blog post](https://blraaz.me/graphics/2021/04/13/introducing-cubeland.html) about the project. There might be more coming in the future. Who knows?
 

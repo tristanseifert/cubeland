@@ -1,2 +1,4 @@
 # cmake output
 build/
+
+imgui.ini
